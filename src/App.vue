@@ -15,6 +15,16 @@ import {
 
 const DELETE_MODE_KEY = 'fitness-tracker:delete-mode'
 const BODY_PART_PRIORITY: readonly BodyPart[] = ['腿', '背', '胸', '肩', '手臂']
+const CALENDAR_DAY_COUNT = 14
+const CALENDAR_WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const
+
+interface TrainingCalendarDay {
+  date: string
+  dayOfMonth: number
+  bodyPart?: BodyPart
+  isToday: boolean
+  isFuture: boolean
+}
 
 const today = new Intl.DateTimeFormat('zh-CN', {
   month: 'long',
@@ -34,10 +44,16 @@ const deleteError = ref('')
 const bodyPartDayCounts = ref(createEmptyBodyPartCounts())
 const isLoadingBodyPartCounts = ref(true)
 const bodyPartCountsError = ref('')
+const trainingCalendarDays = ref<TrainingCalendarDay[]>(buildTrainingCalendarDays([]))
+const isLoadingTrainingCalendar = ref(true)
+const trainingCalendarError = ref('')
 
 const sevenDayStartDate = getLocalDate(-6)
 const sevenDayEndDate = getLocalDate()
 const sevenDayRangeLabel = `${formatDisplayDate(sevenDayStartDate)}—${formatDisplayDate(sevenDayEndDate)}`
+const currentWeekMondayOffset = getCurrentWeekMondayOffset()
+const calendarStartDate = getLocalDate(currentWeekMondayOffset - 7)
+const calendarEndDate = getLocalDate(currentWeekMondayOffset + 6)
 
 function getLocalDate(dayOffset = 0): string {
   const currentDate = new Date()
@@ -49,6 +65,12 @@ function getLocalDate(dayOffset = 0): string {
   const day = String(currentDate.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
+}
+
+function getCurrentWeekMondayOffset(): number {
+  const dayOfWeek = new Date().getDay()
+
+  return dayOfWeek === 0 ? -6 : 1 - dayOfWeek
 }
 
 function formatDisplayDate(date: string): string {
@@ -65,6 +87,66 @@ function createEmptyBodyPartCounts(): Record<BodyPart, number> {
     胸: 0,
     腿: 0,
   }
+}
+
+function getBodyPartCountsByDate(
+  trainingSets: TrainingSet[],
+): Map<string, Record<BodyPart, number>> {
+  const countsByDate = new Map<string, Record<BodyPart, number>>()
+
+  for (const trainingSet of trainingSets) {
+    const dateCounts = countsByDate.get(trainingSet.date) ?? createEmptyBodyPartCounts()
+    const bodyPart = EXERCISE_BODY_PARTS[trainingSet.exerciseId]
+
+    dateCounts[bodyPart] += 1
+    countsByDate.set(trainingSet.date, dateCounts)
+  }
+
+  return countsByDate
+}
+
+function getDominantBodyPart(dateCounts?: Record<BodyPart, number>): BodyPart | undefined {
+  if (!dateCounts) return undefined
+
+  let dominantBodyPart: BodyPart | undefined
+  let highestSetCount = 0
+
+  for (const bodyPart of BODY_PART_PRIORITY) {
+    if (dateCounts[bodyPart] > highestSetCount) {
+      dominantBodyPart = bodyPart
+      highestSetCount = dateCounts[bodyPart]
+    }
+  }
+
+  return dominantBodyPart
+}
+
+function buildTrainingCalendarDays(trainingSets: TrainingSet[]): TrainingCalendarDay[] {
+  const countsByDate = getBodyPartCountsByDate(trainingSets)
+  const today = getLocalDate()
+  const firstCalendarDayOffset = getCurrentWeekMondayOffset() - 7
+
+  return Array.from({ length: CALENDAR_DAY_COUNT }, (_, index) => {
+    const date = getLocalDate(firstCalendarDayOffset + index)
+    const dayOfMonth = Number(date.slice(8, 10))
+    const isFuture = date > today
+
+    return {
+      date,
+      dayOfMonth,
+      bodyPart: isFuture ? undefined : getDominantBodyPart(countsByDate.get(date)),
+      isToday: date === today,
+      isFuture,
+    }
+  })
+}
+
+function getCalendarDayAriaLabel(calendarDay: TrainingCalendarDay): string {
+  if (calendarDay.isFuture) return `${calendarDay.date}，未来日期`
+
+  const trainingLabel = calendarDay.bodyPart ? `训练${calendarDay.bodyPart}` : '休息'
+
+  return `${calendarDay.date}，${trainingLabel}`
 }
 
 function formatWeight(weightKg: number): string {
@@ -89,30 +171,14 @@ async function loadBodyPartDayCounts(): Promise<void> {
 
   try {
     const trainingSets = await getTrainingSetsByDateRange(sevenDayStartDate, sevenDayEndDate)
-    const countsByDate = new Map<string, Record<BodyPart, number>>()
-
-    for (const trainingSet of trainingSets) {
-      const dateCounts = countsByDate.get(trainingSet.date) ?? createEmptyBodyPartCounts()
-      const bodyPart = EXERCISE_BODY_PARTS[trainingSet.exerciseId]
-
-      dateCounts[bodyPart] += 1
-      countsByDate.set(trainingSet.date, dateCounts)
-    }
+    const countsByDate = getBodyPartCountsByDate(trainingSets)
 
     const result = createEmptyBodyPartCounts()
 
     for (const dateCounts of countsByDate.values()) {
-      let dominantBodyPart = BODY_PART_PRIORITY[0]!
-      let highestSetCount = -1
+      const dominantBodyPart = getDominantBodyPart(dateCounts)
 
-      for (const bodyPart of BODY_PART_PRIORITY) {
-        if (dateCounts[bodyPart] > highestSetCount) {
-          dominantBodyPart = bodyPart
-          highestSetCount = dateCounts[bodyPart]
-        }
-      }
-
-      result[dominantBodyPart] += 1
+      if (dominantBodyPart) result[dominantBodyPart] += 1
     }
 
     bodyPartDayCounts.value = result
@@ -123,9 +189,25 @@ async function loadBodyPartDayCounts(): Promise<void> {
   }
 }
 
+async function loadTrainingCalendar(): Promise<void> {
+  isLoadingTrainingCalendar.value = true
+  trainingCalendarError.value = ''
+
+  try {
+    const trainingSets = await getTrainingSetsByDateRange(calendarStartDate, calendarEndDate)
+
+    trainingCalendarDays.value = buildTrainingCalendarDays(trainingSets)
+  } catch (error: unknown) {
+    trainingCalendarError.value = error instanceof Error ? error.message : '无法读取训练日历'
+  } finally {
+    isLoadingTrainingCalendar.value = false
+  }
+}
+
 function refreshAfterSetAdded(): void {
   void loadTodaySets()
   void loadBodyPartDayCounts()
+  void loadTrainingCalendar()
 }
 
 function toggleDeleteMode(): void {
@@ -159,7 +241,7 @@ async function confirmDelete(): Promise<void> {
     deleteDialog.value?.close()
     pendingDeleteSet.value = undefined
     todaySets.value = todaySets.value.filter((trainingSet) => trainingSet.id !== trainingSetId)
-    await loadBodyPartDayCounts()
+    await Promise.all([loadBodyPartDayCounts(), loadTrainingCalendar()])
   } catch (error: unknown) {
     deleteError.value = error instanceof Error ? error.message : '删除记录失败'
   } finally {
@@ -170,6 +252,7 @@ async function confirmDelete(): Promise<void> {
 onMounted(() => {
   void loadTodaySets()
   void loadBodyPartDayCounts()
+  void loadTrainingCalendar()
 })
 </script>
 
@@ -183,10 +266,37 @@ onMounted(() => {
       <div class="avatar" aria-hidden="true">练</div>
     </header>
 
-    <section class="hero-card" aria-labelledby="hero-title">
-      <p class="hero-label">今天准备好了吗？</p>
-      <h2 id="hero-title">记录每一组，看到每一步进步。</h2>
-      <button type="button">开始记录训练</button>
+    <section class="training-calendar-card" aria-labelledby="calendar-title">
+      <header class="calendar-header">
+        <p class="eyebrow">本周与上周</p>
+        <h2 id="calendar-title">训练日历</h2>
+      </header>
+
+      <p v-if="isLoadingTrainingCalendar" class="calendar-status">正在读取训练记录…</p>
+      <p v-else-if="trainingCalendarError" class="calendar-status calendar-error" role="alert">
+        {{ trainingCalendarError }}
+      </p>
+      <div v-else>
+        <ol class="calendar-weekdays" aria-hidden="true">
+          <li v-for="weekday in CALENDAR_WEEKDAYS" :key="weekday">{{ weekday }}</li>
+        </ol>
+        <ol class="calendar-grid">
+          <li
+            v-for="calendarDay in trainingCalendarDays"
+            :key="calendarDay.date"
+            class="calendar-day"
+            :class="{ today: calendarDay.isToday, future: calendarDay.isFuture }"
+            :data-body-part="calendarDay.bodyPart"
+          >
+            <time :datetime="calendarDay.date" :aria-label="getCalendarDayAriaLabel(calendarDay)">
+              <strong>{{ calendarDay.dayOfMonth }}</strong>
+            </time>
+            <span class="calendar-body-part">
+              {{ calendarDay.isFuture ? '—' : (calendarDay.bodyPart ?? '休') }}
+            </span>
+          </li>
+        </ol>
+      </div>
     </section>
 
     <section class="summary-section" aria-labelledby="summary-title">
@@ -352,7 +462,7 @@ button {
   width: min(100%, 680px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 28px 20px 48px;
+  padding: 28px 20px calc(120px + env(safe-area-inset-bottom));
 }
 
 .page-header,
@@ -400,62 +510,127 @@ h1 {
   font-weight: 800;
 }
 
-.hero-card {
-  overflow: hidden;
-  position: relative;
-  padding: 28px;
+.training-calendar-card {
+  padding: 22px 18px 18px;
   border-radius: 24px;
   background: #183f2b;
   color: #fff;
   box-shadow: 0 18px 40px rgb(24 63 43 / 16%);
 }
 
-.hero-card::after {
-  position: absolute;
-  right: -36px;
-  bottom: -48px;
-  width: 150px;
-  height: 150px;
-  border: 28px solid rgb(255 255 255 / 8%);
-  border-radius: 50%;
-  content: "";
+.calendar-header {
+  margin-bottom: 16px;
 }
 
-.hero-label {
-  margin-bottom: 10px;
+.calendar-header .eyebrow {
+  margin-bottom: 5px;
   color: #b9d2c1;
-  font-size: 0.85rem;
+}
+
+.calendar-header h2 {
+  margin-bottom: 0;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  list-style: none;
+}
+
+.calendar-weekdays {
+  margin-bottom: 8px;
+  color: #a9bbae;
+  font-size: 0.64rem;
   font-weight: 700;
+  text-align: center;
 }
 
-.hero-card h2 {
-  max-width: 390px;
-  margin-bottom: 26px;
-  font-size: clamp(1.6rem, 7vw, 2.35rem);
-  line-height: 1.18;
-  letter-spacing: -0.04em;
+.calendar-day {
+  display: flex;
+  min-width: 0;
+  min-height: 62px;
+  align-items: center;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 9px 2px;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 8%);
+  color: #d9e5dc;
 }
 
-.hero-card button {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  padding: 14px 20px;
-  border: 0;
-  border-radius: 14px;
+.calendar-day time {
+  display: block;
+}
+
+.calendar-day time strong {
+  color: inherit;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-body-part {
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.calendar-day[data-body-part='肩'] {
+  border-color: #d9f36a;
   background: #d9f36a;
   color: #18311f;
-  font-weight: 800;
-  cursor: pointer;
 }
 
-.hero-card button:hover {
-  background: #e3f889;
+.calendar-day[data-body-part='背'] {
+  background: #d1e3dd;
+  color: #24463c;
 }
 
-.hero-card button:focus-visible {
-  outline: 3px solid #fff;
-  outline-offset: 3px;
+.calendar-day[data-body-part='胸'] {
+  background: #ead9d2;
+  color: #5e3b31;
+}
+
+.calendar-day[data-body-part='腿'] {
+  background: #e9dfbd;
+  color: #564a25;
+}
+
+.calendar-day[data-body-part='手臂'] {
+  background: #ded8e9;
+  color: #4b3e60;
+}
+
+.calendar-day.future {
+  border-color: rgb(255 255 255 / 4%);
+  background: rgb(255 255 255 / 4%);
+  color: #8ca095;
+}
+
+.calendar-day.today {
+  box-shadow:
+    0 0 0 2px #183f2b,
+    0 0 0 4px #fff;
+}
+
+.calendar-status {
+  display: grid;
+  min-height: 160px;
+  margin: 0;
+  place-items: center;
+  color: #b9d2c1;
+  font-size: 0.85rem;
+}
+
+.calendar-error {
+  color: #ffd2d2;
 }
 
 .summary-section,
@@ -856,10 +1031,6 @@ h1 {
 @media (min-width: 600px) {
   .home-shell {
     padding-top: 44px;
-  }
-
-  .hero-card button {
-    width: auto;
   }
 }
 </style>

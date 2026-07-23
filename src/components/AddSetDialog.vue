@@ -5,11 +5,10 @@ import {
   EXERCISES,
   addTrainingSet,
   createTrainingSetId,
-  isExerciseId,
+  getTrainingSetsByDate,
   type ExerciseId,
 } from '@/database'
 
-const LAST_EXERCISE_KEY = 'fitness-tracker:last-exercise-id'
 const DEFAULT_EXERCISE_ID = EXERCISES[0].id
 const exerciseOptions = EXERCISES
 
@@ -19,20 +18,15 @@ const keypadDigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 
 const dialog = ref<HTMLDialogElement>()
 const date = ref('')
-const exerciseId = ref<ExerciseId>(loadLastExerciseId())
+const exerciseId = ref<ExerciseId>(DEFAULT_EXERCISE_ID)
 const weightKg = ref('')
 const reps = ref('')
 const rir = ref('')
-const activeNumericField = ref<NumericField>('weightKg')
+const activeNumericField = ref<NumericField>('reps')
+const shouldReplaceActiveValue = ref(true)
 const errorMessage = ref('')
 const isSaving = ref(false)
 const emit = defineEmits<{ saved: [] }>()
-
-function loadLastExerciseId(): ExerciseId {
-  const savedExerciseId = localStorage.getItem(LAST_EXERCISE_KEY)
-
-  return savedExerciseId && isExerciseId(savedExerciseId) ? savedExerciseId : DEFAULT_EXERCISE_ID
-}
 
 function getLocalDate(): string {
   const today = new Date()
@@ -43,14 +37,31 @@ function getLocalDate(): string {
   return `${year}-${month}-${day}`
 }
 
-function open(): void {
-  date.value = getLocalDate()
-  exerciseId.value = loadLastExerciseId()
+async function open(): Promise<void> {
+  const today = getLocalDate()
+
+  date.value = today
+  exerciseId.value = DEFAULT_EXERCISE_ID
   weightKg.value = ''
   reps.value = ''
   rir.value = ''
-  activeNumericField.value = 'weightKg'
+  activeNumericField.value = 'reps'
+  shouldReplaceActiveValue.value = true
   errorMessage.value = ''
+
+  try {
+    const todayTrainingSets = await getTrainingSetsByDate(today)
+    const lastTrainingSet = todayTrainingSets[todayTrainingSets.length - 1]
+
+    if (lastTrainingSet) {
+      exerciseId.value = lastTrainingSet.exerciseId
+      weightKg.value = String(lastTrainingSet.weightKg)
+      reps.value = String(lastTrainingSet.reps)
+      rir.value = String(lastTrainingSet.rir)
+    }
+  } catch (error: unknown) {
+    errorMessage.value = error instanceof Error ? error.message : '读取上一组记录失败'
+  }
 
   dialog.value?.showModal()
 }
@@ -76,14 +87,28 @@ function setActiveValue(value: string): void {
   }
 }
 
+function activateNumericField(field: NumericField): void {
+  activeNumericField.value = field
+  shouldReplaceActiveValue.value = true
+}
+
 function enterDigit(digit: string): void {
   const currentValue = getActiveValue()
 
-  setActiveValue(currentValue === '0' ? digit : currentValue + digit)
+  setActiveValue(
+    shouldReplaceActiveValue.value || currentValue === '0' ? digit : currentValue + digit,
+  )
+  shouldReplaceActiveValue.value = false
 }
 
 function enterDecimalPoint(): void {
   if (activeNumericField.value !== 'weightKg') return
+
+  if (shouldReplaceActiveValue.value) {
+    setActiveValue('0.')
+    shouldReplaceActiveValue.value = false
+    return
+  }
 
   const currentValue = getActiveValue()
   if (!currentValue.includes('.')) setActiveValue(currentValue ? `${currentValue}.` : '0.')
@@ -91,6 +116,7 @@ function enterDecimalPoint(): void {
 
 function clearActiveValue(): void {
   setActiveValue('')
+  shouldReplaceActiveValue.value = false
 }
 
 async function save(): Promise<void> {
@@ -113,7 +139,6 @@ async function save(): Promise<void> {
       rir: Number(rir.value),
     })
 
-    localStorage.setItem(LAST_EXERCISE_KEY, exerciseId.value)
     emit('saved')
     dialog.value?.close()
   } catch (error: unknown) {
@@ -161,8 +186,8 @@ defineExpose({ open })
             placeholder="0"
             readonly
             required
-            @focus="activeNumericField = 'weightKg'"
-            @click="activeNumericField = 'weightKg'"
+            @focus="activateNumericField('weightKg')"
+            @click="activateNumericField('weightKg')"
           />
         </label>
 
@@ -175,8 +200,8 @@ defineExpose({ open })
             placeholder="0"
             readonly
             required
-            @focus="activeNumericField = 'reps'"
-            @click="activeNumericField = 'reps'"
+            @focus="activateNumericField('reps')"
+            @click="activateNumericField('reps')"
           />
         </label>
 
@@ -189,8 +214,8 @@ defineExpose({ open })
             placeholder="0"
             readonly
             required
-            @focus="activeNumericField = 'rir'"
-            @click="activeNumericField = 'rir'"
+            @focus="activateNumericField('rir')"
+            @click="activateNumericField('rir')"
           />
         </label>
       </div>
