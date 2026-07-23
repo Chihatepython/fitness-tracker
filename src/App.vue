@@ -266,36 +266,42 @@ onMounted(() => {
       <div class="avatar" aria-hidden="true">练</div>
     </header>
 
-    <section class="training-calendar-card" aria-labelledby="calendar-title">
-      <header class="calendar-header">
-        <p class="eyebrow">本周与上周</p>
-        <h2 id="calendar-title">训练日历</h2>
-      </header>
+    <section class="training-calendar-section" aria-labelledby="calendar-title">
+      <h2 id="calendar-title">训练日历</h2>
 
-      <p v-if="isLoadingTrainingCalendar" class="calendar-status">正在读取训练记录…</p>
-      <p v-else-if="trainingCalendarError" class="calendar-status calendar-error" role="alert">
-        {{ trainingCalendarError }}
-      </p>
-      <div v-else>
-        <ol class="calendar-weekdays" aria-hidden="true">
-          <li v-for="weekday in CALENDAR_WEEKDAYS" :key="weekday">{{ weekday }}</li>
-        </ol>
-        <ol class="calendar-grid">
-          <li
-            v-for="calendarDay in trainingCalendarDays"
-            :key="calendarDay.date"
-            class="calendar-day"
-            :class="{ today: calendarDay.isToday, future: calendarDay.isFuture }"
-            :data-body-part="calendarDay.bodyPart"
-          >
-            <time :datetime="calendarDay.date" :aria-label="getCalendarDayAriaLabel(calendarDay)">
-              <strong>{{ calendarDay.dayOfMonth }}</strong>
-            </time>
-            <span class="calendar-body-part">
-              {{ calendarDay.isFuture ? '—' : (calendarDay.bodyPart ?? '休') }}
-            </span>
-          </li>
-        </ol>
+      <div class="training-calendar-card">
+        <p v-if="isLoadingTrainingCalendar" class="calendar-status">正在读取训练记录…</p>
+        <p
+          v-else-if="trainingCalendarError"
+          class="calendar-status calendar-error"
+          role="alert"
+        >
+          {{ trainingCalendarError }}
+        </p>
+        <div v-else>
+          <ol class="calendar-weekdays" aria-hidden="true">
+            <li v-for="weekday in CALENDAR_WEEKDAYS" :key="weekday">{{ weekday }}</li>
+          </ol>
+          <ol class="calendar-grid">
+            <li
+              v-for="calendarDay in trainingCalendarDays"
+              :key="calendarDay.date"
+              class="calendar-day"
+              :class="{ today: calendarDay.isToday, future: calendarDay.isFuture }"
+              :data-body-part="calendarDay.bodyPart"
+            >
+              <time
+                :datetime="calendarDay.date"
+                :aria-label="getCalendarDayAriaLabel(calendarDay)"
+              >
+                <strong>{{ calendarDay.dayOfMonth }}</strong>
+              </time>
+              <span class="calendar-body-part">
+                {{ calendarDay.isFuture ? '—' : (calendarDay.bodyPart ?? '') }}
+              </span>
+            </li>
+          </ol>
+        </div>
       </div>
     </section>
 
@@ -510,27 +516,19 @@ h1 {
   font-weight: 800;
 }
 
+.training-calendar-section h2 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+  letter-spacing: -0.025em;
+}
+
 .training-calendar-card {
-  padding: 22px 18px 18px;
+  padding: 18px;
+  border: 1px solid #e0e5dc;
   border-radius: 24px;
-  background: #183f2b;
-  color: #fff;
-  box-shadow: 0 18px 40px rgb(24 63 43 / 16%);
-}
-
-.calendar-header {
-  margin-bottom: 16px;
-}
-
-.calendar-header .eyebrow {
-  margin-bottom: 5px;
-  color: #b9d2c1;
-}
-
-.calendar-header h2 {
-  margin-bottom: 0;
-  font-size: 1.35rem;
-  letter-spacing: -0.03em;
+  background: #fff;
+  color: #17211a;
+  box-shadow: 0 8px 24px rgb(24 63 43 / 6%);
 }
 
 .calendar-weekdays,
@@ -545,7 +543,7 @@ h1 {
 
 .calendar-weekdays {
   margin-bottom: 8px;
-  color: #a9bbae;
+  color: #718078;
   font-size: 0.64rem;
   font-weight: 700;
   text-align: center;
@@ -554,16 +552,16 @@ h1 {
 .calendar-day {
   display: flex;
   min-width: 0;
-  min-height: 62px;
+  height: 62px;
   align-items: center;
   flex-direction: column;
   justify-content: space-between;
-  gap: 5px;
-  padding: 9px 2px;
-  border: 1px solid rgb(255 255 255 / 7%);
+  gap: 3px;
+  padding: 6px 2px;
+  border: 1px solid #edf0ea;
   border-radius: 12px;
-  background: rgb(255 255 255 / 8%);
-  color: #d9e5dc;
+  background: #f4f6f0;
+  color: #405047;
 }
 
 .calendar-day time {
@@ -577,7 +575,7 @@ h1 {
 }
 
 .calendar-body-part {
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -609,15 +607,13 @@ h1 {
 }
 
 .calendar-day.future {
-  border-color: rgb(255 255 255 / 4%);
-  background: rgb(255 255 255 / 4%);
-  color: #8ca095;
+  border-color: #f0f2ed;
+  background: #fafbf8;
+  color: #a7afa9;
 }
 
 .calendar-day.today {
-  box-shadow:
-    0 0 0 2px #183f2b,
-    0 0 0 4px #fff;
+  box-shadow: 0 0 0 2px #365640;
 }
 
 .calendar-status {
@@ -625,12 +621,12 @@ h1 {
   min-height: 160px;
   margin: 0;
   place-items: center;
-  color: #b9d2c1;
+  color: #718078;
   font-size: 0.85rem;
 }
 
 .calendar-error {
-  color: #ffd2d2;
+  color: #a52d2d;
 }
 
 .summary-section,
