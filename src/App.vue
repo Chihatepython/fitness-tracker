@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import AddSetDialog from '@/components/AddSetDialog.vue'
 import {
-  BODY_PARTS,
   EXERCISE_BODY_PARTS,
   EXERCISE_NAMES,
   deleteTrainingSet,
@@ -15,8 +14,14 @@ import {
 
 const DELETE_MODE_KEY = 'fitness-tracker:delete-mode'
 const BODY_PART_PRIORITY: readonly BodyPart[] = ['腿', '背', '胸', '肩', '手臂']
+const BODY_PART_DISPLAY_PRIORITY: readonly BodyPart[] = ['肩', '手臂', '背', '胸', '腿']
 const CALENDAR_DAY_COUNT = 14
 const CALENDAR_WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const
+const TRAINING_PERIODS = [
+  { label: '最近 7 天', dayCount: 7 },
+  { label: '最近 2 周', dayCount: 14 },
+  { label: '最近 4 周', dayCount: 28 },
+] as const
 
 interface TrainingCalendarDay {
   date: string
@@ -44,13 +49,29 @@ const deleteError = ref('')
 const bodyPartDayCounts = ref(createEmptyBodyPartCounts())
 const isLoadingBodyPartCounts = ref(true)
 const bodyPartCountsError = ref('')
+const selectedTrainingPeriodIndex = ref(0)
 const trainingCalendarDays = ref<TrainingCalendarDay[]>(buildTrainingCalendarDays([]))
 const isLoadingTrainingCalendar = ref(true)
 const trainingCalendarError = ref('')
+const sortedBodyParts = computed(() =>
+  [...BODY_PART_DISPLAY_PRIORITY].sort((left, right) => {
+    const countDifference = bodyPartDayCounts.value[right] - bodyPartDayCounts.value[left]
 
-const sevenDayStartDate = getLocalDate(-6)
-const sevenDayEndDate = getLocalDate()
-const sevenDayRangeLabel = `${formatDisplayDate(sevenDayStartDate)}—${formatDisplayDate(sevenDayEndDate)}`
+    return countDifference || BODY_PART_DISPLAY_PRIORITY.indexOf(left) - BODY_PART_DISPLAY_PRIORITY.indexOf(right)
+  }),
+)
+const selectedTrainingPeriod = computed(
+  () => TRAINING_PERIODS[selectedTrainingPeriodIndex.value]!,
+)
+const trainingPeriodStartDate = computed(() =>
+  getLocalDate(-(selectedTrainingPeriod.value.dayCount - 1)),
+)
+const trainingPeriodEndDate = computed(() => getLocalDate())
+const trainingPeriodRangeLabel = computed(
+  () =>
+    `${formatDisplayDate(trainingPeriodStartDate.value)}—${formatDisplayDate(trainingPeriodEndDate.value)}`,
+)
+
 const currentWeekMondayOffset = getCurrentWeekMondayOffset()
 const calendarStartDate = getLocalDate(currentWeekMondayOffset - 7)
 const calendarEndDate = getLocalDate(currentWeekMondayOffset + 6)
@@ -167,10 +188,14 @@ async function loadTodaySets(): Promise<void> {
 }
 
 async function loadBodyPartDayCounts(): Promise<void> {
+  isLoadingBodyPartCounts.value = true
   bodyPartCountsError.value = ''
 
   try {
-    const trainingSets = await getTrainingSetsByDateRange(sevenDayStartDate, sevenDayEndDate)
+    const trainingSets = await getTrainingSetsByDateRange(
+      trainingPeriodStartDate.value,
+      trainingPeriodEndDate.value,
+    )
     const countsByDate = getBodyPartCountsByDate(trainingSets)
 
     const result = createEmptyBodyPartCounts()
@@ -183,10 +208,14 @@ async function loadBodyPartDayCounts(): Promise<void> {
 
     bodyPartDayCounts.value = result
   } catch (error: unknown) {
-    bodyPartCountsError.value = error instanceof Error ? error.message : '无法读取最近 7 天统计'
+    bodyPartCountsError.value = error instanceof Error ? error.message : '无法读取训练部位统计'
   } finally {
     isLoadingBodyPartCounts.value = false
   }
+}
+
+function changeTrainingPeriod(): void {
+  void loadBodyPartDayCounts()
 }
 
 async function loadTrainingCalendar(): Promise<void> {
@@ -308,16 +337,26 @@ onMounted(() => {
     <section class="summary-section" aria-labelledby="summary-title">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">过去 7 天</p>
           <h2 id="summary-title">主训练部位</h2>
+          <span class="date-range">{{ trainingPeriodRangeLabel }}</span>
         </div>
-        <span class="date-range">{{ sevenDayRangeLabel }}</span>
+        <select
+          v-model.number="selectedTrainingPeriodIndex"
+          class="period-select"
+          :disabled="isLoadingBodyPartCounts"
+          aria-label="选择统计周期"
+          @change="changeTrainingPeriod"
+        >
+          <option v-for="(period, index) in TRAINING_PERIODS" :key="period.dayCount" :value="index">
+            {{ period.label }}
+          </option>
+        </select>
       </div>
 
       <div class="body-part-list">
-        <article v-for="bodyPart in BODY_PARTS" :key="bodyPart" class="body-part-row">
+        <article v-for="bodyPart in sortedBodyParts" :key="bodyPart" class="body-part-row">
           <span>{{ bodyPart }}</span>
-          <strong>{{ isLoadingBodyPartCounts ? '—' : `${bodyPartDayCounts[bodyPart]} 天` }}</strong>
+          <strong>{{ isLoadingBodyPartCounts ? '—' : bodyPartDayCounts[bodyPart] }}</strong>
         </article>
       </div>
       <p v-if="bodyPartCountsError" class="summary-error" role="alert">
@@ -642,28 +681,59 @@ h1 {
 }
 
 .date-range {
+  display: block;
+  margin-top: 6px;
   color: #718078;
   font-size: 0.78rem;
   font-weight: 700;
 }
 
+.period-select {
+  min-height: 36px;
+  flex-shrink: 0;
+  padding: 0 10px;
+  border: 1px solid #d5ddd1;
+  border-radius: 10px;
+  background: #fff;
+  color: #46634d;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.period-select:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.period-select:focus-visible {
+  outline: 3px solid rgb(70 99 77 / 22%);
+  outline-offset: 2px;
+}
+
 .body-part-list {
   overflow: hidden;
+  display: grid;
   margin-top: 16px;
   border: 1px solid #e0e5dc;
   border-radius: 18px;
   background: #fff;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .body-part-row {
   display: flex;
+  min-width: 0;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 14px 4px;
+  text-align: center;
 }
 
 .body-part-row + .body-part-row {
-  border-top: 1px solid #edf0ea;
+  border-left: 1px solid #edf0ea;
 }
 
 .body-part-row span {
