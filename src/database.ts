@@ -186,6 +186,25 @@ export async function getTrainingSetsByDateRange(
   })
 }
 
+export async function getAllTrainingSets(): Promise<TrainingSet[]> {
+  const database = await openFitnessDatabase()
+
+  const trainingSets = await new Promise<TrainingSet[]>((resolve, reject) => {
+    const transaction = database.transaction(SETS_STORE_NAME, 'readonly')
+    const request = transaction.objectStore(SETS_STORE_NAME).getAll()
+
+    request.onsuccess = () => resolve(request.result as TrainingSet[])
+    request.onerror = () => reject(request.error)
+  })
+
+  return trainingSets.sort(
+    (left, right) =>
+      left.date.localeCompare(right.date) ||
+      (left.createdAt ?? 0) - (right.createdAt ?? 0) ||
+      left.id.localeCompare(right.id),
+  )
+}
+
 export async function deleteTrainingSet(id: string): Promise<void> {
   if (!ALPHANUMERIC_ID_PATTERN.test(id)) throw new Error('记录 ID 无效')
 

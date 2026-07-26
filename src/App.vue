@@ -6,6 +6,7 @@ import {
   EXERCISE_BODY_PARTS,
   EXERCISE_NAMES,
   deleteTrainingSet,
+  getAllTrainingSets,
   getTrainingSetsByDate,
   getTrainingSetsByDateRange,
   type BodyPart,
@@ -53,6 +54,9 @@ const selectedTrainingPeriodIndex = ref(0)
 const trainingCalendarDays = ref<TrainingCalendarDay[]>(buildTrainingCalendarDays([]))
 const isLoadingTrainingCalendar = ref(true)
 const trainingCalendarError = ref('')
+const isExporting = ref(false)
+const exportStatus = ref('')
+const exportError = ref('')
 const sortedBodyParts = computed(() =>
   [...BODY_PART_DISPLAY_PRIORITY].sort((left, right) => {
     const countDifference = bodyPartDayCounts.value[right] - bodyPartDayCounts.value[left]
@@ -172,6 +176,35 @@ function getCalendarDayAriaLabel(calendarDay: TrainingCalendarDay): string {
 
 function formatWeight(weightKg: number): string {
   return Number.isInteger(weightKg) ? String(weightKg) : String(Number(weightKg.toFixed(2)))
+}
+
+async function exportTrainingRecords(): Promise<void> {
+  if (isExporting.value) return
+
+  isExporting.value = true
+  exportStatus.value = ''
+  exportError.value = ''
+
+  try {
+    const trainingSets = await getAllTrainingSets()
+    const fileContent = JSON.stringify(trainingSets, null, 2)
+    const fileBlob = new Blob([fileContent], { type: 'application/json;charset=utf-8' })
+    const downloadUrl = URL.createObjectURL(fileBlob)
+    const downloadLink = document.createElement('a')
+
+    downloadLink.href = downloadUrl
+    downloadLink.download = `fitness-training-records-${getLocalDate()}.json`
+    document.body.append(downloadLink)
+    downloadLink.click()
+    downloadLink.remove()
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+
+    exportStatus.value = `已导出 ${trainingSets.length} 条训练记录`
+  } catch (error: unknown) {
+    exportError.value = error instanceof Error ? error.message : '导出训练记录失败'
+  } finally {
+    isExporting.value = false
+  }
 }
 
 async function loadTodaySets(): Promise<void> {
@@ -437,6 +470,19 @@ onMounted(() => {
         <h3>今天还没有训练记录</h3>
         <p>点击右下角的 + 添加第一组。</p>
       </div>
+    </section>
+
+    <section class="export-section" aria-label="数据导出">
+      <button
+        class="export-button"
+        type="button"
+        :disabled="isExporting"
+        @click="exportTrainingRecords"
+      >
+        {{ isExporting ? '导出中…' : '导出 JSON' }}
+      </button>
+      <p v-if="exportStatus" class="export-status" role="status">{{ exportStatus }}</p>
+      <p v-if="exportError" class="export-error" role="alert">{{ exportError }}</p>
     </section>
 
     <button class="add-set-button" type="button" aria-label="添加一组" @click="addSetDialog?.open()">
@@ -958,6 +1004,46 @@ h1 {
   margin-bottom: 0;
   color: #718078;
   font-size: 0.84rem;
+}
+
+.export-section {
+  margin-top: 24px;
+}
+
+.export-button {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #d5ddd1;
+  border-radius: 14px;
+  background: #fff;
+  color: #46634d;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.export-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.export-button:focus-visible {
+  outline: 3px solid rgb(70 99 77 / 22%);
+  outline-offset: 2px;
+}
+
+.export-status,
+.export-error {
+  margin: 10px 2px 0;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.export-status {
+  color: #46634d;
+}
+
+.export-error {
+  color: #a52d2d;
 }
 
 .delete-dialog {
