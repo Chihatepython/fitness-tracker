@@ -9,7 +9,10 @@ export type BodyPart = (typeof BODY_PARTS)[number]
 export const EXERCISES = [
   { id: 'dumbbellShoulderPress', name: '哑铃推举', bodyPart: '肩' },
   { id: 'cableLateralRaise', name: '绳索侧平举', bodyPart: '肩' },
+  { id: 'cableYRaise', name: '绳索Y字上举', bodyPart: '肩' },
   { id: 'reversePecDeck', name: '蝴蝶机反向飞鸟', bodyPart: '肩' },
+  { id: 'singleArmCableReverseFly', name: '单臂绳索反向飞鸟', bodyPart: '肩' },
+  { id: 'ropeFacePull', name: '绳索面拉', bodyPart: '肩' },
   { id: 'barbellBenchPress', name: '平板杠铃卧推', bodyPart: '胸' },
   { id: 'inclineBarbellBenchPress', name: '上斜杠铃卧推', bodyPart: '胸' },
   { id: 'pecDeckFly', name: '蝴蝶机夹胸', bodyPart: '胸' },
