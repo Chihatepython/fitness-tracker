@@ -539,6 +539,7 @@ onMounted(() => {
               <th
                 v-if="index === 0"
                 class="muscle-body-part"
+                :data-region="group.region"
                 :rowspan="group.muscles.length"
                 scope="rowgroup"
               >
@@ -678,7 +679,7 @@ onMounted(() => {
 <style>
 :root {
   color: #17211a;
-  background: #f4f6f0;
+  background: #eef1eb;
   font-family:
     Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -704,7 +705,7 @@ button {
   width: min(100%, 680px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 28px 20px calc(120px + env(safe-area-inset-bottom));
+  padding: 28px 14px calc(120px + env(safe-area-inset-bottom));
 }
 
 .page-header,
@@ -752,19 +753,27 @@ h1 {
   font-weight: 800;
 }
 
+.training-calendar-section,
+.summary-section,
+.muscle-section,
+.today-section {
+  padding: 14px;
+  border-radius: 22px;
+  background: #fff;
+}
+
 .training-calendar-section h2 {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   font-size: 1.25rem;
   letter-spacing: -0.025em;
 }
 
 .training-calendar-card {
-  padding: 18px;
-  border: 1px solid #e0e5dc;
-  border-radius: 24px;
-  background: #fff;
+  padding: 12px;
+  border: 1px solid #e4e9e1;
+  border-radius: 16px;
+  background: #f7f9f5;
   color: #17211a;
-  box-shadow: 0 8px 24px rgb(24 63 43 / 6%);
 }
 
 .calendar-weekdays,
@@ -773,7 +782,7 @@ h1 {
   margin: 0;
   padding: 0;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
   list-style: none;
 }
 
@@ -796,7 +805,7 @@ h1 {
   padding: 6px 2px;
   border: 1px solid #edf0ea;
   border-radius: 12px;
-  background: #f4f6f0;
+  background: #fff;
   color: #405047;
 }
 
@@ -868,7 +877,7 @@ h1 {
 .summary-section,
 .muscle-section,
 .today-section {
-  margin-top: 34px;
+  margin-top: 18px;
 }
 
 .section-heading h2 {
@@ -912,9 +921,9 @@ h1 {
   overflow: hidden;
   display: grid;
   margin-top: 16px;
-  border: 1px solid #e0e5dc;
-  border-radius: 18px;
-  background: #fff;
+  border: 1px solid #e4e9e1;
+  border-radius: 16px;
+  background: #f7f9f5;
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
@@ -954,16 +963,17 @@ h1 {
 .muscle-table-wrapper {
   overflow: hidden;
   margin-top: 16px;
-  border: 1px solid #e0e5dc;
-  border-radius: 18px;
-  background: #fff;
+  border: 1px solid #e4e9e1;
+  border-radius: 16px;
+  background: #f7f9f5;
 }
 
 .muscle-table-status {
   margin: 16px 0 0;
   padding: 28px 16px;
   border: 1px dashed #c8d1c5;
-  border-radius: 18px;
+  border-radius: 16px;
+  background: #f7f9f5;
   color: #718078;
   font-size: 0.86rem;
   text-align: center;
@@ -976,11 +986,11 @@ h1 {
 }
 
 .muscle-body-part-column {
-  width: 18%;
+  width: 14%;
 }
 
 .muscle-name-column {
-  width: 52%;
+  width: 56%;
 }
 
 .muscle-total-column {
@@ -993,7 +1003,7 @@ h1 {
 }
 
 .muscle-table thead {
-  background: #f4f7f1;
+  background: #eef3eb;
 }
 
 .muscle-table thead th {
@@ -1004,20 +1014,48 @@ h1 {
 }
 
 .muscle-table thead th:last-child {
+  padding-right: 16px;
   text-align: right;
 }
 
 .muscle-table tbody + tbody tr:first-child > * {
-  border-top: 2px solid #dfe5db;
+  position: relative;
 }
 
 .muscle-table tbody tr + tr td {
-  border-top: 1px solid #edf0ea;
+  position: relative;
+}
+
+.muscle-table tbody + tbody tr:first-child > *::before,
+.muscle-table tbody tr + tr td::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: #edf0ea;
+  content: '';
+  pointer-events: none;
+}
+
+.muscle-table tbody + tbody tr:first-child > *::before {
+  height: 1px;
+  background: #cbd5c8;
+}
+
+.muscle-table tbody + tbody tr:first-child > *:first-child::before,
+.muscle-table tbody tr + tr td:first-child::before {
+  left: 8px;
+}
+
+.muscle-table tbody + tbody tr:first-child > *:last-child::before,
+.muscle-table tbody tr + tr td:last-child::before {
+  right: 16px;
 }
 
 .muscle-body-part {
   border-right: 1px solid #edf0ea;
-  background: #fafbf8;
+  background: #f1f5ee;
   color: #405047;
   font-size: 0.88rem;
   font-weight: 800;
@@ -1025,12 +1063,35 @@ h1 {
   vertical-align: middle;
 }
 
+.muscle-body-part[data-region='肩'] {
+  background: #f1f6d8;
+}
+
+.muscle-body-part[data-region='屈肘'],
+.muscle-body-part[data-region='伸肘'],
+.muscle-body-part[data-region='前臂'] {
+  background: #f1edf5;
+}
+
+.muscle-body-part[data-region='背'] {
+  background: #e8f0ed;
+}
+
+.muscle-body-part[data-region='胸'] {
+  background: #f4ece8;
+}
+
+.muscle-body-part[data-region='腿'] {
+  background: #f4f0e1;
+}
+
 .muscle-name {
   color: #405047;
   font-size: 0.86rem;
 }
 
-.muscle-total {
+.muscle-table td.muscle-total {
+  padding-right: 16px;
   color: #234a31;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
@@ -1088,9 +1149,9 @@ h1 {
 
 .records-status {
   padding: 24px;
-  border: 1px solid #e0e5dc;
-  border-radius: 18px;
-  background: #fff;
+  border: 1px solid #e4e9e1;
+  border-radius: 16px;
+  background: #f7f9f5;
   color: #718078;
   text-align: center;
 }
@@ -1103,9 +1164,9 @@ h1 {
   overflow: hidden;
   margin-bottom: 0;
   padding: 0;
-  border: 1px solid #e0e5dc;
-  border-radius: 18px;
-  background: #fff;
+  border: 1px solid #e4e9e1;
+  border-radius: 16px;
+  background: #f7f9f5;
   list-style: none;
 }
 
@@ -1175,8 +1236,8 @@ h1 {
 .records-empty {
   padding: 28px 22px;
   border: 1px dashed #c8d1c5;
-  border-radius: 18px;
-  background: rgb(255 255 255 / 54%);
+  border-radius: 16px;
+  background: #f7f9f5;
   text-align: center;
 }
 
