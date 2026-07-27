@@ -5,32 +5,290 @@ export const SETS_STORE_NAME = 'sets'
 export const BODY_PARTS = ['手臂', '肩', '背', '胸', '腿'] as const
 
 export type BodyPart = (typeof BODY_PARTS)[number]
+export type MuscleWeight = 0.25 | 0.5 | 1
+export type MuscleWeights = Readonly<Record<string, MuscleWeight>>
+
+type ExerciseDefinition = {
+  id: string
+  name: string
+  bodyPart: BodyPart
+  muscleWeights?: MuscleWeights
+}
 
 export const EXERCISES = [
-  { id: 'dumbbellShoulderPress', name: '哑铃推举', bodyPart: '肩' },
-  { id: 'cableLateralRaise', name: '绳索侧平举', bodyPart: '肩' },
-  { id: 'cableYRaise', name: '绳索Y字上举', bodyPart: '肩' },
-  { id: 'reversePecDeck', name: '蝴蝶机反向飞鸟', bodyPart: '肩' },
-  { id: 'singleArmCableReverseFly', name: '单臂绳索反向飞鸟', bodyPart: '肩' },
-  { id: 'ropeFacePull', name: '绳索面拉', bodyPart: '肩' },
-  { id: 'barbellBenchPress', name: '平板杠铃卧推', bodyPart: '胸' },
-  { id: 'inclineBarbellBenchPress', name: '上斜杠铃卧推', bodyPart: '胸' },
-  { id: 'pecDeckFly', name: '蝴蝶机夹胸', bodyPart: '胸' },
-  { id: 'dumbbellBenchPress', name: '平板哑铃卧推', bodyPart: '胸' },
-  { id: 'inclineDumbbellBenchPress', name: '上斜哑铃卧推', bodyPart: '胸' },
-  { id: 'barbellRow', name: '杠铃划船', bodyPart: '背' },
-  { id: 'overhandLongBarLatPulldown', name: '长杆正握高位下拉', bodyPart: '背' },
-  { id: 'neutralGripVBarLatPulldown', name: 'V把对握高位下拉', bodyPart: '背' },
-  { id: 'wideGripSeatedCableRow', name: '宽握坐姿绳索划船', bodyPart: '背' },
-  { id: 'dumbbellPreacherCurl', name: '哑铃牧师凳弯举', bodyPart: '手臂' },
-  { id: 'inclineDumbbellCurl', name: '上斜哑铃弯举', bodyPart: '手臂' },
-  { id: 'dumbbellHammerCurl', name: '哑铃锤式弯举', bodyPart: '手臂' },
-  { id: 'cableEzBarReverseCurl', name: '绳索曲杆反向弯举', bodyPart: '手臂' },
-  { id: 'cableEzBarCurl', name: '绳索曲杆弯举', bodyPart: '手臂' },
-  { id: 'ropeTricepsPushdown', name: '绳索三头下压', bodyPart: '手臂' },
-  { id: 'straightBarTricepsPushdown', name: '直杆三头下压', bodyPart: '手臂' },
-  { id: 'ropeOverheadTricepsExtension', name: '绳索过顶臂屈伸', bodyPart: '手臂' },
-] as const satisfies ReadonlyArray<{ id: string; name: string; bodyPart: BodyPart }>
+  {
+    id: 'dumbbellShoulderPress',
+    name: '哑铃推举',
+    bodyPart: '肩',
+    muscleWeights: {
+      三角肌前束: 1,
+      三角肌中束: 0.5,
+      肱三头肌外侧头: 0.25,
+      肱三头肌内侧头: 0.25,
+      肱三头肌长头: 0.25,
+    },
+  },
+  {
+    id: 'cableLateralRaise',
+    name: '绳索侧平举',
+    bodyPart: '肩',
+    muscleWeights: {
+      三角肌中束: 1,
+      三角肌前束: 0.25,
+    },
+  },
+  {
+    id: 'cableYRaise',
+    name: '绳索Y字上举',
+    bodyPart: '肩',
+    muscleWeights: {
+      三角肌中束: 1,
+      中背: 0.25,
+      三角肌前束: 0.25,
+    },
+  },
+  {
+    id: 'reversePecDeck',
+    name: '蝴蝶机反向飞鸟',
+    bodyPart: '肩',
+    muscleWeights: {
+      三角肌后束: 1,
+      中背: 0.5,
+      外旋肌: 0.25,
+    },
+  },
+  {
+    id: 'singleArmCableReverseFly',
+    name: '单臂绳索反向飞鸟',
+    bodyPart: '肩',
+    muscleWeights: {
+      三角肌后束: 1,
+      中背: 0.5,
+      外旋肌: 0.25,
+    },
+  },
+  {
+    id: 'ropeFacePull',
+    name: '绳索面拉',
+    bodyPart: '肩',
+    muscleWeights: {
+      三角肌后束: 1,
+      中背: 0.5,
+      外旋肌: 0.5,
+    },
+  },
+  {
+    id: 'barbellBenchPress',
+    name: '平板杠铃卧推',
+    bodyPart: '胸',
+    muscleWeights: {
+      中胸: 1,
+      下胸: 0.5,
+      上胸: 0.25,
+      三角肌前束: 0.25,
+      肱三头肌外侧头: 0.5,
+      肱三头肌内侧头: 0.5,
+      肱三头肌长头: 0.25,
+    },
+  },
+  {
+    id: 'inclineBarbellBenchPress',
+    name: '上斜杠铃卧推',
+    bodyPart: '胸',
+    muscleWeights: {
+      上胸: 1,
+      中胸: 0.5,
+      三角肌前束: 0.5,
+      肱三头肌外侧头: 0.5,
+      肱三头肌内侧头: 0.5,
+      肱三头肌长头: 0.25,
+    },
+  },
+  {
+    id: 'pecDeckFly',
+    name: '蝴蝶机夹胸',
+    bodyPart: '胸',
+    muscleWeights: {
+      中胸: 1,
+      下胸: 0.5,
+    },
+  },
+  {
+    id: 'dumbbellBenchPress',
+    name: '平板哑铃卧推',
+    bodyPart: '胸',
+    muscleWeights: {
+      中胸: 1,
+      下胸: 0.5,
+      三角肌前束: 0.25,
+      肱三头肌外侧头: 0.5,
+      肱三头肌内侧头: 0.5,
+      肱三头肌长头: 0.25,
+    },
+  },
+  {
+    id: 'inclineDumbbellBenchPress',
+    name: '上斜哑铃卧推',
+    bodyPart: '胸',
+    muscleWeights: {
+      上胸: 1,
+      中胸: 0.5,
+      三角肌前束: 0.5,
+      肱三头肌外侧头: 0.5,
+      肱三头肌内侧头: 0.5,
+      肱三头肌长头: 0.25,
+    },
+  },
+  {
+    id: 'barbellRow',
+    name: '杠铃划船',
+    bodyPart: '背',
+    muscleWeights: {
+      背阔肌: 1,
+      中背: 1,
+      三角肌后束: 0.25,
+      肱二头肌长头: 0.25,
+      肱二头肌短头: 0.25,
+      肱肌: 0.5,
+      竖脊肌: 0.25,
+    },
+  },
+  {
+    id: 'overhandLongBarLatPulldown',
+    name: '长杆正握高位下拉',
+    bodyPart: '背',
+    muscleWeights: {
+      背阔肌: 1,
+      中背: 0.25,
+      肱二头肌长头: 0.25,
+      肱二头肌短头: 0.25,
+      肱肌: 0.5,
+      肱桡肌: 0.25,
+    },
+  },
+  {
+    id: 'neutralGripVBarLatPulldown',
+    name: 'V把对握高位下拉',
+    bodyPart: '背',
+    muscleWeights: {
+      背阔肌: 1,
+      中背: 0.25,
+      肱二头肌长头: 0.25,
+      肱二头肌短头: 0.25,
+      肱肌: 0.5,
+      肱桡肌: 0.25,
+    },
+  },
+  {
+    id: 'wideGripSeatedCableRow',
+    name: '宽握坐姿绳索划船',
+    bodyPart: '背',
+    muscleWeights: {
+      中背: 1,
+      背阔肌: 0.5,
+      三角肌后束: 0.5,
+      肱二头肌长头: 0.25,
+      肱二头肌短头: 0.25,
+      肱肌: 0.5,
+      肱桡肌: 0.25,
+    },
+  },
+  {
+    id: 'neutralGripVBarSeatedCableRow',
+    name: 'V把对握坐姿绳索划船',
+    bodyPart: '背',
+    muscleWeights: {
+      中背: 1,
+      背阔肌: 0.5,
+      三角肌后束: 0.5,
+      肱二头肌长头: 0.25,
+      肱二头肌短头: 0.25,
+      肱肌: 0.5,
+      肱桡肌: 0.25,
+    },
+  },
+  {
+    id: 'dumbbellPreacherCurl',
+    name: '哑铃牧师凳弯举',
+    bodyPart: '手臂',
+    muscleWeights: {
+      肱二头肌短头: 1,
+      肱二头肌长头: 0.5,
+      肱肌: 0.5,
+    },
+  },
+  {
+    id: 'inclineDumbbellCurl',
+    name: '上斜哑铃弯举',
+    bodyPart: '手臂',
+    muscleWeights: {
+      肱二头肌长头: 1,
+      肱二头肌短头: 0.5,
+      肱肌: 0.5,
+    },
+  },
+  {
+    id: 'dumbbellHammerCurl',
+    name: '哑铃锤式弯举',
+    bodyPart: '手臂',
+    muscleWeights: {
+      肱肌: 1,
+      肱桡肌: 1,
+      肱二头肌长头: 0.25,
+      肱二头肌短头: 0.25,
+    },
+  },
+  {
+    id: 'cableEzBarReverseCurl',
+    name: '绳索曲杆反向弯举',
+    bodyPart: '手臂',
+    muscleWeights: {
+      肱桡肌: 1,
+      肱肌: 1,
+      前臂伸肌群: 0.5,
+    },
+  },
+  {
+    id: 'cableEzBarCurl',
+    name: '绳索曲杆弯举',
+    bodyPart: '手臂',
+    muscleWeights: {
+      肱二头肌长头: 1,
+      肱二头肌短头: 1,
+      肱肌: 0.5,
+    },
+  },
+  {
+    id: 'ropeTricepsPushdown',
+    name: '绳索三头下压',
+    bodyPart: '手臂',
+    muscleWeights: {
+      肱三头肌外侧头: 1,
+      肱三头肌内侧头: 1,
+      肱三头肌长头: 0.5,
+    },
+  },
+  {
+    id: 'straightBarTricepsPushdown',
+    name: '直杆三头下压',
+    bodyPart: '手臂',
+    muscleWeights: {
+      肱三头肌外侧头: 1,
+      肱三头肌内侧头: 1,
+      肱三头肌长头: 0.5,
+    },
+  },
+  {
+    id: 'ropeOverheadTricepsExtension',
+    name: '绳索过顶臂屈伸',
+    bodyPart: '手臂',
+    muscleWeights: {
+      肱三头肌长头: 1,
+      肱三头肌外侧头: 0.5,
+      肱三头肌内侧头: 0.5,
+    },
+  },
+] as const satisfies ReadonlyArray<ExerciseDefinition>
 
 export type ExerciseId = (typeof EXERCISES)[number]['id']
 

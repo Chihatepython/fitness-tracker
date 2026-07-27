@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import AddSetDialog from '@/components/AddSetDialog.vue'
 import {
+  EXERCISES,
   EXERCISE_BODY_PARTS,
   EXERCISE_NAMES,
   deleteTrainingSet,
@@ -23,6 +24,35 @@ const TRAINING_PERIODS = [
   { label: '最近 2 周', dayCount: 14 },
   { label: '最近 4 周', dayCount: 28 },
 ] as const
+type MuscleRegion = '肩' | '屈肘' | '伸肘' | '前臂' | '背' | '胸' | '腿'
+
+const MUSCLE_GROUPS = [
+  { region: '肩', muscles: ['三角肌前束', '三角肌中束', '三角肌后束'] },
+  { region: '屈肘', muscles: ['肱二头肌长头', '肱二头肌短头', '肱肌'] },
+  { region: '伸肘', muscles: ['肱三头肌长头', '肱三头肌外侧头', '肱三头肌内侧头'] },
+  { region: '前臂', muscles: ['肱桡肌', '前臂伸肌群'] },
+  { region: '背', muscles: ['背阔肌', '中背', '斜方肌上束', '外旋肌', '竖脊肌'] },
+  { region: '胸', muscles: ['上胸', '中胸', '下胸'] },
+  {
+    region: '腿',
+    muscles: [
+      '股四头肌',
+      '腘绳肌',
+      '臀大肌',
+      '臀中肌',
+      '内收肌群',
+      '腓肠肌',
+      '比目鱼肌',
+      '胫骨前肌',
+    ],
+  },
+] as const satisfies ReadonlyArray<{ region: MuscleRegion; muscles: readonly string[] }>
+
+type MuscleName = (typeof MUSCLE_GROUPS)[number]['muscles'][number]
+
+const TRACKED_MUSCLE_NAMES = new Set<string>(
+  MUSCLE_GROUPS.flatMap((group) => [...group.muscles]),
+)
 
 interface TrainingCalendarDay {
   date: string
@@ -51,6 +81,10 @@ const bodyPartDayCounts = ref(createEmptyBodyPartCounts())
 const isLoadingBodyPartCounts = ref(true)
 const bodyPartCountsError = ref('')
 const selectedTrainingPeriodIndex = ref(0)
+const muscleTrainingTotals = ref(createEmptyMuscleTrainingTotals())
+const isLoadingMuscleTrainingTotals = ref(true)
+const muscleTrainingTotalsError = ref('')
+const selectedMuscleTrainingPeriodIndex = ref(0)
 const trainingCalendarDays = ref<TrainingCalendarDay[]>(buildTrainingCalendarDays([]))
 const isLoadingTrainingCalendar = ref(true)
 const trainingCalendarError = ref('')
@@ -64,6 +98,12 @@ const sortedBodyParts = computed(() =>
     return countDifference || BODY_PART_DISPLAY_PRIORITY.indexOf(left) - BODY_PART_DISPLAY_PRIORITY.indexOf(right)
   }),
 )
+const visibleMuscleGroups = computed(() =>
+  MUSCLE_GROUPS.map((group) => ({
+    region: group.region,
+    muscles: group.muscles.filter((muscle) => muscleTrainingTotals.value[muscle] > 0),
+  })).filter((group) => group.muscles.length > 0),
+)
 const selectedTrainingPeriod = computed(
   () => TRAINING_PERIODS[selectedTrainingPeriodIndex.value]!,
 )
@@ -74,6 +114,17 @@ const trainingPeriodEndDate = computed(() => getLocalDate())
 const trainingPeriodRangeLabel = computed(
   () =>
     `${formatDisplayDate(trainingPeriodStartDate.value)}—${formatDisplayDate(trainingPeriodEndDate.value)}`,
+)
+const selectedMuscleTrainingPeriod = computed(
+  () => TRAINING_PERIODS[selectedMuscleTrainingPeriodIndex.value]!,
+)
+const muscleTrainingPeriodStartDate = computed(() =>
+  getLocalDate(-(selectedMuscleTrainingPeriod.value.dayCount - 1)),
+)
+const muscleTrainingPeriodEndDate = computed(() => getLocalDate())
+const muscleTrainingPeriodRangeLabel = computed(
+  () =>
+    `${formatDisplayDate(muscleTrainingPeriodStartDate.value)}—${formatDisplayDate(muscleTrainingPeriodEndDate.value)}`,
 )
 
 const currentWeekMondayOffset = getCurrentWeekMondayOffset()
@@ -112,6 +163,12 @@ function createEmptyBodyPartCounts(): Record<BodyPart, number> {
     胸: 0,
     腿: 0,
   }
+}
+
+function createEmptyMuscleTrainingTotals(): Record<MuscleName, number> {
+  return Object.fromEntries(
+    MUSCLE_GROUPS.flatMap((group) => group.muscles.map((muscle) => [muscle, 0])),
+  ) as Record<MuscleName, number>
 }
 
 function getBodyPartCountsByDate(
@@ -176,6 +233,10 @@ function getCalendarDayAriaLabel(calendarDay: TrainingCalendarDay): string {
 
 function formatWeight(weightKg: number): string {
   return Number.isInteger(weightKg) ? String(weightKg) : String(Number(weightKg.toFixed(2)))
+}
+
+function formatWeightedSetCount(setCount: number): string {
+  return Number.isInteger(setCount) ? String(setCount) : String(Number(setCount.toFixed(2)))
 }
 
 async function exportTrainingRecords(): Promise<void> {
@@ -251,6 +312,42 @@ function changeTrainingPeriod(): void {
   void loadBodyPartDayCounts()
 }
 
+async function loadMuscleTrainingTotals(): Promise<void> {
+  isLoadingMuscleTrainingTotals.value = true
+  muscleTrainingTotalsError.value = ''
+
+  try {
+    const trainingSets = await getTrainingSetsByDateRange(
+      muscleTrainingPeriodStartDate.value,
+      muscleTrainingPeriodEndDate.value,
+    )
+    const totals = createEmptyMuscleTrainingTotals()
+
+    for (const trainingSet of trainingSets) {
+      const exercise = EXERCISES.find((item) => item.id === trainingSet.exerciseId)
+
+      if (!exercise) continue
+
+      for (const [muscleName, weight] of Object.entries(exercise.muscleWeights)) {
+        if (!TRACKED_MUSCLE_NAMES.has(muscleName)) continue
+
+        totals[muscleName as MuscleName] += weight
+      }
+    }
+
+    muscleTrainingTotals.value = totals
+  } catch (error: unknown) {
+    muscleTrainingTotalsError.value =
+      error instanceof Error ? error.message : '无法读取肌束训练量'
+  } finally {
+    isLoadingMuscleTrainingTotals.value = false
+  }
+}
+
+function changeMuscleTrainingPeriod(): void {
+  void loadMuscleTrainingTotals()
+}
+
 async function loadTrainingCalendar(): Promise<void> {
   isLoadingTrainingCalendar.value = true
   trainingCalendarError.value = ''
@@ -269,6 +366,7 @@ async function loadTrainingCalendar(): Promise<void> {
 function refreshAfterSetAdded(): void {
   void loadTodaySets()
   void loadBodyPartDayCounts()
+  void loadMuscleTrainingTotals()
   void loadTrainingCalendar()
 }
 
@@ -303,7 +401,11 @@ async function confirmDelete(): Promise<void> {
     deleteDialog.value?.close()
     pendingDeleteSet.value = undefined
     todaySets.value = todaySets.value.filter((trainingSet) => trainingSet.id !== trainingSetId)
-    await Promise.all([loadBodyPartDayCounts(), loadTrainingCalendar()])
+    await Promise.all([
+      loadBodyPartDayCounts(),
+      loadMuscleTrainingTotals(),
+      loadTrainingCalendar(),
+    ])
   } catch (error: unknown) {
     deleteError.value = error instanceof Error ? error.message : '删除记录失败'
   } finally {
@@ -314,6 +416,7 @@ async function confirmDelete(): Promise<void> {
 onMounted(() => {
   void loadTodaySets()
   void loadBodyPartDayCounts()
+  void loadMuscleTrainingTotals()
   void loadTrainingCalendar()
 })
 </script>
@@ -402,18 +505,66 @@ onMounted(() => {
         <div>
           <p class="eyebrow">训练分布</p>
           <h2 id="muscle-title">肌束训练量</h2>
+          <span class="date-range">{{ muscleTrainingPeriodRangeLabel }}</span>
         </div>
+        <select
+          v-model.number="selectedMuscleTrainingPeriodIndex"
+          class="period-select"
+          :disabled="isLoadingMuscleTrainingTotals"
+          aria-label="选择肌束训练量统计周期"
+          @change="changeMuscleTrainingPeriod"
+        >
+          <option v-for="(period, index) in TRAINING_PERIODS" :key="period.dayCount" :value="index">
+            {{ period.label }}
+          </option>
+        </select>
       </div>
 
-      <div class="empty-state">
-        <div class="empty-icon" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-        <h3>还没有训练数据</h3>
-        <p>完成第一次训练后，这里会显示最近 7 天各肌束的加权训练组数。</p>
+      <div v-if="visibleMuscleGroups.length" class="muscle-table-wrapper">
+        <table class="muscle-table">
+          <colgroup>
+            <col class="muscle-body-part-column" />
+            <col class="muscle-name-column" />
+            <col class="muscle-total-column" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col">区域</th>
+              <th scope="col">细分肌肉</th>
+              <th scope="col">加权组数</th>
+            </tr>
+          </thead>
+          <tbody v-for="group in visibleMuscleGroups" :key="group.region">
+            <tr v-for="(muscle, index) in group.muscles" :key="muscle">
+              <th
+                v-if="index === 0"
+                class="muscle-body-part"
+                :rowspan="group.muscles.length"
+                scope="rowgroup"
+              >
+                {{ group.region }}
+              </th>
+              <td class="muscle-name">{{ muscle }}</td>
+              <td class="muscle-total">
+                {{
+                  isLoadingMuscleTrainingTotals
+                    ? '—'
+                    : formatWeightedSetCount(muscleTrainingTotals[muscle])
+                }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      <p v-else-if="isLoadingMuscleTrainingTotals" class="muscle-table-status">
+        正在计算训练量…
+      </p>
+      <p v-else-if="!muscleTrainingTotalsError" class="muscle-table-status">
+        所选时间段暂无肌束训练量
+      </p>
+      <p v-if="muscleTrainingTotalsError" class="summary-error" role="alert">
+        {{ muscleTrainingTotalsError }}
+      </p>
     </section>
 
     <section class="today-section" aria-labelledby="today-title">
@@ -800,57 +951,91 @@ h1 {
   font-size: 0.82rem;
 }
 
-.empty-state {
+.muscle-table-wrapper {
+  overflow: hidden;
   margin-top: 16px;
-  padding: 32px 24px;
+  border: 1px solid #e0e5dc;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.muscle-table-status {
+  margin: 16px 0 0;
+  padding: 28px 16px;
   border: 1px dashed #c8d1c5;
-  border-radius: 20px;
-  background: rgb(255 255 255 / 54%);
+  border-radius: 18px;
+  color: #718078;
+  font-size: 0.86rem;
   text-align: center;
 }
 
-.empty-icon {
-  display: flex;
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 18px;
-  align-items: end;
-  justify-content: center;
-  gap: 5px;
-  padding: 14px;
-  border-radius: 18px;
-  background: #e5eddf;
+.muscle-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
 
-.empty-icon span {
-  width: 7px;
-  border-radius: 4px 4px 2px 2px;
-  background: #66836d;
+.muscle-body-part-column {
+  width: 18%;
 }
 
-.empty-icon span:nth-child(1) {
-  height: 17px;
+.muscle-name-column {
+  width: 52%;
 }
 
-.empty-icon span:nth-child(2) {
-  height: 29px;
+.muscle-total-column {
+  width: 30%;
 }
 
-.empty-icon span:nth-child(3) {
-  height: 22px;
+.muscle-table th,
+.muscle-table td {
+  padding: 11px 10px;
 }
 
-.empty-state h3 {
-  margin-bottom: 8px;
-  font-size: 1rem;
+.muscle-table thead {
+  background: #f4f7f1;
 }
 
-.empty-state p {
-  max-width: 370px;
-  margin: 0 auto;
-  color: #718078;
+.muscle-table thead th {
+  color: #65736b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.muscle-table thead th:last-child {
+  text-align: right;
+}
+
+.muscle-table tbody + tbody tr:first-child > * {
+  border-top: 2px solid #dfe5db;
+}
+
+.muscle-table tbody tr + tr td {
+  border-top: 1px solid #edf0ea;
+}
+
+.muscle-body-part {
+  border-right: 1px solid #edf0ea;
+  background: #fafbf8;
+  color: #405047;
   font-size: 0.88rem;
-  line-height: 1.65;
+  font-weight: 800;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.muscle-name {
+  color: #405047;
+  font-size: 0.86rem;
+}
+
+.muscle-total {
+  color: #234a31;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  text-align: right;
 }
 
 .set-count {
