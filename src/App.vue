@@ -24,6 +24,7 @@ const TRAINING_PERIODS = [
   { label: '最近 2 周', dayCount: 14 },
   { label: '最近 4 周', dayCount: 28 },
 ] as const
+const MUSCLE_SOURCE_ANIMATION_MS = 200
 type MuscleRegion = '肩' | '屈肘' | '伸肘' | '前臂' | '背' | '胸' | '腿'
 
 const MUSCLE_GROUPS = [
@@ -49,6 +50,15 @@ const MUSCLE_GROUPS = [
 ] as const satisfies ReadonlyArray<{ region: MuscleRegion; muscles: readonly string[] }>
 
 type MuscleName = (typeof MUSCLE_GROUPS)[number]['muscles'][number]
+
+interface MuscleSourceContribution {
+  exerciseId: TrainingSet['exerciseId']
+  setCount: number
+  weightPerSet: number
+  weightedSetCount: number
+}
+
+type MuscleTrainingSources = Record<MuscleName, MuscleSourceContribution[]>
 
 const TRACKED_MUSCLE_NAMES = new Set<string>(
   MUSCLE_GROUPS.flatMap((group) => [...group.muscles]),
@@ -82,15 +92,20 @@ const isLoadingBodyPartCounts = ref(true)
 const bodyPartCountsError = ref('')
 const selectedTrainingPeriodIndex = ref(0)
 const muscleTrainingTotals = ref(createEmptyMuscleTrainingTotals())
+const muscleTrainingSources = ref(createEmptyMuscleTrainingSources())
 const isLoadingMuscleTrainingTotals = ref(true)
 const muscleTrainingTotalsError = ref('')
 const selectedMuscleTrainingPeriodIndex = ref(0)
+const muscleSourceDialog = ref<HTMLDialogElement>()
+const selectedMuscle = ref<MuscleName>()
+const isClosingMuscleSourceDialog = ref(false)
 const trainingCalendarDays = ref<TrainingCalendarDay[]>(buildTrainingCalendarDays([]))
 const isLoadingTrainingCalendar = ref(true)
 const trainingCalendarError = ref('')
 const isExporting = ref(false)
 const exportStatus = ref('')
 const exportError = ref('')
+let muscleSourceScrollPosition = 0
 const sortedBodyParts = computed(() =>
   [...BODY_PART_DISPLAY_PRIORITY].sort((left, right) => {
     const countDifference = bodyPartDayCounts.value[right] - bodyPartDayCounts.value[left]
@@ -125,6 +140,12 @@ const muscleTrainingPeriodEndDate = computed(() => getLocalDate())
 const muscleTrainingPeriodRangeLabel = computed(
   () =>
     `${formatDisplayDate(muscleTrainingPeriodStartDate.value)}—${formatDisplayDate(muscleTrainingPeriodEndDate.value)}`,
+)
+const selectedMuscleSources = computed(() =>
+  selectedMuscle.value ? muscleTrainingSources.value[selectedMuscle.value] : [],
+)
+const selectedMuscleTotal = computed(() =>
+  selectedMuscle.value ? muscleTrainingTotals.value[selectedMuscle.value] : 0,
 )
 
 const currentWeekMondayOffset = getCurrentWeekMondayOffset()
@@ -169,6 +190,12 @@ function createEmptyMuscleTrainingTotals(): Record<MuscleName, number> {
   return Object.fromEntries(
     MUSCLE_GROUPS.flatMap((group) => group.muscles.map((muscle) => [muscle, 0])),
   ) as Record<MuscleName, number>
+}
+
+function createEmptyMuscleTrainingSources(): MuscleTrainingSources {
+  return Object.fromEntries(
+    MUSCLE_GROUPS.flatMap((group) => group.muscles.map((muscle) => [muscle, []])),
+  ) as unknown as MuscleTrainingSources
 }
 
 function getBodyPartCountsByDate(
@@ -322,6 +349,7 @@ async function loadMuscleTrainingTotals(): Promise<void> {
       muscleTrainingPeriodEndDate.value,
     )
     const totals = createEmptyMuscleTrainingTotals()
+    const sources = createEmptyMuscleTrainingSources()
 
     for (const trainingSet of trainingSets) {
       const exercise = EXERCISES.find((item) => item.id === trainingSet.exerciseId)
@@ -331,11 +359,37 @@ async function loadMuscleTrainingTotals(): Promise<void> {
       for (const [muscleName, weight] of Object.entries(exercise.muscleWeights)) {
         if (!TRACKED_MUSCLE_NAMES.has(muscleName)) continue
 
-        totals[muscleName as MuscleName] += weight
+        const trackedMuscleName = muscleName as MuscleName
+        const existingSource = sources[trackedMuscleName].find(
+          (source) => source.exerciseId === exercise.id,
+        )
+
+        totals[trackedMuscleName] += weight
+
+        if (existingSource) {
+          existingSource.setCount += 1
+          existingSource.weightedSetCount += weight
+        } else {
+          sources[trackedMuscleName].push({
+            exerciseId: exercise.id,
+            setCount: 1,
+            weightPerSet: weight,
+            weightedSetCount: weight,
+          })
+        }
       }
     }
 
+    for (const muscleSources of Object.values(sources)) {
+      muscleSources.sort(
+        (left, right) =>
+          right.weightedSetCount - left.weightedSetCount ||
+          EXERCISE_NAMES[left.exerciseId].localeCompare(EXERCISE_NAMES[right.exerciseId], 'zh-CN'),
+      )
+    }
+
     muscleTrainingTotals.value = totals
+    muscleTrainingSources.value = sources
   } catch (error: unknown) {
     muscleTrainingTotalsError.value =
       error instanceof Error ? error.message : '无法读取肌束训练量'
@@ -346,6 +400,51 @@ async function loadMuscleTrainingTotals(): Promise<void> {
 
 function changeMuscleTrainingPeriod(): void {
   void loadMuscleTrainingTotals()
+}
+
+function lockPageScroll(): void {
+  muscleSourceScrollPosition = window.scrollY
+  document.body.style.top = `-${muscleSourceScrollPosition}px`
+  document.body.classList.add('muscle-source-scroll-locked')
+}
+
+function unlockPageScroll(): void {
+  document.body.classList.remove('muscle-source-scroll-locked')
+  document.body.style.removeProperty('top')
+  window.scrollTo(0, muscleSourceScrollPosition)
+}
+
+function openMuscleSourceDialog(muscle: MuscleName): void {
+  const dialog = muscleSourceDialog.value
+
+  if (!dialog || dialog.open) return
+
+  selectedMuscle.value = muscle
+  isClosingMuscleSourceDialog.value = false
+  lockPageScroll()
+  dialog.showModal()
+}
+
+function closeMuscleSourceDialog(): void {
+  const dialog = muscleSourceDialog.value
+
+  if (!dialog?.open || isClosingMuscleSourceDialog.value) return
+
+  isClosingMuscleSourceDialog.value = true
+  const closeDelay = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 0
+    : MUSCLE_SOURCE_ANIMATION_MS
+
+  window.setTimeout(() => {
+    dialog.close()
+    selectedMuscle.value = undefined
+    isClosingMuscleSourceDialog.value = false
+    unlockPageScroll()
+  }, closeDelay)
+}
+
+function handleMuscleSourceDialogClick(event: MouseEvent): void {
+  if (event.target === event.currentTarget) closeMuscleSourceDialog()
 }
 
 async function loadTrainingCalendar(): Promise<void> {
@@ -547,11 +646,19 @@ onMounted(() => {
               </th>
               <td class="muscle-name">{{ muscle }}</td>
               <td class="muscle-total">
-                {{
-                  isLoadingMuscleTrainingTotals
-                    ? '—'
-                    : formatWeightedSetCount(muscleTrainingTotals[muscle])
-                }}
+                <button
+                  class="muscle-total-button"
+                  type="button"
+                  :aria-label="`查看${muscle}的训练来源`"
+                  :disabled="isLoadingMuscleTrainingTotals"
+                  @click="openMuscleSourceDialog(muscle)"
+                >
+                  {{
+                    isLoadingMuscleTrainingTotals
+                      ? '—'
+                      : formatWeightedSetCount(muscleTrainingTotals[muscle])
+                  }}
+                </button>
               </td>
             </tr>
           </tbody>
@@ -643,6 +750,42 @@ onMounted(() => {
 
     <AddSetDialog ref="addSetDialog" @saved="refreshAfterSetAdded" />
 
+    <dialog
+      ref="muscleSourceDialog"
+      class="muscle-source-dialog"
+      :class="{ closing: isClosingMuscleSourceDialog }"
+      @cancel.prevent="closeMuscleSourceDialog"
+      @click="handleMuscleSourceDialogClick"
+    >
+      <div v-if="selectedMuscle" class="muscle-source-content">
+        <header class="muscle-source-header">
+          <div>
+            <p class="muscle-source-eyebrow">训练来源</p>
+            <h2>{{ selectedMuscle }}</h2>
+            <span>{{ muscleTrainingPeriodRangeLabel }}</span>
+          </div>
+          <button type="button" aria-label="关闭训练来源" @click="closeMuscleSourceDialog">×</button>
+        </header>
+
+        <div class="muscle-source-summary">
+          <span>加权组数</span>
+          <strong>{{ formatWeightedSetCount(selectedMuscleTotal) }}</strong>
+        </div>
+
+        <ul class="muscle-source-list">
+          <li v-for="source in selectedMuscleSources" :key="source.exerciseId">
+            <div>
+              <strong>{{ EXERCISE_NAMES[source.exerciseId] }}</strong>
+              <span>
+                {{ source.setCount }} 组 × 每组 {{ formatWeightedSetCount(source.weightPerSet) }}
+              </span>
+            </div>
+            <strong>{{ formatWeightedSetCount(source.weightedSetCount) }} 组</strong>
+          </li>
+        </ul>
+      </div>
+    </dialog>
+
     <dialog ref="deleteDialog" class="delete-dialog" @cancel.prevent="closeDeleteDialog">
       <div v-if="pendingDeleteSet" class="delete-confirmation">
         <header>
@@ -695,6 +838,14 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+}
+
+body.muscle-source-scroll-locked {
+  position: fixed;
+  right: 0;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 button {
@@ -877,7 +1028,7 @@ h1 {
 .summary-section,
 .muscle-section,
 .today-section {
-  margin-top: 18px;
+  margin-top: 24px;
 }
 
 .section-heading h2 {
@@ -1099,6 +1250,32 @@ h1 {
   text-align: right;
 }
 
+.muscle-total-button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  margin: -5px -4px;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muscle-total-button:disabled {
+  cursor: wait;
+}
+
+.muscle-total-button:focus-visible {
+  outline: 3px solid rgb(70 99 77 / 22%);
+  outline-offset: 2px;
+}
+
 .set-count {
   padding: 6px 10px;
   border-radius: 999px;
@@ -1290,6 +1467,212 @@ h1 {
 
 .export-error {
   color: #a52d2d;
+}
+
+.muscle-source-dialog {
+  position: fixed;
+  inset: auto 0 0;
+  width: min(100%, 680px);
+  max-width: none;
+  max-height: min(72dvh, 640px);
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 24px 24px 0 0;
+  outline: none;
+  background: #f8faf5;
+  color: #17211a;
+  box-shadow: 0 -18px 60px rgb(13 31 20 / 24%);
+}
+
+.muscle-source-dialog::backdrop {
+  background: rgb(11 22 15 / 48%);
+  backdrop-filter: blur(2px);
+}
+
+.muscle-source-dialog[open] {
+  animation: muscle-source-slide-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.muscle-source-dialog[open]::backdrop {
+  animation: muscle-source-backdrop-in 200ms ease-out both;
+}
+
+.muscle-source-dialog.closing {
+  animation: muscle-source-slide-out 200ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.muscle-source-dialog.closing::backdrop {
+  animation: muscle-source-backdrop-out 200ms ease-in both;
+}
+
+@keyframes muscle-source-slide-in {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes muscle-source-slide-out {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes muscle-source-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes muscle-source-backdrop-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.muscle-source-content {
+  max-height: min(72dvh, 640px);
+  padding: 22px 20px calc(24px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.muscle-source-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.muscle-source-eyebrow {
+  margin-bottom: 5px;
+  color: #718078;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.muscle-source-header h2 {
+  margin-bottom: 5px;
+  font-size: 1.4rem;
+  letter-spacing: -0.03em;
+}
+
+.muscle-source-header span {
+  color: #718078;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.muscle-source-header button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0 0 2px;
+  border: 1px solid #d5ddd1;
+  border-radius: 50%;
+  background: #fff;
+  color: #536158;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muscle-source-header button:active {
+  background: #fff;
+  color: #536158;
+}
+
+.muscle-source-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #e5eddf;
+  color: #46634d;
+  font-weight: 800;
+}
+
+.muscle-source-summary strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.muscle-source-list {
+  overflow: hidden;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 1px solid #e0e5dc;
+  border-radius: 16px;
+  background: #fff;
+  list-style: none;
+}
+
+.muscle-source-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 16px;
+}
+
+.muscle-source-list li + li {
+  border-top: 1px solid #edf0ea;
+}
+
+.muscle-source-list li > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.muscle-source-list li > div strong {
+  overflow: hidden;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muscle-source-list li span {
+  color: #718078;
+  font-size: 0.78rem;
+}
+
+.muscle-source-list li > strong {
+  flex: 0 0 auto;
+  color: #234a31;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .muscle-source-dialog[open],
+  .muscle-source-dialog[open]::backdrop {
+    animation: none;
+  }
 }
 
 .delete-dialog {
