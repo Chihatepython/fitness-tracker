@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
 import App from './App.vue'
+import './assets/app.css'
 import { openFitnessDatabase } from './database'
 import router from './router'
 
