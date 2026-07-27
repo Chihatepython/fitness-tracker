@@ -2,6 +2,7 @@
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import { EXERCISE_NAMES } from '@/database'
+import { usePageScrollLock } from '@/composables/usePageScrollLock'
 import {
   formatWeightedSetCount,
   type MuscleName,
@@ -23,20 +24,8 @@ const emit = defineEmits<{
 
 const dialog = ref<HTMLDialogElement>()
 const isClosing = ref(false)
-let scrollPosition = 0
 let closeTimer: number | undefined
-
-function lockPageScroll(): void {
-  scrollPosition = window.scrollY
-  document.body.style.top = `-${scrollPosition}px`
-  document.body.classList.add('muscle-source-scroll-locked')
-}
-
-function unlockPageScroll(): void {
-  document.body.classList.remove('muscle-source-scroll-locked')
-  document.body.style.removeProperty('top')
-  window.scrollTo(0, scrollPosition)
-}
+const { lockPageScroll, unlockPageScroll } = usePageScrollLock()
 
 async function openDialog(): Promise<void> {
   await nextTick()
@@ -85,7 +74,7 @@ watch(
 onBeforeUnmount(() => {
   if (closeTimer !== undefined) window.clearTimeout(closeTimer)
   if (dialog.value?.open) dialog.value.close()
-  if (document.body.classList.contains('muscle-source-scroll-locked')) unlockPageScroll()
+  unlockPageScroll()
 })
 </script>
 
@@ -128,14 +117,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-:global(body.muscle-source-scroll-locked) {
-  position: fixed;
-  right: 0;
-  left: 0;
-  width: 100%;
-  overflow: hidden;
-}
-
 .muscle-source-dialog {
   position: fixed;
   inset: auto 0 0;

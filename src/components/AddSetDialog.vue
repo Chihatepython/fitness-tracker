@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
+import ExerciseWeightsDialog from '@/components/ExerciseWeightsDialog.vue'
+import { usePageScrollLock } from '@/composables/usePageScrollLock'
 import {
   EXERCISES,
   addTrainingSet,
@@ -11,6 +13,11 @@ import {
 
 const DEFAULT_EXERCISE_ID = EXERCISES[0].id
 const exerciseOptions = EXERCISES
+
+type MuscleWeightEntry = {
+  muscle: string
+  weight: number
+}
 
 type NumericField = 'weightKg' | 'reps' | 'rir'
 
@@ -26,7 +33,21 @@ const activeNumericField = ref<NumericField>('reps')
 const shouldReplaceActiveValue = ref(true)
 const errorMessage = ref('')
 const isSaving = ref(false)
+const isWeightsDialogOpen = ref(false)
 const emit = defineEmits<{ saved: [] }>()
+const { lockPageScroll, unlockPageScroll } = usePageScrollLock()
+
+const selectedMuscleWeights = computed<MuscleWeightEntry[]>(() => {
+  const selectedExercise = EXERCISES.find((exercise) => exercise.id === exerciseId.value)
+
+  return Object.entries(selectedExercise?.muscleWeights ?? {})
+    .map(([muscle, weight]) => ({ muscle, weight }))
+    .sort((left, right) => right.weight - left.weight)
+})
+
+const selectedExerciseName = computed(
+  () => EXERCISES.find((exercise) => exercise.id === exerciseId.value)?.name ?? '',
+)
 
 function getLocalDate(): string {
   const today = new Date()
@@ -48,6 +69,7 @@ async function open(): Promise<void> {
   activeNumericField.value = 'reps'
   shouldReplaceActiveValue.value = true
   errorMessage.value = ''
+  isWeightsDialogOpen.value = false
 
   try {
     const todayTrainingSets = await getTrainingSetsByDate(today)
@@ -63,11 +85,26 @@ async function open(): Promise<void> {
     errorMessage.value = error instanceof Error ? error.message : '读取上一组记录失败'
   }
 
-  dialog.value?.showModal()
+  const dialogElement = dialog.value
+
+  if (!dialogElement || dialogElement.open) return
+
+  lockPageScroll()
+
+  try {
+    dialogElement.showModal()
+  } catch (error: unknown) {
+    unlockPageScroll()
+    throw error
+  }
 }
 
 function close(): void {
-  if (!isSaving.value) dialog.value?.close()
+  if (isSaving.value) return
+
+  isWeightsDialogOpen.value = false
+  dialog.value?.close()
+  unlockPageScroll()
 }
 
 function getActiveValue(): string {
@@ -140,7 +177,9 @@ async function save(): Promise<void> {
     })
 
     emit('saved')
+    isWeightsDialogOpen.value = false
     dialog.value?.close()
+    unlockPageScroll()
   } catch (error: unknown) {
     errorMessage.value = error instanceof Error ? error.message : '保存训练组失败'
   } finally {
@@ -152,13 +191,10 @@ defineExpose({ open })
 </script>
 
 <template>
-  <dialog ref="dialog" class="set-dialog" @cancel.prevent="close">
+  <dialog ref="dialog" class="set-dialog" @cancel.prevent="close" @close="unlockPageScroll">
     <form class="set-form" @submit.prevent="save">
       <header class="dialog-header">
-        <div>
-          <p class="dialog-eyebrow">新增记录</p>
-          <h2>添加一组</h2>
-        </div>
+        <h2>添加一组</h2>
         <button class="close-button" type="button" aria-label="关闭" @click="close">×</button>
       </header>
 
@@ -167,14 +203,24 @@ defineExpose({ open })
         <input v-model="date" type="date" required />
       </label>
 
-      <label>
-        <span>动作</span>
-        <select v-model="exerciseId" required>
-          <option v-for="exercise in exerciseOptions" :key="exercise.id" :value="exercise.id">
-            {{ exercise.bodyPart }} - {{ exercise.name }}
-          </option>
-        </select>
-      </label>
+      <div class="exercise-field">
+        <label for="exercise-select">动作</label>
+        <div class="exercise-control-row">
+          <select id="exercise-select" v-model="exerciseId" required>
+            <option v-for="exercise in exerciseOptions" :key="exercise.id" :value="exercise.id">
+              {{ exercise.bodyPart }} - {{ exercise.name }}
+            </option>
+          </select>
+          <button
+            type="button"
+            aria-label="查看当前动作的肌肉分权"
+            :disabled="!selectedMuscleWeights.length"
+            @click="isWeightsDialogOpen = true"
+          >
+            i
+          </button>
+        </div>
+      </div>
 
       <div class="field-row">
         <label :class="{ 'active-field': activeNumericField === 'weightKg' }">
@@ -254,6 +300,13 @@ defineExpose({ open })
       </footer>
     </form>
   </dialog>
+
+  <ExerciseWeightsDialog
+    :is-open="isWeightsDialogOpen"
+    :exercise-name="selectedExerciseName"
+    :weights="selectedMuscleWeights"
+    @close="isWeightsDialogOpen = false"
+  />
 </template>
 
 <style scoped>
@@ -279,9 +332,8 @@ defineExpose({ open })
 }
 
 .dialog-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  position: relative;
+  min-height: 36px;
   margin-bottom: 24px;
 }
 
@@ -291,15 +343,10 @@ defineExpose({ open })
   letter-spacing: -0.03em;
 }
 
-.dialog-eyebrow {
-  margin: 0 0 5px;
-  color: #718078;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
 .close-button {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: grid;
   width: 36px;
   height: 36px;
@@ -324,6 +371,52 @@ label {
 label + label,
 .field-row {
   margin-top: 16px;
+}
+
+.exercise-field {
+  margin-top: 16px;
+}
+
+.exercise-field > label {
+  margin-bottom: 8px;
+}
+
+.exercise-control-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 8px;
+}
+
+.exercise-control-row button {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  align-self: center;
+  justify-self: center;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #8b978f;
+  border-radius: 50%;
+  outline: none;
+  background: transparent;
+  color: #657169;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.exercise-control-row button:focus,
+.exercise-control-row button:active {
+  border-color: #8b978f;
+  background: transparent;
+  color: #657169;
+}
+
+.exercise-control-row button:disabled {
+  cursor: default;
+  opacity: 0.4;
 }
 
 input,

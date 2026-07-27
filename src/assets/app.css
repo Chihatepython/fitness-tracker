@@ -18,6 +18,14 @@ body {
   min-height: 100vh;
 }
 
+body.page-scroll-locked {
+  position: fixed;
+  right: 0;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
 button {
   font: inherit;
 }
