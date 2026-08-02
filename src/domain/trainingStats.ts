@@ -9,10 +9,24 @@ import {
 export const BODY_PART_DISPLAY_PRIORITY: readonly BodyPart[] = ['肩', '手臂', '背', '胸', '腿']
 export const CALENDAR_WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const
 export const TRAINING_PERIODS = [
-  { label: '最近 7 天', dayCount: 7 },
-  { label: '最近 2 周', dayCount: 14 },
-  { label: '最近 4 周', dayCount: 28 },
+  { id: 'rolling7', label: '最近 7 天', dayCount: 7, mode: 'rolling', canNavigateWeeks: true },
+  {
+    id: 'calendarWeek',
+    label: '自然周',
+    dayCount: 7,
+    mode: 'calendarWeek',
+    canNavigateWeeks: true,
+  },
+  { id: 'rolling14', label: '最近 2 周', dayCount: 14, mode: 'rolling', canNavigateWeeks: false },
+  { id: 'rolling28', label: '最近 4 周', dayCount: 28, mode: 'rolling', canNavigateWeeks: false },
 ] as const
+
+export type TrainingPeriod = (typeof TRAINING_PERIODS)[number]
+
+export interface TrainingPeriodDateRange {
+  startDate: string
+  endDate: string
+}
 
 const BODY_PART_PRIORITY: readonly BodyPart[] = ['腿', '背', '胸', '肩', '手臂']
 const CALENDAR_DAY_COUNT = 14
@@ -85,6 +99,30 @@ export function getCurrentWeekMondayOffset(): number {
   const dayOfWeek = new Date().getDay()
 
   return dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+}
+
+export function getTrainingPeriodDateRange(
+  period: TrainingPeriod,
+  weekOffset = 0,
+): TrainingPeriodDateRange {
+  const safeWeekOffset = period.canNavigateWeeks ? Math.max(0, weekOffset) : 0
+  const weekDayOffset = safeWeekOffset * 7
+
+  if (period.mode === 'calendarWeek') {
+    const mondayOffset = getCurrentWeekMondayOffset() - weekDayOffset
+
+    return {
+      startDate: getLocalDate(mondayOffset),
+      endDate: getLocalDate(mondayOffset + 6),
+    }
+  }
+
+  const endDayOffset = -weekDayOffset
+
+  return {
+    startDate: getLocalDate(endDayOffset - (period.dayCount - 1)),
+    endDate: getLocalDate(endDayOffset),
+  }
 }
 
 export function formatDisplayDate(date: string): string {

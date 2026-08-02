@@ -30,12 +30,14 @@ const {
   isLoadingBodyPartCounts,
   bodyPartCountsError,
   selectedTrainingPeriodIndex,
+  trainingPeriodWeekOffset,
   trainingPeriodRangeLabel,
   muscleTrainingTotals,
   muscleTrainingSources,
   isLoadingMuscleTrainingTotals,
   muscleTrainingTotalsError,
   selectedMuscleTrainingPeriodIndex,
+  muscleTrainingPeriodWeekOffset,
   muscleTrainingPeriodRangeLabel,
   trainingCalendarDays,
   isLoadingTrainingCalendar,
@@ -46,7 +48,9 @@ const {
   exportStatus,
   exportError,
   changeTrainingPeriod,
+  changeTrainingPeriodWeek,
   changeMuscleTrainingPeriod,
+  changeMuscleTrainingPeriodWeek,
   refreshAfterSetAdded,
   clearDeleteError,
   removeTrainingSet,
@@ -98,20 +102,24 @@ async function confirmDelete(): Promise<void> {
     <BodyPartSummaryCard
       :counts="bodyPartDayCounts"
       :period-index="selectedTrainingPeriodIndex"
+      :week-offset="trainingPeriodWeekOffset"
       :date-range="trainingPeriodRangeLabel"
       :is-loading="isLoadingBodyPartCounts"
       :error="bodyPartCountsError"
       @change-period="changeTrainingPeriod"
+      @change-week="changeTrainingPeriodWeek"
     />
 
     <MuscleVolumeCard
       :totals="muscleTrainingTotals"
       :sources="muscleTrainingSources"
       :period-index="selectedMuscleTrainingPeriodIndex"
+      :week-offset="muscleTrainingPeriodWeekOffset"
       :date-range="muscleTrainingPeriodRangeLabel"
       :is-loading="isLoadingMuscleTrainingTotals"
       :error="muscleTrainingTotalsError"
       @change-period="changeMuscleTrainingPeriod"
+      @change-week="changeMuscleTrainingPeriodWeek"
     />
 
     <TodayRecordsCard

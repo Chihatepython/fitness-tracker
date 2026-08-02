@@ -18,6 +18,7 @@ import {
   formatDisplayDate,
   getCurrentWeekMondayOffset,
   getLocalDate,
+  getTrainingPeriodDateRange,
   type TrainingCalendarDay,
 } from '@/domain/trainingStats'
 
@@ -30,12 +31,14 @@ export function useTrainingDashboard() {
   const isLoadingBodyPartCounts = ref(true)
   const bodyPartCountsError = ref('')
   const selectedTrainingPeriodIndex = ref(0)
+  const trainingPeriodWeekOffset = ref(0)
 
   const muscleTrainingTotals = ref(createEmptyMuscleTrainingTotals())
   const muscleTrainingSources = ref(createEmptyMuscleTrainingSources())
   const isLoadingMuscleTrainingTotals = ref(true)
   const muscleTrainingTotalsError = ref('')
   const selectedMuscleTrainingPeriodIndex = ref(0)
+  const muscleTrainingPeriodWeekOffset = ref(0)
 
   const trainingCalendarDays = ref<TrainingCalendarDay[]>(buildTrainingCalendarDays([]))
   const isLoadingTrainingCalendar = ref(true)
@@ -50,25 +53,29 @@ export function useTrainingDashboard() {
   const selectedTrainingPeriod = computed(
     () => TRAINING_PERIODS[selectedTrainingPeriodIndex.value]!,
   )
-  const trainingPeriodStartDate = computed(() =>
-    getLocalDate(-(selectedTrainingPeriod.value.dayCount - 1)),
+  const trainingPeriodDateRange = computed(() =>
+    getTrainingPeriodDateRange(
+      selectedTrainingPeriod.value,
+      trainingPeriodWeekOffset.value,
+    ),
   )
-  const trainingPeriodEndDate = computed(() => getLocalDate())
   const trainingPeriodRangeLabel = computed(
     () =>
-      `${formatDisplayDate(trainingPeriodStartDate.value)}—${formatDisplayDate(trainingPeriodEndDate.value)}`,
+      `${formatDisplayDate(trainingPeriodDateRange.value.startDate)}—${formatDisplayDate(trainingPeriodDateRange.value.endDate)}`,
   )
 
   const selectedMuscleTrainingPeriod = computed(
     () => TRAINING_PERIODS[selectedMuscleTrainingPeriodIndex.value]!,
   )
-  const muscleTrainingPeriodStartDate = computed(() =>
-    getLocalDate(-(selectedMuscleTrainingPeriod.value.dayCount - 1)),
+  const muscleTrainingPeriodDateRange = computed(() =>
+    getTrainingPeriodDateRange(
+      selectedMuscleTrainingPeriod.value,
+      muscleTrainingPeriodWeekOffset.value,
+    ),
   )
-  const muscleTrainingPeriodEndDate = computed(() => getLocalDate())
   const muscleTrainingPeriodRangeLabel = computed(
     () =>
-      `${formatDisplayDate(muscleTrainingPeriodStartDate.value)}—${formatDisplayDate(muscleTrainingPeriodEndDate.value)}`,
+      `${formatDisplayDate(muscleTrainingPeriodDateRange.value.startDate)}—${formatDisplayDate(muscleTrainingPeriodDateRange.value.endDate)}`,
   )
 
   const currentWeekMondayOffset = getCurrentWeekMondayOffset()
@@ -94,8 +101,8 @@ export function useTrainingDashboard() {
 
     try {
       const trainingSets = await getTrainingSetsByDateRange(
-        trainingPeriodStartDate.value,
-        trainingPeriodEndDate.value,
+        trainingPeriodDateRange.value.startDate,
+        trainingPeriodDateRange.value.endDate,
       )
 
       bodyPartDayCounts.value = calculateBodyPartDayCounts(trainingSets)
@@ -113,8 +120,8 @@ export function useTrainingDashboard() {
 
     try {
       const trainingSets = await getTrainingSetsByDateRange(
-        muscleTrainingPeriodStartDate.value,
-        muscleTrainingPeriodEndDate.value,
+        muscleTrainingPeriodDateRange.value.startDate,
+        muscleTrainingPeriodDateRange.value.endDate,
       )
       const result = calculateMuscleTraining(trainingSets)
 
@@ -146,11 +153,30 @@ export function useTrainingDashboard() {
 
   function changeTrainingPeriod(periodIndex: number): void {
     selectedTrainingPeriodIndex.value = periodIndex
+    trainingPeriodWeekOffset.value = 0
+    void loadBodyPartDayCounts()
+  }
+
+  function changeTrainingPeriodWeek(weekDelta: number): void {
+    if (!selectedTrainingPeriod.value.canNavigateWeeks) return
+
+    trainingPeriodWeekOffset.value = Math.max(0, trainingPeriodWeekOffset.value + weekDelta)
     void loadBodyPartDayCounts()
   }
 
   function changeMuscleTrainingPeriod(periodIndex: number): void {
     selectedMuscleTrainingPeriodIndex.value = periodIndex
+    muscleTrainingPeriodWeekOffset.value = 0
+    void loadMuscleTrainingTotals()
+  }
+
+  function changeMuscleTrainingPeriodWeek(weekDelta: number): void {
+    if (!selectedMuscleTrainingPeriod.value.canNavigateWeeks) return
+
+    muscleTrainingPeriodWeekOffset.value = Math.max(
+      0,
+      muscleTrainingPeriodWeekOffset.value + weekDelta,
+    )
     void loadMuscleTrainingTotals()
   }
 
@@ -233,12 +259,14 @@ export function useTrainingDashboard() {
     isLoadingBodyPartCounts,
     bodyPartCountsError,
     selectedTrainingPeriodIndex,
+    trainingPeriodWeekOffset,
     trainingPeriodRangeLabel,
     muscleTrainingTotals,
     muscleTrainingSources,
     isLoadingMuscleTrainingTotals,
     muscleTrainingTotalsError,
     selectedMuscleTrainingPeriodIndex,
+    muscleTrainingPeriodWeekOffset,
     muscleTrainingPeriodRangeLabel,
     trainingCalendarDays,
     isLoadingTrainingCalendar,
@@ -249,7 +277,9 @@ export function useTrainingDashboard() {
     exportStatus,
     exportError,
     changeTrainingPeriod,
+    changeTrainingPeriodWeek,
     changeMuscleTrainingPeriod,
+    changeMuscleTrainingPeriodWeek,
     refreshAfterSetAdded,
     clearDeleteError,
     removeTrainingSet,

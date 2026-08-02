@@ -7,6 +7,7 @@ import { BODY_PART_DISPLAY_PRIORITY, TRAINING_PERIODS } from '@/domain/trainingS
 const props = defineProps<{
   counts: Record<BodyPart, number>
   periodIndex: number
+  weekOffset: number
   dateRange: string
   isLoading: boolean
   error: string
@@ -14,7 +15,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   changePeriod: [periodIndex: number]
+  changeWeek: [weekDelta: number]
 }>()
+
+const selectedPeriod = computed(() => TRAINING_PERIODS[props.periodIndex]!)
 
 const sortedBodyParts = computed(() =>
   [...BODY_PART_DISPLAY_PRIORITY].sort((left, right) => {
@@ -37,7 +41,27 @@ function handlePeriodChange(event: Event): void {
     <div class="section-heading">
       <div>
         <h2 id="summary-title">主训练部位</h2>
-        <span class="date-range">{{ dateRange }}</span>
+        <div class="period-date-navigation">
+          <button
+            v-if="selectedPeriod.canNavigateWeeks"
+            type="button"
+            :disabled="isLoading"
+            aria-label="查看上一个统计周"
+            @click="emit('changeWeek', 1)"
+          >
+            ‹
+          </button>
+          <span class="date-range">{{ dateRange }}</span>
+          <button
+            v-if="selectedPeriod.canNavigateWeeks"
+            type="button"
+            :disabled="isLoading || weekOffset === 0"
+            aria-label="查看下一个统计周"
+            @click="emit('changeWeek', -1)"
+          >
+            ›
+          </button>
+        </div>
       </div>
       <select
         class="period-select"
@@ -46,7 +70,7 @@ function handlePeriodChange(event: Event): void {
         aria-label="选择统计周期"
         @change="handlePeriodChange"
       >
-        <option v-for="(period, index) in TRAINING_PERIODS" :key="period.dayCount" :value="index">
+        <option v-for="(period, index) in TRAINING_PERIODS" :key="period.id" :value="index">
           {{ period.label }}
         </option>
       </select>
@@ -63,6 +87,40 @@ function handlePeriodChange(event: Event): void {
 </template>
 
 <style scoped>
+.period-date-navigation {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.period-date-navigation .date-range {
+  margin-top: 0;
+}
+
+.period-date-navigation button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0 0 2px;
+  border: 1px solid #d5ddd1;
+  border-radius: 7px;
+  outline: none;
+  background: #fff;
+  color: #46634d;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.period-date-navigation button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
 .body-part-list {
   overflow: hidden;
   display: grid;
