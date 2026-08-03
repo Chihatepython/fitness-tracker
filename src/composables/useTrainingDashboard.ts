@@ -16,8 +16,8 @@ import {
   createEmptyMuscleTrainingSources,
   createEmptyMuscleTrainingTotals,
   formatDisplayDate,
-  getCurrentWeekMondayOffset,
   getLocalDate,
+  getTrainingCalendarRange,
   getTrainingPeriodDateRange,
   type TrainingCalendarDay,
 } from '@/domain/trainingStats'
@@ -40,7 +40,10 @@ export function useTrainingDashboard() {
   const selectedMuscleTrainingPeriodIndex = ref(0)
   const muscleTrainingPeriodWeekOffset = ref(0)
 
-  const trainingCalendarDays = ref<TrainingCalendarDay[]>(buildTrainingCalendarDays([]))
+  const trainingCalendarRange = getTrainingCalendarRange()
+  const trainingCalendarDays = ref<TrainingCalendarDay[]>(
+    buildTrainingCalendarDays([], trainingCalendarRange),
+  )
   const isLoadingTrainingCalendar = ref(true)
   const trainingCalendarError = ref('')
 
@@ -77,10 +80,6 @@ export function useTrainingDashboard() {
     () =>
       `${formatDisplayDate(muscleTrainingPeriodDateRange.value.startDate)}—${formatDisplayDate(muscleTrainingPeriodDateRange.value.endDate)}`,
   )
-
-  const currentWeekMondayOffset = getCurrentWeekMondayOffset()
-  const calendarStartDate = getLocalDate(currentWeekMondayOffset - 7)
-  const calendarEndDate = getLocalDate(currentWeekMondayOffset + 6)
 
   async function loadTodaySets(): Promise<void> {
     isLoadingTodaySets.value = true
@@ -140,9 +139,12 @@ export function useTrainingDashboard() {
     trainingCalendarError.value = ''
 
     try {
-      const trainingSets = await getTrainingSetsByDateRange(calendarStartDate, calendarEndDate)
+      const trainingSets = await getTrainingSetsByDateRange(
+        trainingCalendarRange.startDate,
+        trainingCalendarRange.endDate,
+      )
 
-      trainingCalendarDays.value = buildTrainingCalendarDays(trainingSets)
+      trainingCalendarDays.value = buildTrainingCalendarDays(trainingSets, trainingCalendarRange)
     } catch (error: unknown) {
       trainingCalendarError.value =
         error instanceof Error ? error.message : '无法读取训练日历'

@@ -1,15 +1,38 @@
 <script setup lang="ts">
+import { nextTick, ref, watch } from 'vue'
+
 import {
   CALENDAR_WEEKDAYS,
   getCalendarDayAriaLabel,
   type TrainingCalendarDay,
 } from '@/domain/trainingStats'
 
-defineProps<{
+const props = defineProps<{
   days: TrainingCalendarDay[]
   isLoading: boolean
   error: string
 }>()
+
+const calendarScroll = ref<HTMLDivElement>()
+
+function formatCalendarDay(calendarDay: TrainingCalendarDay): string {
+  if (calendarDay.dayOfMonth !== 1) return String(calendarDay.dayOfMonth)
+
+  return `${Number(calendarDay.date.slice(5, 7))}/1`
+}
+
+watch(
+  () => [props.isLoading, props.days] as const,
+  async ([isLoading]) => {
+    if (isLoading) return
+
+    await nextTick()
+
+    const scrollElement = calendarScroll.value
+    if (scrollElement) scrollElement.scrollTop = scrollElement.scrollHeight
+  },
+  { flush: 'post', immediate: true },
+)
 </script>
 
 <template>
@@ -25,22 +48,30 @@ defineProps<{
         <ol class="calendar-weekdays" aria-hidden="true">
           <li v-for="weekday in CALENDAR_WEEKDAYS" :key="weekday">{{ weekday }}</li>
         </ol>
-        <ol class="calendar-grid">
-          <li
-            v-for="calendarDay in days"
-            :key="calendarDay.date"
-            class="calendar-day"
-            :class="{ today: calendarDay.isToday, future: calendarDay.isFuture }"
-            :data-body-part="calendarDay.bodyPart"
-          >
-            <time :datetime="calendarDay.date" :aria-label="getCalendarDayAriaLabel(calendarDay)">
-              <strong>{{ calendarDay.dayOfMonth }}</strong>
-            </time>
-            <span class="calendar-body-part">
-              {{ calendarDay.isFuture ? '—' : (calendarDay.bodyPart ?? '') }}
-            </span>
-          </li>
-        </ol>
+        <div
+          ref="calendarScroll"
+          class="calendar-scroll"
+          role="region"
+          aria-label="可上下滑动的训练日历"
+          tabindex="0"
+        >
+          <ol class="calendar-grid">
+            <li
+              v-for="calendarDay in days"
+              :key="calendarDay.date"
+              class="calendar-day"
+              :class="{ today: calendarDay.isToday, future: calendarDay.isFuture }"
+              :data-body-part="calendarDay.bodyPart"
+            >
+              <time :datetime="calendarDay.date" :aria-label="getCalendarDayAriaLabel(calendarDay)">
+                <strong>{{ formatCalendarDay(calendarDay) }}</strong>
+              </time>
+              <span class="calendar-body-part">
+                {{ calendarDay.isFuture ? '—' : (calendarDay.bodyPart ?? '') }}
+              </span>
+            </li>
+          </ol>
+        </div>
       </div>
     </div>
   </section>
@@ -79,6 +110,19 @@ defineProps<{
   text-align: center;
 }
 
+.calendar-scroll {
+  height: 130px;
+  overflow-y: auto;
+  scroll-snap-type: y proximity;
+  scrollbar-width: none;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.calendar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .calendar-day {
   display: flex;
   min-width: 0;
@@ -92,6 +136,10 @@ defineProps<{
   border-radius: 12px;
   background: #fff;
   color: #405047;
+}
+
+.calendar-day:nth-child(7n + 1) {
+  scroll-snap-align: start;
 }
 
 .calendar-day time {
@@ -143,7 +191,7 @@ defineProps<{
 }
 
 .calendar-day.today {
-  box-shadow: 0 0 0 2px #365640;
+  box-shadow: inset 0 0 0 2px #365640;
 }
 
 .calendar-status {

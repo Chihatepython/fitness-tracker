@@ -29,8 +29,6 @@ export interface TrainingPeriodDateRange {
 }
 
 const BODY_PART_PRIORITY: readonly BodyPart[] = ['腿', '背', '胸', '肩', '手臂']
-const CALENDAR_DAY_COUNT = 14
-
 export type MuscleRegion = '肩' | '屈肘' | '伸肘' | '前臂' | '背' | '胸' | '腿'
 
 export const MUSCLE_GROUPS = [
@@ -63,6 +61,13 @@ export interface TrainingCalendarDay {
   bodyPart?: BodyPart
   isToday: boolean
   isFuture: boolean
+}
+
+export interface TrainingCalendarRange {
+  startDate: string
+  endDate: string
+  firstDayOffset: number
+  dayCount: number
 }
 
 export interface MuscleSourceContribution {
@@ -99,6 +104,42 @@ export function getCurrentWeekMondayOffset(): number {
   const dayOfWeek = new Date().getDay()
 
   return dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+}
+
+export function getTrainingCalendarRange(): TrainingCalendarRange {
+  const today = new Date()
+  today.setHours(12, 0, 0, 0)
+
+  const historyBoundary = new Date(today)
+  const currentDayOfMonth = historyBoundary.getDate()
+
+  historyBoundary.setDate(1)
+  historyBoundary.setMonth(historyBoundary.getMonth() - 2)
+
+  const lastDayOfHistoryMonth = new Date(
+    historyBoundary.getFullYear(),
+    historyBoundary.getMonth() + 1,
+    0,
+  ).getDate()
+
+  historyBoundary.setDate(Math.min(currentDayOfMonth, lastDayOfHistoryMonth))
+
+  const boundaryDayOfWeek = historyBoundary.getDay()
+  const boundaryMondayOffset = boundaryDayOfWeek === 0 ? -6 : 1 - boundaryDayOfWeek
+
+  historyBoundary.setDate(historyBoundary.getDate() + boundaryMondayOffset)
+
+  const firstDayOffset = Math.round(
+    (historyBoundary.getTime() - today.getTime()) / (24 * 60 * 60 * 1000),
+  )
+  const lastDayOffset = getCurrentWeekMondayOffset() + 6
+
+  return {
+    startDate: getLocalDate(firstDayOffset),
+    endDate: getLocalDate(lastDayOffset),
+    firstDayOffset,
+    dayCount: lastDayOffset - firstDayOffset + 1,
+  }
 }
 
 export function getTrainingPeriodDateRange(
@@ -210,13 +251,15 @@ export function calculateBodyPartDayCounts(
   return result
 }
 
-export function buildTrainingCalendarDays(trainingSets: TrainingSet[]): TrainingCalendarDay[] {
+export function buildTrainingCalendarDays(
+  trainingSets: TrainingSet[],
+  range = getTrainingCalendarRange(),
+): TrainingCalendarDay[] {
   const countsByDate = getBodyPartCountsByDate(trainingSets)
   const today = getLocalDate()
-  const firstCalendarDayOffset = getCurrentWeekMondayOffset() - 7
 
-  return Array.from({ length: CALENDAR_DAY_COUNT }, (_, index) => {
-    const date = getLocalDate(firstCalendarDayOffset + index)
+  return Array.from({ length: range.dayCount }, (_, index) => {
+    const date = getLocalDate(range.firstDayOffset + index)
     const dayOfMonth = Number(date.slice(8, 10))
     const isFuture = date > today
 
