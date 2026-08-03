@@ -87,22 +87,35 @@ function handlePeriodChange(event: Event): void {
 </template>
 
 <style scoped>
+.section-heading {
+  position: relative;
+  display: block;
+}
+
+.section-heading .period-select {
+  position: absolute;
+  right: 0;
+  bottom: 34px;
+}
+
 .period-date-navigation {
   display: flex;
-  min-height: 24px;
+  min-height: 28px;
   align-items: center;
-  gap: 5px;
+  gap: 10px;
+  justify-content: center;
   margin-top: 6px;
 }
 
 .period-date-navigation .date-range {
   margin-top: 0;
+  font-size: 0.88rem;
 }
 
 .period-date-navigation button {
   display: grid;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   padding: 0 0 2px;
   border: 1px solid #d5ddd1;
@@ -110,7 +123,7 @@ function handlePeriodChange(event: Event): void {
   outline: none;
   background: #fff;
   color: #46634d;
-  font-size: 1.1rem;
+  font-size: 1.35rem;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -124,7 +137,7 @@ function handlePeriodChange(event: Event): void {
 .body-part-list {
   overflow: hidden;
   display: grid;
-  margin-top: 16px;
+  margin-top: 8px;
   border: 1px solid #e4e9e1;
   border-radius: 16px;
   background: #f7f9f5;
