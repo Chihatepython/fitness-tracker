@@ -35,6 +35,7 @@ export function useTrainingDashboard() {
 
   const muscleTrainingTotals = ref(createEmptyMuscleTrainingTotals())
   const muscleTrainingSources = ref(createEmptyMuscleTrainingSources())
+  const muscleTrainingSetCount = ref(0)
   const isLoadingMuscleTrainingTotals = ref(true)
   const muscleTrainingTotalsError = ref('')
   const selectedMuscleTrainingPeriodIndex = ref(0)
@@ -69,6 +70,9 @@ export function useTrainingDashboard() {
 
   const selectedMuscleTrainingPeriod = computed(
     () => TRAINING_PERIODS[selectedMuscleTrainingPeriodIndex.value]!,
+  )
+  const todayMuscleTrainingTotals = computed(
+    () => calculateMuscleTraining(todaySets.value).totals,
   )
   const muscleTrainingPeriodDateRange = computed(() =>
     getTrainingPeriodDateRange(
@@ -126,6 +130,7 @@ export function useTrainingDashboard() {
 
       muscleTrainingTotals.value = result.totals
       muscleTrainingSources.value = result.sources
+      muscleTrainingSetCount.value = trainingSets.length
     } catch (error: unknown) {
       muscleTrainingTotalsError.value =
         error instanceof Error ? error.message : '无法读取肌束训练量'
@@ -265,6 +270,8 @@ export function useTrainingDashboard() {
     trainingPeriodRangeLabel,
     muscleTrainingTotals,
     muscleTrainingSources,
+    muscleTrainingSetCount,
+    todayMuscleTrainingTotals,
     isLoadingMuscleTrainingTotals,
     muscleTrainingTotalsError,
     selectedMuscleTrainingPeriodIndex,

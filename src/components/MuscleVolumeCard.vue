@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 
 import MuscleSourceDialog from '@/components/MuscleSourceDialog.vue'
+import MuscleTableSettingsDialog from '@/components/MuscleTableSettingsDialog.vue'
 import {
   MUSCLE_GROUPS,
   TRAINING_PERIODS,
@@ -10,13 +11,18 @@ import {
   type MuscleTrainingSources,
 } from '@/domain/trainingStats'
 
+const SHOW_TODAY_COLUMN_KEY = 'fitness-tracker:show-today-muscle-column'
+
 const props = defineProps<{
   totals: Record<MuscleName, number>
   sources: MuscleTrainingSources
+  todayTotals: Record<MuscleName, number>
+  trainingSetCount: number
   periodIndex: number
   weekOffset: number
   dateRange: string
   isLoading: boolean
+  isLoadingToday: boolean
   error: string
 }>()
 
@@ -26,6 +32,8 @@ const emit = defineEmits<{
 }>()
 
 const selectedMuscle = ref<MuscleName>()
+const isTableSettingsOpen = ref(false)
+const showTodayColumn = ref(localStorage.getItem(SHOW_TODAY_COLUMN_KEY) === 'true')
 const selectedPeriod = computed(() => TRAINING_PERIODS[props.periodIndex]!)
 const visibleMuscleGroups = computed(() =>
   MUSCLE_GROUPS.map((group) => ({
@@ -42,6 +50,11 @@ const selectedMuscleTotal = computed(() =>
 
 function handlePeriodChange(event: Event): void {
   emit('changePeriod', Number((event.target as HTMLSelectElement).value))
+}
+
+function toggleTodayColumn(): void {
+  showTodayColumn.value = !showTodayColumn.value
+  localStorage.setItem(SHOW_TODAY_COLUMN_KEY, String(showTodayColumn.value))
 }
 </script>
 
@@ -70,6 +83,14 @@ function handlePeriodChange(event: Event): void {
           >
             ›
           </button>
+          <button
+            class="table-settings-button"
+            type="button"
+            aria-label="打开肌束表格设置"
+            @click="isTableSettingsOpen = true"
+          >
+            <span aria-hidden="true">⚙︎</span>
+          </button>
         </div>
       </div>
       <select
@@ -85,18 +106,31 @@ function handlePeriodChange(event: Event): void {
       </select>
     </div>
 
+    <div class="muscle-set-summary" aria-live="polite">
+      <span>实际训练组数</span>
+      <strong>{{ isLoading ? '—' : trainingSetCount }}<small> 组</small></strong>
+    </div>
+
     <div v-if="visibleMuscleGroups.length" class="muscle-table-wrapper">
-      <table class="muscle-table">
+      <table class="muscle-table" :class="{ 'show-today-column': showTodayColumn }">
         <colgroup>
           <col class="muscle-body-part-column" />
           <col class="muscle-name-column" />
           <col class="muscle-total-column" />
+          <col v-if="showTodayColumn" class="muscle-today-column" />
         </colgroup>
         <thead>
           <tr>
             <th scope="col">区域</th>
             <th scope="col">细分肌肉</th>
-            <th scope="col">加权组数</th>
+            <th class="muscle-number-heading" scope="col">区间加权</th>
+            <th
+              v-if="showTodayColumn"
+              class="muscle-number-heading"
+              scope="col"
+            >
+              今日新增
+            </th>
           </tr>
         </thead>
         <tbody v-for="group in visibleMuscleGroups" :key="group.region">
@@ -122,6 +156,15 @@ function handlePeriodChange(event: Event): void {
                 {{ isLoading ? '—' : formatWeightedSetCount(totals[muscle]) }}
               </button>
             </td>
+            <td v-if="showTodayColumn" class="muscle-total muscle-today-total">
+              {{
+                isLoadingToday
+                  ? '—'
+                  : todayTotals[muscle] > 0
+                    ? formatWeightedSetCount(todayTotals[muscle])
+                    : ''
+              }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -130,6 +173,13 @@ function handlePeriodChange(event: Event): void {
     <p v-else-if="!error" class="muscle-table-status">所选时间段暂无肌束训练量</p>
     <p v-if="error" class="section-error" role="alert">{{ error }}</p>
   </section>
+
+  <MuscleTableSettingsDialog
+    :open="isTableSettingsOpen"
+    :show-today-column="showTodayColumn"
+    @close="isTableSettingsOpen = false"
+    @toggle-today-column="toggleTodayColumn"
+  />
 
   <MuscleSourceDialog
     :muscle="selectedMuscle"
@@ -153,6 +203,7 @@ function handlePeriodChange(event: Event): void {
 }
 
 .period-date-navigation {
+  position: relative;
   display: flex;
   min-height: 28px;
   align-items: center;
@@ -186,6 +237,42 @@ function handlePeriodChange(event: Event): void {
 .period-date-navigation button:disabled {
   cursor: default;
   opacity: 0.35;
+}
+
+.muscle-set-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f1f5ee;
+  color: #58675f;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.muscle-set-summary strong {
+  color: #234a31;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.muscle-set-summary small {
+  font-size: 0.75rem;
+}
+
+.period-date-navigation .table-settings-button {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  font-size: 1rem;
+}
+
+.table-settings-button span {
+  display: block;
+  line-height: 1;
 }
 
 .muscle-table-wrapper {
@@ -225,6 +312,15 @@ function handlePeriodChange(event: Event): void {
   width: 30%;
 }
 
+.muscle-table.show-today-column .muscle-name-column {
+  width: 42%;
+}
+
+.muscle-table.show-today-column .muscle-total-column,
+.muscle-table.show-today-column .muscle-today-column {
+  width: 22%;
+}
+
 .muscle-table th,
 .muscle-table td {
   padding: 11px 10px;
@@ -241,9 +337,12 @@ function handlePeriodChange(event: Event): void {
   text-align: left;
 }
 
+.muscle-table thead .muscle-number-heading {
+  text-align: right;
+}
+
 .muscle-table thead th:last-child {
   padding-right: 16px;
-  text-align: right;
 }
 
 .muscle-table tbody + tbody tr:first-child > *,
@@ -315,12 +414,22 @@ function handlePeriodChange(event: Event): void {
 }
 
 .muscle-table td.muscle-total {
-  padding-right: 16px;
+  padding-right: 10px;
+  padding-left: 6px;
   color: #234a31;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   text-align: right;
+}
+
+.muscle-table td.muscle-total:last-child {
+  padding-right: 16px;
+}
+
+.muscle-table td.muscle-today-total {
+  color: #b4423c;
+  white-space: nowrap;
 }
 
 .muscle-total-button {

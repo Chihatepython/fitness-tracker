@@ -34,6 +34,8 @@ const {
   trainingPeriodRangeLabel,
   muscleTrainingTotals,
   muscleTrainingSources,
+  muscleTrainingSetCount,
+  todayMuscleTrainingTotals,
   isLoadingMuscleTrainingTotals,
   muscleTrainingTotalsError,
   selectedMuscleTrainingPeriodIndex,
@@ -113,10 +115,13 @@ async function confirmDelete(): Promise<void> {
     <MuscleVolumeCard
       :totals="muscleTrainingTotals"
       :sources="muscleTrainingSources"
+      :today-totals="todayMuscleTrainingTotals"
+      :training-set-count="muscleTrainingSetCount"
       :period-index="selectedMuscleTrainingPeriodIndex"
       :week-offset="muscleTrainingPeriodWeekOffset"
       :date-range="muscleTrainingPeriodRangeLabel"
       :is-loading="isLoadingMuscleTrainingTotals"
+      :is-loading-today="isLoadingTodaySets"
       :error="muscleTrainingTotalsError"
       @change-period="changeMuscleTrainingPeriod"
       @change-week="changeMuscleTrainingPeriodWeek"
