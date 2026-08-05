@@ -6,7 +6,6 @@ import {
   type TrainingSet,
 } from '@/database'
 
-export const BODY_PART_DISPLAY_PRIORITY: readonly BodyPart[] = ['肩', '手臂', '背', '胸', '腿']
 export const CALENDAR_WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const
 export const TRAINING_PERIODS = [
   { id: 'rolling7', label: '最近 7 天', dayCount: 7, mode: 'rolling', canNavigateWeeks: true },
@@ -234,21 +233,6 @@ function getDominantBodyPart(
   }
 
   return dominantBodyPart
-}
-
-export function calculateBodyPartDayCounts(
-  trainingSets: TrainingSet[],
-): Record<BodyPart, number> {
-  const countsByDate = getBodyPartCountsByDate(trainingSets)
-  const result = createEmptyBodyPartCounts()
-
-  for (const dateCounts of countsByDate.values()) {
-    const dominantBodyPart = getDominantBodyPart(dateCounts)
-
-    if (dominantBodyPart) result[dominantBodyPart] += 1
-  }
-
-  return result
 }
 
 export function buildTrainingCalendarDays(

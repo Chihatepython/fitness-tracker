@@ -10,9 +10,7 @@ import {
 import {
   TRAINING_PERIODS,
   buildTrainingCalendarDays,
-  calculateBodyPartDayCounts,
   calculateMuscleTraining,
-  createEmptyBodyPartCounts,
   createEmptyMuscleTrainingSources,
   createEmptyMuscleTrainingTotals,
   formatDisplayDate,
@@ -26,12 +24,6 @@ export function useTrainingDashboard() {
   const todaySets = ref<TrainingSet[]>([])
   const isLoadingTodaySets = ref(true)
   const todaySetsError = ref('')
-
-  const bodyPartDayCounts = ref(createEmptyBodyPartCounts())
-  const isLoadingBodyPartCounts = ref(true)
-  const bodyPartCountsError = ref('')
-  const selectedTrainingPeriodIndex = ref(0)
-  const trainingPeriodWeekOffset = ref(0)
 
   const muscleTrainingTotals = ref(createEmptyMuscleTrainingTotals())
   const muscleTrainingSources = ref(createEmptyMuscleTrainingSources())
@@ -53,20 +45,6 @@ export function useTrainingDashboard() {
   const isExporting = ref(false)
   const exportStatus = ref('')
   const exportError = ref('')
-
-  const selectedTrainingPeriod = computed(
-    () => TRAINING_PERIODS[selectedTrainingPeriodIndex.value]!,
-  )
-  const trainingPeriodDateRange = computed(() =>
-    getTrainingPeriodDateRange(
-      selectedTrainingPeriod.value,
-      trainingPeriodWeekOffset.value,
-    ),
-  )
-  const trainingPeriodRangeLabel = computed(
-    () =>
-      `${formatDisplayDate(trainingPeriodDateRange.value.startDate)}—${formatDisplayDate(trainingPeriodDateRange.value.endDate)}`,
-  )
 
   const selectedMuscleTrainingPeriod = computed(
     () => TRAINING_PERIODS[selectedMuscleTrainingPeriodIndex.value]!,
@@ -95,25 +73,6 @@ export function useTrainingDashboard() {
       todaySetsError.value = error instanceof Error ? error.message : '无法读取今日记录'
     } finally {
       isLoadingTodaySets.value = false
-    }
-  }
-
-  async function loadBodyPartDayCounts(): Promise<void> {
-    isLoadingBodyPartCounts.value = true
-    bodyPartCountsError.value = ''
-
-    try {
-      const trainingSets = await getTrainingSetsByDateRange(
-        trainingPeriodDateRange.value.startDate,
-        trainingPeriodDateRange.value.endDate,
-      )
-
-      bodyPartDayCounts.value = calculateBodyPartDayCounts(trainingSets)
-    } catch (error: unknown) {
-      bodyPartCountsError.value =
-        error instanceof Error ? error.message : '无法读取训练部位统计'
-    } finally {
-      isLoadingBodyPartCounts.value = false
     }
   }
 
@@ -158,19 +117,6 @@ export function useTrainingDashboard() {
     }
   }
 
-  function changeTrainingPeriod(periodIndex: number): void {
-    selectedTrainingPeriodIndex.value = periodIndex
-    trainingPeriodWeekOffset.value = 0
-    void loadBodyPartDayCounts()
-  }
-
-  function changeTrainingPeriodWeek(weekDelta: number): void {
-    if (!selectedTrainingPeriod.value.canNavigateWeeks) return
-
-    trainingPeriodWeekOffset.value = Math.max(0, trainingPeriodWeekOffset.value + weekDelta)
-    void loadBodyPartDayCounts()
-  }
-
   function changeMuscleTrainingPeriod(periodIndex: number): void {
     selectedMuscleTrainingPeriodIndex.value = periodIndex
     muscleTrainingPeriodWeekOffset.value = 0
@@ -189,7 +135,6 @@ export function useTrainingDashboard() {
 
   function refreshAfterSetAdded(): void {
     void loadTodaySets()
-    void loadBodyPartDayCounts()
     void loadMuscleTrainingTotals()
     void loadTrainingCalendar()
   }
@@ -207,11 +152,7 @@ export function useTrainingDashboard() {
       todaySets.value = todaySets.value.filter(
         (trainingSet) => trainingSet.id !== trainingSetId,
       )
-      await Promise.all([
-        loadBodyPartDayCounts(),
-        loadMuscleTrainingTotals(),
-        loadTrainingCalendar(),
-      ])
+      await Promise.all([loadMuscleTrainingTotals(), loadTrainingCalendar()])
 
       return true
     } catch (error: unknown) {
@@ -253,7 +194,6 @@ export function useTrainingDashboard() {
 
   onMounted(() => {
     void loadTodaySets()
-    void loadBodyPartDayCounts()
     void loadMuscleTrainingTotals()
     void loadTrainingCalendar()
   })
@@ -262,12 +202,6 @@ export function useTrainingDashboard() {
     todaySets,
     isLoadingTodaySets,
     todaySetsError,
-    bodyPartDayCounts,
-    isLoadingBodyPartCounts,
-    bodyPartCountsError,
-    selectedTrainingPeriodIndex,
-    trainingPeriodWeekOffset,
-    trainingPeriodRangeLabel,
     muscleTrainingTotals,
     muscleTrainingSources,
     muscleTrainingSetCount,
@@ -285,8 +219,6 @@ export function useTrainingDashboard() {
     isExporting,
     exportStatus,
     exportError,
-    changeTrainingPeriod,
-    changeTrainingPeriodWeek,
     changeMuscleTrainingPeriod,
     changeMuscleTrainingPeriodWeek,
     refreshAfterSetAdded,

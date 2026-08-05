@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 
 import AddSetDialog from '@/components/AddSetDialog.vue'
-import BodyPartSummaryCard from '@/components/BodyPartSummaryCard.vue'
 import DeleteSetDialog from '@/components/DeleteSetDialog.vue'
 import MuscleVolumeCard from '@/components/MuscleVolumeCard.vue'
 import TodayRecordsCard from '@/components/TodayRecordsCard.vue'
@@ -26,12 +25,6 @@ const {
   todaySets,
   isLoadingTodaySets,
   todaySetsError,
-  bodyPartDayCounts,
-  isLoadingBodyPartCounts,
-  bodyPartCountsError,
-  selectedTrainingPeriodIndex,
-  trainingPeriodWeekOffset,
-  trainingPeriodRangeLabel,
   muscleTrainingTotals,
   muscleTrainingSources,
   muscleTrainingSetCount,
@@ -49,8 +42,6 @@ const {
   isExporting,
   exportStatus,
   exportError,
-  changeTrainingPeriod,
-  changeTrainingPeriodWeek,
   changeMuscleTrainingPeriod,
   changeMuscleTrainingPeriodWeek,
   refreshAfterSetAdded,
@@ -99,17 +90,6 @@ async function confirmDelete(): Promise<void> {
       :days="trainingCalendarDays"
       :is-loading="isLoadingTrainingCalendar"
       :error="trainingCalendarError"
-    />
-
-    <BodyPartSummaryCard
-      :counts="bodyPartDayCounts"
-      :period-index="selectedTrainingPeriodIndex"
-      :week-offset="trainingPeriodWeekOffset"
-      :date-range="trainingPeriodRangeLabel"
-      :is-loading="isLoadingBodyPartCounts"
-      :error="bodyPartCountsError"
-      @change-period="changeTrainingPeriod"
-      @change-week="changeTrainingPeriodWeek"
     />
 
     <MuscleVolumeCard
