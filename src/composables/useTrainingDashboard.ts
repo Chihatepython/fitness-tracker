@@ -5,6 +5,8 @@ import {
   getAllTrainingSets,
   getTrainingSetsByDate,
   getTrainingSetsByDateRange,
+  parseTrainingSetImport,
+  replaceAllTrainingSets,
   type TrainingSet,
 } from '@/database'
 import {
@@ -45,6 +47,9 @@ export function useTrainingDashboard() {
   const isExporting = ref(false)
   const exportStatus = ref('')
   const exportError = ref('')
+  const isImporting = ref(false)
+  const importStatus = ref('')
+  const importError = ref('')
 
   const selectedMuscleTrainingPeriod = computed(
     () => TRAINING_PERIODS[selectedMuscleTrainingPeriodIndex.value]!,
@@ -192,6 +197,75 @@ export function useTrainingDashboard() {
     }
   }
 
+  function areTrainingSetsEqual(left: TrainingSet, right: TrainingSet): boolean {
+    return (
+      left.id === right.id &&
+      left.date === right.date &&
+      left.exerciseId === right.exerciseId &&
+      left.weightKg === right.weightKg &&
+      left.reps === right.reps &&
+      left.rir === right.rir &&
+      (left.createdAt ?? null) === (right.createdAt ?? null)
+    )
+  }
+
+  async function importTrainingRecords(file: File): Promise<void> {
+    if (isImporting.value) return
+
+    isImporting.value = true
+    importStatus.value = ''
+    importError.value = ''
+
+    try {
+      const fileValue = JSON.parse(await file.text()) as unknown
+      const importedTrainingSets = parseTrainingSetImport(fileValue)
+      const currentTrainingSets = await getAllTrainingSets()
+      const currentById = new Map(currentTrainingSets.map((trainingSet) => [trainingSet.id, trainingSet]))
+      const importedById = new Map(
+        importedTrainingSets.map((trainingSet) => [trainingSet.id, trainingSet]),
+      )
+      const importedOnlyCount = importedTrainingSets.filter(
+        (trainingSet) => !currentById.has(trainingSet.id),
+      ).length
+      const currentOnlyCount = currentTrainingSets.filter(
+        (trainingSet) => !importedById.has(trainingSet.id),
+      ).length
+      const changedCount = importedTrainingSets.filter((trainingSet) => {
+        const currentTrainingSet = currentById.get(trainingSet.id)
+
+        return currentTrainingSet && !areTrainingSetsEqual(currentTrainingSet, trainingSet)
+      }).length
+      const shouldImport = window.confirm(
+        [
+          `文件中有 ${importedTrainingSets.length} 条记录，当前网页有 ${currentTrainingSets.length} 条。`,
+          `文件新增：${importedOnlyCount} 条`,
+          `当前独有且将被删除：${currentOnlyCount} 条`,
+          `相同 ID 但内容不同：${changedCount} 条`,
+          '',
+          '继续后将用文件中的记录完全覆盖当前网页数据。是否继续？',
+        ].join('\n'),
+      )
+
+      if (!shouldImport) {
+        importStatus.value = '已取消导入，现有数据没有变化'
+        return
+      }
+
+      await replaceAllTrainingSets(importedTrainingSets)
+      await Promise.all([loadTodaySets(), loadMuscleTrainingTotals(), loadTrainingCalendar()])
+      importStatus.value = `已导入 ${importedTrainingSets.length} 条训练记录`
+    } catch (error: unknown) {
+      importError.value =
+        error instanceof SyntaxError
+          ? 'JSON 文件格式无效'
+          : error instanceof Error
+            ? error.message
+            : '导入训练记录失败'
+    } finally {
+      isImporting.value = false
+    }
+  }
+
   onMounted(() => {
     void loadTodaySets()
     void loadMuscleTrainingTotals()
@@ -219,11 +293,15 @@ export function useTrainingDashboard() {
     isExporting,
     exportStatus,
     exportError,
+    isImporting,
+    importStatus,
+    importError,
     changeMuscleTrainingPeriod,
     changeMuscleTrainingPeriodWeek,
     refreshAfterSetAdded,
     clearDeleteError,
     removeTrainingSet,
     exportTrainingRecords,
+    importTrainingRecords,
   }
 }

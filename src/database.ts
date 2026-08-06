@@ -358,6 +358,68 @@ function validateTrainingSet(trainingSet: TrainingSet): void {
   if (!Number.isInteger(trainingSet.rir) || trainingSet.rir < 0) {
     throw new Error('RIR 必须是非负整数')
   }
+
+  if (
+    trainingSet.createdAt !== undefined &&
+    (!Number.isInteger(trainingSet.createdAt) || trainingSet.createdAt < 0)
+  ) {
+    throw new Error('记录创建时间无效')
+  }
+}
+
+export function parseTrainingSetImport(value: unknown): TrainingSet[] {
+  if (!Array.isArray(value)) throw new Error('JSON 顶层必须是训练记录数组')
+  if (value.length === 0) throw new Error('导入文件中没有训练记录')
+
+  const trainingSets = value.map((item, index) => {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+      throw new Error(`第 ${index + 1} 条记录格式无效`)
+    }
+
+    const record = item as Record<string, unknown>
+
+    if (
+      typeof record.id !== 'string' ||
+      typeof record.date !== 'string' ||
+      typeof record.exerciseId !== 'string' ||
+      typeof record.weightKg !== 'number' ||
+      typeof record.reps !== 'number' ||
+      typeof record.rir !== 'number' ||
+      (record.createdAt !== undefined && typeof record.createdAt !== 'number')
+    ) {
+      throw new Error(`第 ${index + 1} 条记录的字段类型无效`)
+    }
+
+    const trainingSet: TrainingSet = {
+      id: record.id,
+      date: record.date,
+      exerciseId: record.exerciseId as ExerciseId,
+      weightKg: record.weightKg,
+      reps: record.reps,
+      rir: record.rir,
+    }
+
+    if (record.createdAt !== undefined) trainingSet.createdAt = record.createdAt
+
+    try {
+      validateTrainingSet(trainingSet)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '内容无效'
+
+      throw new Error(`第 ${index + 1} 条记录：${message}`)
+    }
+
+    return trainingSet
+  })
+
+  const ids = new Set<string>()
+
+  for (const trainingSet of trainingSets) {
+    if (ids.has(trainingSet.id)) throw new Error(`导入文件中存在重复 ID：${trainingSet.id}`)
+    ids.add(trainingSet.id)
+  }
+
+  return trainingSets
 }
 
 let databasePromise: Promise<IDBDatabase> | undefined
@@ -464,6 +526,30 @@ export async function getAllTrainingSets(): Promise<TrainingSet[]> {
       (left.createdAt ?? 0) - (right.createdAt ?? 0) ||
       left.id.localeCompare(right.id),
   )
+}
+
+export async function replaceAllTrainingSets(trainingSets: TrainingSet[]): Promise<void> {
+  const ids = new Set<string>()
+
+  for (const trainingSet of trainingSets) {
+    validateTrainingSet(trainingSet)
+    if (ids.has(trainingSet.id)) throw new Error(`训练记录 ID 重复：${trainingSet.id}`)
+    ids.add(trainingSet.id)
+  }
+
+  const database = await openFitnessDatabase()
+
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(SETS_STORE_NAME, 'readwrite')
+    const setsStore = transaction.objectStore(SETS_STORE_NAME)
+
+    setsStore.clear()
+    for (const trainingSet of trainingSets) setsStore.add(trainingSet)
+
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
+    transaction.onabort = () => reject(transaction.error)
+  })
 }
 
 export async function deleteTrainingSet(id: string): Promise<void> {

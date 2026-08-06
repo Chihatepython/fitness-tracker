@@ -12,6 +12,7 @@ import { type TrainingSet } from '@/database'
 const DELETE_MODE_KEY = 'fitness-tracker:delete-mode'
 
 const addSetDialog = ref<InstanceType<typeof AddSetDialog>>()
+const importFileInput = ref<HTMLInputElement>()
 const deleteMode = ref(localStorage.getItem(DELETE_MODE_KEY) === 'true')
 const pendingDeleteSet = ref<TrainingSet>()
 
@@ -36,13 +37,36 @@ const {
   isExporting,
   exportStatus,
   exportError,
+  isImporting,
+  importStatus,
+  importError,
   changeMuscleTrainingPeriod,
   changeMuscleTrainingPeriodWeek,
   refreshAfterSetAdded,
   clearDeleteError,
   removeTrainingSet,
   exportTrainingRecords,
+  importTrainingRecords,
 } = useTrainingDashboard()
+
+function openImportFilePicker(): void {
+  if (isImporting.value || isExporting.value) return
+
+  if (importFileInput.value) {
+    importFileInput.value.value = ''
+    importFileInput.value.click()
+  }
+}
+
+async function handleImportFileChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+
+  if (!file) return
+
+  await importTrainingRecords(file)
+  input.value = ''
+}
 
 function toggleDeleteMode(): void {
   deleteMode.value = !deleteMode.value
@@ -102,17 +126,35 @@ async function confirmDelete(): Promise<void> {
       @request-delete="requestDelete"
     />
 
-    <section class="export-section" aria-label="数据导出">
+    <section class="export-section" aria-label="数据导入与导出">
       <button
         class="export-button"
         type="button"
-        :disabled="isExporting"
+        :disabled="isExporting || isImporting"
         @click="exportTrainingRecords"
       >
         {{ isExporting ? '导出中…' : '导出 JSON' }}
       </button>
       <p v-if="exportStatus" class="export-status" role="status">{{ exportStatus }}</p>
       <p v-if="exportError" class="export-error" role="alert">{{ exportError }}</p>
+
+      <button
+        class="export-button import-button"
+        type="button"
+        :disabled="isImporting || isExporting"
+        @click="openImportFilePicker"
+      >
+        {{ isImporting ? '导入中…' : '导入 JSON' }}
+      </button>
+      <input
+        ref="importFileInput"
+        class="import-file-input"
+        type="file"
+        accept=".json,application/json"
+        @change="handleImportFileChange"
+      />
+      <p v-if="importStatus" class="export-status" role="status">{{ importStatus }}</p>
+      <p v-if="importError" class="export-error" role="alert">{{ importError }}</p>
     </section>
 
     <button class="add-set-button" type="button" aria-label="添加一组" @click="addSetDialog?.open()">
@@ -162,6 +204,14 @@ async function confirmDelete(): Promise<void> {
 .export-button:focus-visible {
   outline: 3px solid rgb(70 99 77 / 22%);
   outline-offset: 2px;
+}
+
+.import-button {
+  margin-top: 10px;
+}
+
+.import-file-input {
+  display: none;
 }
 
 .export-status,
