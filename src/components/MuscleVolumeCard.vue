@@ -61,54 +61,52 @@ function toggleTodayColumn(): void {
 <template>
   <section class="dashboard-card spaced-dashboard-card" aria-labelledby="muscle-title">
     <div class="section-heading">
-      <div>
+      <div class="muscle-title-row">
         <h2 id="muscle-title">肌束训练量</h2>
-        <div class="period-date-navigation">
-          <button
-            v-if="selectedPeriod.canNavigateWeeks"
-            type="button"
+        <div class="muscle-heading-actions">
+          <span v-if="!isLoading" class="set-count">已训练 {{ trainingSetCount }} 组</span>
+          <select
+            class="period-select"
+            :value="periodIndex"
             :disabled="isLoading"
-            aria-label="查看上一个肌束统计周"
-            @click="emit('changeWeek', 1)"
+            aria-label="选择肌束训练量统计周期"
+            @change="handlePeriodChange"
           >
-            ‹
-          </button>
-          <span class="date-range">{{ dateRange }}</span>
-          <button
-            v-if="selectedPeriod.canNavigateWeeks"
-            type="button"
-            :disabled="isLoading || weekOffset === 0"
-            aria-label="查看下一个肌束统计周"
-            @click="emit('changeWeek', -1)"
-          >
-            ›
-          </button>
-          <button
-            class="table-settings-button"
-            type="button"
-            aria-label="打开肌束表格设置"
-            @click="isTableSettingsOpen = true"
-          >
-            <span aria-hidden="true">⚙︎</span>
-          </button>
+            <option v-for="(period, index) in TRAINING_PERIODS" :key="period.id" :value="index">
+              {{ period.label }}
+            </option>
+          </select>
         </div>
       </div>
-      <select
-        class="period-select"
-        :value="periodIndex"
-        :disabled="isLoading"
-        aria-label="选择肌束训练量统计周期"
-        @change="handlePeriodChange"
-      >
-        <option v-for="(period, index) in TRAINING_PERIODS" :key="period.id" :value="index">
-          {{ period.label }}
-        </option>
-      </select>
-    </div>
-
-    <div class="muscle-set-summary" aria-live="polite">
-      <span>实际训练组数</span>
-      <strong>{{ isLoading ? '—' : trainingSetCount }}<small> 组</small></strong>
+      <div class="period-date-navigation">
+        <button
+          v-if="selectedPeriod.canNavigateWeeks"
+          type="button"
+          :disabled="isLoading"
+          aria-label="查看上一个肌束统计周"
+          @click="emit('changeWeek', 1)"
+        >
+          ‹
+        </button>
+        <span class="date-range">{{ dateRange }}</span>
+        <button
+          v-if="selectedPeriod.canNavigateWeeks"
+          type="button"
+          :disabled="isLoading || weekOffset === 0"
+          aria-label="查看下一个肌束统计周"
+          @click="emit('changeWeek', -1)"
+        >
+          ›
+        </button>
+        <button
+          class="table-settings-button"
+          type="button"
+          aria-label="打开肌束表格设置"
+          @click="isTableSettingsOpen = true"
+        >
+          <span aria-hidden="true">⚙︎</span>
+        </button>
+      </div>
     </div>
 
     <div v-if="visibleMuscleGroups.length" class="muscle-table-wrapper">
@@ -196,10 +194,29 @@ function toggleTodayColumn(): void {
   display: block;
 }
 
-.section-heading .period-select {
-  position: absolute;
-  right: 0;
-  bottom: 34px;
+.muscle-title-row,
+.muscle-heading-actions {
+  display: flex;
+  align-items: center;
+}
+
+.muscle-title-row {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.muscle-heading-actions {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.set-count {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #e5eddf;
+  color: #46634d;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .period-date-navigation {
@@ -237,29 +254,6 @@ function toggleTodayColumn(): void {
 .period-date-navigation button:disabled {
   cursor: default;
   opacity: 0.35;
-}
-
-.muscle-set-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f1f5ee;
-  color: #58675f;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.muscle-set-summary strong {
-  color: #234a31;
-  font-size: 1rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.muscle-set-summary small {
-  font-size: 0.75rem;
 }
 
 .period-date-navigation .table-settings-button {

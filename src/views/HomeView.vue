@@ -11,12 +11,6 @@ import { type TrainingSet } from '@/database'
 
 const DELETE_MODE_KEY = 'fitness-tracker:delete-mode'
 
-const today = new Intl.DateTimeFormat('zh-CN', {
-  month: 'long',
-  day: 'numeric',
-  weekday: 'long',
-}).format(new Date())
-
 const addSetDialog = ref<InstanceType<typeof AddSetDialog>>()
 const deleteMode = ref(localStorage.getItem(DELETE_MODE_KEY) === 'true')
 const pendingDeleteSet = ref<TrainingSet>()
@@ -78,14 +72,6 @@ async function confirmDelete(): Promise<void> {
 
 <template>
   <main class="home-shell">
-    <header class="page-header">
-      <div>
-        <p class="eyebrow">{{ today }}</p>
-        <h1>训练记录</h1>
-      </div>
-      <div class="avatar" aria-hidden="true">练</div>
-    </header>
-
     <TrainingCalendarCard
       :days="trainingCalendarDays"
       :is-loading="isLoadingTrainingCalendar"
@@ -151,31 +137,6 @@ async function confirmDelete(): Promise<void> {
   min-height: 100vh;
   margin: 0 auto;
   padding: 28px 14px calc(120px + env(safe-area-inset-bottom));
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 28px;
-}
-
-h1 {
-  margin-bottom: 0;
-  font-size: clamp(1.75rem, 7vw, 2.25rem);
-  letter-spacing: -0.04em;
-}
-
-.avatar {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border: 1px solid #ced6ca;
-  border-radius: 50%;
-  background: #fff;
-  color: #365640;
-  font-weight: 800;
 }
 
 .export-section {

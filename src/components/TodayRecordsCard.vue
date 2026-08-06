@@ -18,23 +18,21 @@ const emit = defineEmits<{
 <template>
   <section class="dashboard-card spaced-dashboard-card" aria-labelledby="today-title">
     <div class="section-heading">
-      <div>
-        <p class="eyebrow">训练明细</p>
-        <h2 id="today-title">今日记录</h2>
-      </div>
-      <div v-if="!isLoading" class="today-heading-actions">
-        <span class="set-count">{{ trainingSets.length }} 组</span>
-        <button
-          v-if="trainingSets.length"
-          class="delete-mode-button"
-          type="button"
-          :aria-label="deleteMode ? '关闭删除模式' : '开启删除模式'"
-          :aria-pressed="deleteMode"
-          @click="emit('toggleDeleteMode')"
-        >
-          <span aria-hidden="true">×</span>
-        </button>
-      </div>
+      <h2 id="today-title">训练明细</h2>
+    </div>
+
+    <div v-if="!isLoading" class="today-heading-actions">
+      <span class="set-count">已训练 {{ trainingSets.length }} 组</span>
+      <button
+        v-if="trainingSets.length"
+        class="delete-mode-button"
+        type="button"
+        :aria-label="deleteMode ? '关闭删除模式' : '开启删除模式'"
+        :aria-pressed="deleteMode"
+        @click="emit('toggleDeleteMode')"
+      >
+        <span aria-hidden="true">×</span>
+      </button>
     </div>
 
     <p v-if="isLoading" class="records-status">正在读取记录…</p>
@@ -86,7 +84,8 @@ const emit = defineEmits<{
 .today-heading-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  margin-top: 8px;
 }
 
 .delete-mode-button {
