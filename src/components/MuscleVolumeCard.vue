@@ -63,8 +63,23 @@ function toggleTodayColumn(): void {
     <div class="section-heading">
       <div class="muscle-title-row">
         <h2 id="muscle-title">肌束训练量</h2>
-        <div class="muscle-heading-actions">
-          <span v-if="!isLoading" class="set-count">已训练 {{ trainingSetCount }} 组</span>
+      </div>
+      <div class="muscle-control-row">
+        <span v-if="!isLoading" class="set-count">已训练 {{ trainingSetCount }} 组</span>
+        <div class="muscle-control-actions">
+          <button
+            class="table-settings-button"
+            type="button"
+            aria-label="打开肌束表格设置"
+            @click="isTableSettingsOpen = true"
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path
+                d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"
+              />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
           <select
             class="period-select"
             :value="periodIndex"
@@ -81,30 +96,28 @@ function toggleTodayColumn(): void {
       <div class="period-date-navigation">
         <button
           v-if="selectedPeriod.canNavigateWeeks"
+          class="period-arrow-button period-arrow-button--previous"
           type="button"
           :disabled="isLoading"
           aria-label="查看上一个肌束统计周"
           @click="emit('changeWeek', 1)"
         >
-          ‹
+          <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <path d="m15 5-7 7 7 7" />
+          </svg>
         </button>
         <span class="date-range">{{ dateRange }}</span>
         <button
           v-if="selectedPeriod.canNavigateWeeks"
+          class="period-arrow-button period-arrow-button--next"
           type="button"
           :disabled="isLoading || weekOffset === 0"
           aria-label="查看下一个肌束统计周"
           @click="emit('changeWeek', -1)"
         >
-          ›
-        </button>
-        <button
-          class="table-settings-button"
-          type="button"
-          aria-label="打开肌束表格设置"
-          @click="isTableSettingsOpen = true"
-        >
-          <span aria-hidden="true">⚙︎</span>
+          <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <path d="m9 5 7 7-7 7" />
+          </svg>
         </button>
       </div>
     </div>
@@ -195,17 +208,24 @@ function toggleTodayColumn(): void {
 }
 
 .muscle-title-row,
-.muscle-heading-actions {
+.muscle-control-row,
+.muscle-control-actions {
   display: flex;
   align-items: center;
 }
 
 .muscle-title-row {
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
 }
 
-.muscle-heading-actions {
+.muscle-control-row {
+  min-height: 28px;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.muscle-control-actions {
   flex: 0 0 auto;
   gap: 8px;
 }
@@ -221,52 +241,84 @@ function toggleTodayColumn(): void {
 
 .period-date-navigation {
   position: relative;
-  display: flex;
-  min-height: 28px;
+  display: grid;
+  min-height: 30px;
+  grid-template-columns: 30px 150px 30px;
   align-items: center;
-  gap: 10px;
+  column-gap: 10px;
   justify-content: center;
   margin-top: 6px;
 }
 
 .period-date-navigation .date-range {
+  grid-column: 2;
   margin-top: 0;
   font-size: 0.88rem;
+  text-align: center;
+  white-space: nowrap;
 }
 
-.period-date-navigation button {
+.period-arrow-button,
+.table-settings-button {
   display: grid;
-  width: 28px;
-  height: 28px;
   place-items: center;
-  padding: 0 0 2px;
-  border: 1px solid #d5ddd1;
-  border-radius: 7px;
   outline: none;
-  background: #fff;
   color: #46634d;
-  font-size: 1.35rem;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.period-date-navigation button:disabled {
+.period-arrow-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.period-arrow-button svg {
+  display: block;
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.25;
+}
+
+.period-arrow-button--previous {
+  grid-column: 1;
+}
+
+.period-arrow-button--next {
+  grid-column: 3;
+}
+
+.period-arrow-button:disabled,
+.table-settings-button:disabled {
   cursor: default;
   opacity: 0.35;
 }
 
-.period-date-navigation .table-settings-button {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  font-size: 1rem;
+.table-settings-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
-.table-settings-button span {
+.table-settings-button svg {
   display: block;
-  line-height: 1;
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .muscle-table-wrapper {

@@ -77,14 +77,14 @@ p {
 }
 
 .period-select {
-  min-height: 36px;
+  min-height: 40px;
   flex-shrink: 0;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid #d5ddd1;
-  border-radius: 10px;
+  border-radius: 11px;
   background: #fff;
   color: #46634d;
-  font-size: 0.8rem;
+  font-size: 0.86rem;
   font-weight: 700;
   cursor: pointer;
 }

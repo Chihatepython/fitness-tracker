@@ -31,6 +31,7 @@ export function useTrainingDashboard() {
   const muscleTrainingSources = ref(createEmptyMuscleTrainingSources())
   const muscleTrainingSetCount = ref(0)
   const isLoadingMuscleTrainingTotals = ref(true)
+  const isRefreshingMuscleTrainingTotals = ref(false)
   const muscleTrainingTotalsError = ref('')
   const selectedMuscleTrainingPeriodIndex = ref(0)
   const muscleTrainingPeriodWeekOffset = ref(0)
@@ -81,25 +82,74 @@ export function useTrainingDashboard() {
     }
   }
 
+  async function getMuscleTrainingSnapshot(periodIndex: number, weekOffset: number) {
+    const period = TRAINING_PERIODS[periodIndex]
+
+    if (!period) throw new Error('无法识别肌束训练量统计周期')
+
+    const dateRange = getTrainingPeriodDateRange(period, weekOffset)
+    const trainingSets = await getTrainingSetsByDateRange(
+      dateRange.startDate,
+      dateRange.endDate,
+    )
+    const result = calculateMuscleTraining(trainingSets)
+
+    return {
+      periodIndex,
+      weekOffset,
+      totals: result.totals,
+      sources: result.sources,
+      trainingSetCount: trainingSets.length,
+    }
+  }
+
+  function applyMuscleTrainingSnapshot(
+    snapshot: Awaited<ReturnType<typeof getMuscleTrainingSnapshot>>,
+  ): void {
+    selectedMuscleTrainingPeriodIndex.value = snapshot.periodIndex
+    muscleTrainingPeriodWeekOffset.value = snapshot.weekOffset
+    muscleTrainingTotals.value = snapshot.totals
+    muscleTrainingSources.value = snapshot.sources
+    muscleTrainingSetCount.value = snapshot.trainingSetCount
+  }
+
   async function loadMuscleTrainingTotals(): Promise<void> {
     isLoadingMuscleTrainingTotals.value = true
     muscleTrainingTotalsError.value = ''
 
     try {
-      const trainingSets = await getTrainingSetsByDateRange(
-        muscleTrainingPeriodDateRange.value.startDate,
-        muscleTrainingPeriodDateRange.value.endDate,
+      const snapshot = await getMuscleTrainingSnapshot(
+        selectedMuscleTrainingPeriodIndex.value,
+        muscleTrainingPeriodWeekOffset.value,
       )
-      const result = calculateMuscleTraining(trainingSets)
 
-      muscleTrainingTotals.value = result.totals
-      muscleTrainingSources.value = result.sources
-      muscleTrainingSetCount.value = trainingSets.length
+      applyMuscleTrainingSnapshot(snapshot)
     } catch (error: unknown) {
       muscleTrainingTotalsError.value =
         error instanceof Error ? error.message : '无法读取肌束训练量'
     } finally {
       isLoadingMuscleTrainingTotals.value = false
+    }
+  }
+
+  async function refreshMuscleTrainingTotals(
+    periodIndex: number,
+    weekOffset: number,
+  ): Promise<void> {
+    if (isRefreshingMuscleTrainingTotals.value || isLoadingMuscleTrainingTotals.value) return
+
+    isRefreshingMuscleTrainingTotals.value = true
+    muscleTrainingTotalsError.value = ''
+
+    try {
+      const snapshot = await getMuscleTrainingSnapshot(periodIndex, weekOffset)
+
+      applyMuscleTrainingSnapshot(snapshot)
+    } catch (error: unknown) {
+      muscleTrainingTotalsError.value =
+        error instanceof Error ? error.message : '无法读取肌束训练量'
+    } finally {
+      isRefreshingMuscleTrainingTotals.value = false
     }
   }
 
@@ -123,19 +173,20 @@ export function useTrainingDashboard() {
   }
 
   function changeMuscleTrainingPeriod(periodIndex: number): void {
-    selectedMuscleTrainingPeriodIndex.value = periodIndex
-    muscleTrainingPeriodWeekOffset.value = 0
-    void loadMuscleTrainingTotals()
+    void refreshMuscleTrainingTotals(periodIndex, 0)
   }
 
   function changeMuscleTrainingPeriodWeek(weekDelta: number): void {
     if (!selectedMuscleTrainingPeriod.value.canNavigateWeeks) return
 
-    muscleTrainingPeriodWeekOffset.value = Math.max(
+    const nextWeekOffset = Math.max(
       0,
       muscleTrainingPeriodWeekOffset.value + weekDelta,
     )
-    void loadMuscleTrainingTotals()
+
+    if (nextWeekOffset === muscleTrainingPeriodWeekOffset.value) return
+
+    void refreshMuscleTrainingTotals(selectedMuscleTrainingPeriodIndex.value, nextWeekOffset)
   }
 
   function refreshAfterSetAdded(): void {
