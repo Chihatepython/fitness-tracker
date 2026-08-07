@@ -20,6 +20,7 @@ import {
   getTrainingCalendarRange,
   getTrainingPeriodDateRange,
   type TrainingCalendarDay,
+  type MuscleTrainingSnapshot,
 } from '@/domain/trainingStats'
 
 export function useTrainingDashboard() {
@@ -35,6 +36,11 @@ export function useTrainingDashboard() {
   const muscleTrainingTotalsError = ref('')
   const selectedMuscleTrainingPeriodIndex = ref(0)
   const muscleTrainingPeriodWeekOffset = ref(0)
+  const olderMuscleTrainingSnapshot = ref<MuscleTrainingSnapshot>()
+  const newerMuscleTrainingSnapshot = ref<MuscleTrainingSnapshot>()
+  const muscleTrainingSnapshotCache = new Map<string, MuscleTrainingSnapshot>()
+  const pendingMuscleTrainingSnapshots = new Map<string, Promise<MuscleTrainingSnapshot>>()
+  let muscleTrainingSnapshotCacheVersion = 0
 
   const trainingCalendarRange = getTrainingCalendarRange()
   const trainingCalendarDays = ref<TrainingCalendarDay[]>(
@@ -82,7 +88,14 @@ export function useTrainingDashboard() {
     }
   }
 
-  async function getMuscleTrainingSnapshot(periodIndex: number, weekOffset: number) {
+  function getMuscleTrainingSnapshotKey(periodIndex: number, weekOffset: number): string {
+    return `${periodIndex}:${weekOffset}`
+  }
+
+  async function getMuscleTrainingSnapshot(
+    periodIndex: number,
+    weekOffset: number,
+  ): Promise<MuscleTrainingSnapshot> {
     const period = TRAINING_PERIODS[periodIndex]
 
     if (!period) throw new Error('无法识别肌束训练量统计周期')
@@ -97,28 +110,122 @@ export function useTrainingDashboard() {
     return {
       periodIndex,
       weekOffset,
+      dateRange: `${formatDisplayDate(dateRange.startDate)}—${formatDisplayDate(dateRange.endDate)}`,
       totals: result.totals,
       sources: result.sources,
       trainingSetCount: trainingSets.length,
     }
   }
 
+  async function getCachedMuscleTrainingSnapshot(
+    periodIndex: number,
+    weekOffset: number,
+  ): Promise<MuscleTrainingSnapshot> {
+    const key = getMuscleTrainingSnapshotKey(periodIndex, weekOffset)
+    const cachedSnapshot = muscleTrainingSnapshotCache.get(key)
+
+    if (cachedSnapshot) return cachedSnapshot
+
+    const pendingSnapshot = pendingMuscleTrainingSnapshots.get(key)
+
+    if (pendingSnapshot) return pendingSnapshot
+
+    const cacheVersion = muscleTrainingSnapshotCacheVersion
+    const snapshotRequest = getMuscleTrainingSnapshot(periodIndex, weekOffset)
+      .then((snapshot) => {
+        if (cacheVersion === muscleTrainingSnapshotCacheVersion) {
+          muscleTrainingSnapshotCache.set(key, snapshot)
+        }
+
+        return snapshot
+      })
+      .finally(() => {
+        if (pendingMuscleTrainingSnapshots.get(key) === snapshotRequest) {
+          pendingMuscleTrainingSnapshots.delete(key)
+        }
+      })
+
+    pendingMuscleTrainingSnapshots.set(key, snapshotRequest)
+
+    return snapshotRequest
+  }
+
+  function updateAdjacentMuscleTrainingSnapshots(snapshot: MuscleTrainingSnapshot): void {
+    const period = TRAINING_PERIODS[snapshot.periodIndex]
+
+    if (!period?.canNavigateWeeks) {
+      olderMuscleTrainingSnapshot.value = undefined
+      newerMuscleTrainingSnapshot.value = undefined
+      return
+    }
+
+    olderMuscleTrainingSnapshot.value = muscleTrainingSnapshotCache.get(
+      getMuscleTrainingSnapshotKey(snapshot.periodIndex, snapshot.weekOffset + 1),
+    )
+    newerMuscleTrainingSnapshot.value =
+      snapshot.weekOffset > 0
+        ? muscleTrainingSnapshotCache.get(
+            getMuscleTrainingSnapshotKey(snapshot.periodIndex, snapshot.weekOffset - 1),
+          )
+        : undefined
+  }
+
+  function preloadAdjacentMuscleTrainingSnapshots(snapshot: MuscleTrainingSnapshot): void {
+    const period = TRAINING_PERIODS[snapshot.periodIndex]
+
+    if (!period?.canNavigateWeeks) return
+
+    const adjacentWeekOffsets = [snapshot.weekOffset + 1]
+
+    if (snapshot.weekOffset > 0) adjacentWeekOffsets.push(snapshot.weekOffset - 1)
+
+    for (const weekOffset of adjacentWeekOffsets) {
+      void getCachedMuscleTrainingSnapshot(snapshot.periodIndex, weekOffset)
+        .then(() => {
+          if (
+            selectedMuscleTrainingPeriodIndex.value === snapshot.periodIndex &&
+            muscleTrainingPeriodWeekOffset.value === snapshot.weekOffset
+          ) {
+            updateAdjacentMuscleTrainingSnapshots(snapshot)
+          }
+        })
+        .catch(() => {
+          // The current table remains usable if an adjacent preload fails.
+        })
+    }
+  }
+
+  function clearMuscleTrainingSnapshotCache(): void {
+    muscleTrainingSnapshotCacheVersion += 1
+    muscleTrainingSnapshotCache.clear()
+    pendingMuscleTrainingSnapshots.clear()
+    olderMuscleTrainingSnapshot.value = undefined
+    newerMuscleTrainingSnapshot.value = undefined
+  }
+
   function applyMuscleTrainingSnapshot(
-    snapshot: Awaited<ReturnType<typeof getMuscleTrainingSnapshot>>,
+    snapshot: MuscleTrainingSnapshot,
   ): void {
+    muscleTrainingSnapshotCache.set(
+      getMuscleTrainingSnapshotKey(snapshot.periodIndex, snapshot.weekOffset),
+      snapshot,
+    )
     selectedMuscleTrainingPeriodIndex.value = snapshot.periodIndex
     muscleTrainingPeriodWeekOffset.value = snapshot.weekOffset
     muscleTrainingTotals.value = snapshot.totals
     muscleTrainingSources.value = snapshot.sources
     muscleTrainingSetCount.value = snapshot.trainingSetCount
+    updateAdjacentMuscleTrainingSnapshots(snapshot)
+    preloadAdjacentMuscleTrainingSnapshots(snapshot)
   }
 
   async function loadMuscleTrainingTotals(): Promise<void> {
     isLoadingMuscleTrainingTotals.value = true
     muscleTrainingTotalsError.value = ''
+    clearMuscleTrainingSnapshotCache()
 
     try {
-      const snapshot = await getMuscleTrainingSnapshot(
+      const snapshot = await getCachedMuscleTrainingSnapshot(
         selectedMuscleTrainingPeriodIndex.value,
         muscleTrainingPeriodWeekOffset.value,
       )
@@ -142,7 +249,7 @@ export function useTrainingDashboard() {
     muscleTrainingTotalsError.value = ''
 
     try {
-      const snapshot = await getMuscleTrainingSnapshot(periodIndex, weekOffset)
+      const snapshot = await getCachedMuscleTrainingSnapshot(periodIndex, weekOffset)
 
       applyMuscleTrainingSnapshot(snapshot)
     } catch (error: unknown) {
@@ -173,6 +280,15 @@ export function useTrainingDashboard() {
   }
 
   function changeMuscleTrainingPeriod(periodIndex: number): void {
+    const cachedSnapshot = muscleTrainingSnapshotCache.get(
+      getMuscleTrainingSnapshotKey(periodIndex, 0),
+    )
+
+    if (cachedSnapshot) {
+      applyMuscleTrainingSnapshot(cachedSnapshot)
+      return
+    }
+
     void refreshMuscleTrainingTotals(periodIndex, 0)
   }
 
@@ -185,6 +301,18 @@ export function useTrainingDashboard() {
     )
 
     if (nextWeekOffset === muscleTrainingPeriodWeekOffset.value) return
+
+    const cachedSnapshot = muscleTrainingSnapshotCache.get(
+      getMuscleTrainingSnapshotKey(
+        selectedMuscleTrainingPeriodIndex.value,
+        nextWeekOffset,
+      ),
+    )
+
+    if (cachedSnapshot) {
+      applyMuscleTrainingSnapshot(cachedSnapshot)
+      return
+    }
 
     void refreshMuscleTrainingTotals(selectedMuscleTrainingPeriodIndex.value, nextWeekOffset)
   }
@@ -336,6 +464,8 @@ export function useTrainingDashboard() {
     selectedMuscleTrainingPeriodIndex,
     muscleTrainingPeriodWeekOffset,
     muscleTrainingPeriodRangeLabel,
+    olderMuscleTrainingSnapshot,
+    newerMuscleTrainingSnapshot,
     trainingCalendarDays,
     isLoadingTrainingCalendar,
     trainingCalendarError,

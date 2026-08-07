@@ -1,16 +1,35 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
 
 import MuscleSourceDialog from '@/components/MuscleSourceDialog.vue'
+import MuscleVolumeTable from '@/components/MuscleVolumeTable.vue'
 import {
-  MUSCLE_GROUPS,
   TRAINING_PERIODS,
-  formatWeightedSetCount,
   type MuscleName,
+  type MuscleTrainingSnapshot,
   type MuscleTrainingSources,
 } from '@/domain/trainingStats'
 
 const SHOW_TODAY_COLUMN_KEY = 'fitness-tracker:show-today-muscle-column'
+const CAROUSEL_DURATION_MS = 220
+const HORIZONTAL_GESTURE_THRESHOLD_PX = 7
+const SWIPE_DISTANCE_RATIO = 0.22
+const SWIPE_VELOCITY_PX_PER_MS = 0.5
+
+type SlidePosition = -1 | 0 | 1
+type GestureAxis = 'pending' | 'horizontal' | 'vertical'
+
+interface MuscleCarouselSlide {
+  position: SlidePosition
+  snapshot: MuscleTrainingSnapshot
+}
 
 const props = defineProps<{
   totals: Record<MuscleName, number>
@@ -20,6 +39,8 @@ const props = defineProps<{
   periodIndex: number
   weekOffset: number
   dateRange: string
+  olderSnapshot?: MuscleTrainingSnapshot
+  newerSnapshot?: MuscleTrainingSnapshot
   isLoading: boolean
   isLoadingToday: boolean
   error: string
@@ -30,23 +51,62 @@ const emit = defineEmits<{
   changeWeek: [weekDelta: number]
 }>()
 
+const carouselViewport = ref<HTMLElement>()
 const selectedMuscle = ref<MuscleName>()
 const showTodayColumn = ref(localStorage.getItem(SHOW_TODAY_COLUMN_KEY) === 'true')
+const viewportHeight = ref(0)
+const dragOffset = ref(0)
+const transitionEnabled = ref(false)
+const isDragging = ref(false)
+const isAnimating = ref(false)
+const slideHeights = ref<Partial<Record<SlidePosition, number>>>({})
+
+let resizeObserver: ResizeObserver | undefined
+let activePointerId: number | undefined
+let gestureAxis: GestureAxis = 'pending'
+let gestureStartX = 0
+let gestureStartY = 0
+let gestureStartTime = 0
+let animationTimer: number | undefined
+let suppressTableClickUntil = 0
+
 const selectedPeriod = computed(() => TRAINING_PERIODS[props.periodIndex]!)
-const visibleMuscleGroups = computed(() =>
-  MUSCLE_GROUPS.map((group) => ({
-    region: group.region,
-    muscles: group.muscles.filter((muscle) => props.totals[muscle] > 0),
-  })).filter((group) => group.muscles.length > 0),
-)
+const currentSnapshot = computed<MuscleTrainingSnapshot>(() => ({
+  periodIndex: props.periodIndex,
+  weekOffset: props.weekOffset,
+  dateRange: props.dateRange,
+  totals: props.totals,
+  sources: props.sources,
+  trainingSetCount: props.trainingSetCount,
+}))
+const carouselSlides = computed<MuscleCarouselSlide[]>(() => {
+  const slides: MuscleCarouselSlide[] = []
+
+  if (props.olderSnapshot) {
+    slides.push({ position: -1, snapshot: props.olderSnapshot })
+  }
+
+  slides.push({ position: 0, snapshot: currentSnapshot.value })
+
+  if (props.newerSnapshot) {
+    slides.push({ position: 1, snapshot: props.newerSnapshot })
+  }
+
+  return slides
+})
 const selectedMuscleSources = computed(() =>
   selectedMuscle.value ? props.sources[selectedMuscle.value] : [],
 )
 const selectedMuscleTotal = computed(() =>
   selectedMuscle.value ? props.totals[selectedMuscle.value] : 0,
 )
+const carouselStyle = computed(() =>
+  viewportHeight.value > 0 ? { height: `${viewportHeight.value}px` } : undefined,
+)
 
 function handlePeriodChange(event: Event): void {
+  if (isDragging.value || isAnimating.value) return
+
   emit('changePeriod', Number((event.target as HTMLSelectElement).value))
 }
 
@@ -54,6 +114,268 @@ function toggleTodayColumn(): void {
   showTodayColumn.value = !showTodayColumn.value
   localStorage.setItem(SHOW_TODAY_COLUMN_KEY, String(showTodayColumn.value))
 }
+
+function handleTableToggle(position: SlidePosition): void {
+  if (position === 0 && !isDragging.value && !isAnimating.value) toggleTodayColumn()
+}
+
+function handleMuscleSelection(position: SlidePosition, muscle: MuscleName): void {
+  if (
+    position !== 0 ||
+    isDragging.value ||
+    isAnimating.value ||
+    Date.now() < suppressTableClickUntil
+  ) {
+    return
+  }
+
+  selectedMuscle.value = muscle
+}
+
+function getSlideStyle(position: SlidePosition): Record<string, string> {
+  return {
+    transform: `translate3d(calc(${position * 100}% + ${dragOffset.value}px), 0, 0)`,
+    transition: transitionEnabled.value
+      ? `transform ${CAROUSEL_DURATION_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
+      : 'none',
+  }
+}
+
+function measureSlides(): void {
+  const viewport = carouselViewport.value
+
+  if (!viewport) return
+
+  const nextHeights: Partial<Record<SlidePosition, number>> = {}
+
+  for (const slide of viewport.querySelectorAll<HTMLElement>('[data-slide-position]')) {
+    const position = Number(slide.dataset.slidePosition) as SlidePosition
+    nextHeights[position] = slide.offsetHeight
+  }
+
+  slideHeights.value = nextHeights
+
+  if (!isDragging.value && !isAnimating.value && nextHeights[0]) {
+    viewportHeight.value = nextHeights[0]
+  }
+}
+
+function observeSlides(): void {
+  const viewport = carouselViewport.value
+
+  if (!viewport || !resizeObserver) return
+
+  resizeObserver.disconnect()
+
+  for (const slide of viewport.querySelectorAll<HTMLElement>('[data-slide-position]')) {
+    resizeObserver.observe(slide)
+  }
+
+  measureSlides()
+}
+
+function getTargetPosition(offset: number): SlidePosition | undefined {
+  if (offset > 0 && props.olderSnapshot) return -1
+  if (offset < 0 && props.newerSnapshot) return 1
+
+  return undefined
+}
+
+function updateViewportHeightForOffset(offset: number): void {
+  const currentHeight = slideHeights.value[0]
+  const targetPosition = getTargetPosition(offset)
+  const targetHeight = targetPosition === undefined ? undefined : slideHeights.value[targetPosition]
+  const viewportWidth = carouselViewport.value?.clientWidth ?? 0
+
+  if (!currentHeight || !targetHeight || !viewportWidth) return
+
+  const progress = Math.min(Math.abs(offset) / viewportWidth, 1)
+  viewportHeight.value = currentHeight + (targetHeight - currentHeight) * progress
+}
+
+function clearAnimationTimer(): void {
+  if (animationTimer === undefined) return
+
+  window.clearTimeout(animationTimer)
+  animationTimer = undefined
+}
+
+function finishAtCurrentSlide(): void {
+  transitionEnabled.value = true
+  isAnimating.value = true
+  dragOffset.value = 0
+
+  if (slideHeights.value[0]) viewportHeight.value = slideHeights.value[0]
+
+  clearAnimationTimer()
+  animationTimer = window.setTimeout(() => {
+    transitionEnabled.value = false
+    isAnimating.value = false
+    animationTimer = undefined
+  }, CAROUSEL_DURATION_MS)
+}
+
+function navigateToSlide(position: Exclude<SlidePosition, 0>): void {
+  if (isAnimating.value) return
+
+  const targetSnapshot = position === -1 ? props.olderSnapshot : props.newerSnapshot
+  const weekDelta = position === -1 ? 1 : -1
+
+  if (!targetSnapshot) {
+    emit('changeWeek', weekDelta)
+    return
+  }
+
+  const viewportWidth = carouselViewport.value?.clientWidth ?? 0
+
+  if (!viewportWidth) {
+    emit('changeWeek', weekDelta)
+    return
+  }
+
+  transitionEnabled.value = true
+  isAnimating.value = true
+  dragOffset.value = position === -1 ? viewportWidth : -viewportWidth
+
+  if (slideHeights.value[position]) viewportHeight.value = slideHeights.value[position]!
+
+  clearAnimationTimer()
+  animationTimer = window.setTimeout(() => {
+    emit('changeWeek', weekDelta)
+
+    void nextTick().then(() => {
+      transitionEnabled.value = false
+      dragOffset.value = 0
+      isAnimating.value = false
+      animationTimer = undefined
+      observeSlides()
+    })
+  }, CAROUSEL_DURATION_MS)
+}
+
+function handleArrowNavigation(position: Exclude<SlidePosition, 0>): void {
+  if (props.isLoading || isDragging.value || isAnimating.value) return
+
+  navigateToSlide(position)
+}
+
+function handlePointerDown(event: PointerEvent): void {
+  if (
+    event.button !== 0 ||
+    isAnimating.value ||
+    !selectedPeriod.value.canNavigateWeeks ||
+    (!props.olderSnapshot && !props.newerSnapshot)
+  ) {
+    return
+  }
+
+  activePointerId = event.pointerId
+  gestureAxis = 'pending'
+  gestureStartX = event.clientX
+  gestureStartY = event.clientY
+  gestureStartTime = performance.now()
+  transitionEnabled.value = false
+  carouselViewport.value?.setPointerCapture(event.pointerId)
+}
+
+function handlePointerMove(event: PointerEvent): void {
+  if (event.pointerId !== activePointerId) return
+
+  const horizontalDistance = event.clientX - gestureStartX
+  const verticalDistance = event.clientY - gestureStartY
+
+  if (gestureAxis === 'pending') {
+    if (
+      Math.abs(horizontalDistance) < HORIZONTAL_GESTURE_THRESHOLD_PX &&
+      Math.abs(verticalDistance) < HORIZONTAL_GESTURE_THRESHOLD_PX
+    ) {
+      return
+    }
+
+    gestureAxis =
+      Math.abs(horizontalDistance) > Math.abs(verticalDistance) ? 'horizontal' : 'vertical'
+  }
+
+  if (gestureAxis !== 'horizontal') return
+
+  event.preventDefault()
+  isDragging.value = true
+
+  const hasTarget = getTargetPosition(horizontalDistance) !== undefined
+  const nextOffset = hasTarget ? horizontalDistance : horizontalDistance * 0.18
+
+  dragOffset.value = nextOffset
+  updateViewportHeightForOffset(nextOffset)
+}
+
+function releasePointer(event: PointerEvent): void {
+  if (carouselViewport.value?.hasPointerCapture(event.pointerId)) {
+    carouselViewport.value.releasePointerCapture(event.pointerId)
+  }
+
+  activePointerId = undefined
+}
+
+function handlePointerUp(event: PointerEvent): void {
+  if (event.pointerId !== activePointerId) return
+
+  const wasHorizontalGesture = gestureAxis === 'horizontal'
+  const offset = dragOffset.value
+  const elapsedTime = Math.max(performance.now() - gestureStartTime, 1)
+  const velocity = Math.abs(offset) / elapsedTime
+  const viewportWidth = carouselViewport.value?.clientWidth ?? 0
+  const targetPosition = getTargetPosition(offset)
+  const shouldNavigate =
+    targetPosition !== undefined &&
+    (Math.abs(offset) >= viewportWidth * SWIPE_DISTANCE_RATIO ||
+      velocity >= SWIPE_VELOCITY_PX_PER_MS)
+
+  releasePointer(event)
+  gestureAxis = 'pending'
+
+  if (!wasHorizontalGesture) return
+
+  suppressTableClickUntil = Date.now() + 350
+  isDragging.value = false
+
+  if (shouldNavigate && targetPosition !== undefined && targetPosition !== 0) {
+    navigateToSlide(targetPosition)
+  } else {
+    finishAtCurrentSlide()
+  }
+}
+
+function handlePointerCancel(event: PointerEvent): void {
+  if (event.pointerId !== activePointerId) return
+
+  const wasHorizontalGesture = gestureAxis === 'horizontal'
+
+  releasePointer(event)
+  gestureAxis = 'pending'
+  isDragging.value = false
+
+  if (wasHorizontalGesture) finishAtCurrentSlide()
+}
+
+onMounted(() => {
+  resizeObserver = new ResizeObserver(measureSlides)
+  observeSlides()
+})
+
+watch(
+  [carouselSlides, showTodayColumn],
+  async () => {
+    selectedMuscle.value = undefined
+    await nextTick()
+    observeSlides()
+  },
+  { flush: 'post' },
+)
+
+onBeforeUnmount(() => {
+  clearAnimationTimer()
+  resizeObserver?.disconnect()
+})
 </script>
 
 <template>
@@ -67,7 +389,7 @@ function toggleTodayColumn(): void {
         <select
           class="period-select"
           :value="periodIndex"
-          :disabled="isLoading"
+          :disabled="isLoading || isAnimating"
           aria-label="选择肌束训练量统计周期"
           @change="handlePeriodChange"
         >
@@ -81,9 +403,9 @@ function toggleTodayColumn(): void {
           v-if="selectedPeriod.canNavigateWeeks"
           class="period-arrow-button period-arrow-button--previous"
           type="button"
-          :disabled="isLoading"
+          :disabled="isLoading || isAnimating"
           aria-label="查看上一个肌束统计周"
-          @click="emit('changeWeek', 1)"
+          @click="handleArrowNavigation(-1)"
         >
           <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
             <path d="m15 5-7 7 7 7" />
@@ -94,9 +416,9 @@ function toggleTodayColumn(): void {
           v-if="selectedPeriod.canNavigateWeeks"
           class="period-arrow-button period-arrow-button--next"
           type="button"
-          :disabled="isLoading || weekOffset === 0"
+          :disabled="isLoading || isAnimating || weekOffset === 0"
           aria-label="查看下一个肌束统计周"
-          @click="emit('changeWeek', -1)"
+          @click="handleArrowNavigation(1)"
         >
           <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
             <path d="m9 5 7 7-7 7" />
@@ -105,92 +427,38 @@ function toggleTodayColumn(): void {
       </div>
     </div>
 
-    <div v-if="visibleMuscleGroups.length" class="muscle-table-wrapper">
-      <table class="muscle-table" :class="{ 'show-today-column': showTodayColumn }">
-        <colgroup>
-          <col class="muscle-body-part-column" />
-          <col class="muscle-name-column" />
-          <col class="muscle-total-column" />
-          <col v-if="showTodayColumn" class="muscle-today-column" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th scope="col">区域</th>
-            <th scope="col">细分肌肉</th>
-            <th class="muscle-number-heading" scope="col">
-              <span v-if="showTodayColumn">区间加权</span>
-              <button
-                v-else
-                class="muscle-column-toggle"
-                type="button"
-                aria-label="显示今日新增列"
-                :aria-expanded="false"
-                @click="toggleTodayColumn"
-              >
-                <span>区间加权</span>
-                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-                  <path d="m9 5 7 7-7 7" />
-                </svg>
-              </button>
-            </th>
-            <th
-              v-if="showTodayColumn"
-              class="muscle-number-heading"
-              scope="col"
-            >
-              <button
-                class="muscle-column-toggle"
-                type="button"
-                aria-label="隐藏今日新增列"
-                :aria-expanded="true"
-                @click="toggleTodayColumn"
-              >
-                <span>今日新增</span>
-                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-                  <path d="m15 5-7 7 7 7" />
-                </svg>
-              </button>
-            </th>
-          </tr>
-        </thead>
-        <tbody v-for="group in visibleMuscleGroups" :key="group.region">
-          <tr v-for="(muscle, index) in group.muscles" :key="muscle">
-            <th
-              v-if="index === 0"
-              class="muscle-body-part"
-              :data-region="group.region"
-              :rowspan="group.muscles.length"
-              scope="rowgroup"
-            >
-              {{ group.region }}
-            </th>
-            <td class="muscle-name">{{ muscle }}</td>
-            <td class="muscle-total">
-              <button
-                class="muscle-total-button"
-                type="button"
-                :aria-label="`查看${muscle}的训练来源`"
-                :disabled="isLoading"
-                @click="selectedMuscle = muscle"
-              >
-                {{ isLoading ? '—' : formatWeightedSetCount(totals[muscle]) }}
-              </button>
-            </td>
-            <td v-if="showTodayColumn" class="muscle-total muscle-today-total">
-              {{
-                isLoadingToday
-                  ? '—'
-                  : todayTotals[muscle] > 0
-                    ? formatWeightedSetCount(todayTotals[muscle])
-                    : ''
-              }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div
+      ref="carouselViewport"
+      class="muscle-carousel"
+      :class="{ 'is-dragging': isDragging, 'is-animating': transitionEnabled }"
+      :style="carouselStyle"
+      @pointerdown="handlePointerDown"
+      @pointermove="handlePointerMove"
+      @pointerup="handlePointerUp"
+      @pointercancel="handlePointerCancel"
+    >
+      <div
+        v-for="slide in carouselSlides"
+        :key="`${slide.position}:${slide.snapshot.periodIndex}:${slide.snapshot.weekOffset}`"
+        class="muscle-carousel-slide"
+        :class="{ 'is-current': slide.position === 0 }"
+        :data-slide-position="slide.position"
+        :style="getSlideStyle(slide.position)"
+        :aria-hidden="slide.position === 0 ? undefined : true"
+      >
+        <MuscleVolumeTable
+          :totals="slide.snapshot.totals"
+          :today-totals="todayTotals"
+          :show-today-column="showTodayColumn"
+          :is-loading="slide.position === 0 && isLoading"
+          :is-loading-today="isLoadingToday"
+          :error="slide.position === 0 ? error : ''"
+          @select-muscle="handleMuscleSelection(slide.position, $event)"
+          @toggle-today-column="handleTableToggle(slide.position)"
+        />
+      </div>
     </div>
-    <p v-else-if="isLoading" class="muscle-table-status">正在计算训练量…</p>
-    <p v-else-if="!error" class="muscle-table-status">所选时间段暂无肌束训练量</p>
+
     <p v-if="error" class="section-error" role="alert">{{ error }}</p>
   </section>
 
@@ -256,20 +524,17 @@ function toggleTodayColumn(): void {
 
 .period-arrow-button {
   display: grid;
+  width: 30px;
+  height: 30px;
   place-items: center;
+  padding: 0;
+  border: 0;
   outline: none;
+  background: transparent;
   color: #46634d;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.period-arrow-button {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  background: transparent;
 }
 
 .period-arrow-button svg {
@@ -296,232 +561,36 @@ function toggleTodayColumn(): void {
   opacity: 0.35;
 }
 
-.muscle-table-wrapper {
+.muscle-carousel {
+  position: relative;
   overflow: hidden;
-  margin-top: 8px;
-  border: 1px solid #e4e9e1;
-  border-radius: 16px;
-  background: #f7f9f5;
-}
-
-.muscle-table-status {
-  margin: 16px 0 0;
-  padding: 28px 16px;
-  border: 1px dashed #c8d1c5;
-  border-radius: 16px;
-  background: #f7f9f5;
-  color: #718078;
-  font-size: 0.86rem;
-  text-align: center;
-}
-
-.muscle-table {
   width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+  min-height: 1px;
+  touch-action: pan-y;
+  transition: height 0ms;
 }
 
-.muscle-body-part-column {
-  width: 14%;
+.muscle-carousel.is-animating {
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-.muscle-name-column {
-  width: 56%;
+.muscle-carousel.is-dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
-.muscle-total-column {
-  width: 30%;
-}
-
-.muscle-table.show-today-column .muscle-name-column {
-  width: 42%;
-}
-
-.muscle-table.show-today-column .muscle-total-column {
-  width: 24%;
-}
-
-.muscle-table.show-today-column .muscle-today-column {
-  width: 20%;
-}
-
-.muscle-table th,
-.muscle-table td {
-  padding: 11px 10px;
-}
-
-.muscle-table thead {
-  background: #eef3eb;
-}
-
-.muscle-table thead th {
-  color: #65736b;
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-align: left;
-}
-
-.muscle-table thead .muscle-number-heading {
-  position: relative;
-  text-align: right;
-}
-
-.muscle-column-toggle {
-  position: relative;
-  display: flex;
-  width: 100%;
-  min-height: 24px;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-weight: inherit;
-  white-space: nowrap;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.muscle-column-toggle svg {
-  position: absolute;
-  right: -16px;
-  display: block;
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.25;
-}
-
-.muscle-column-toggle:focus-visible {
-  outline: 2px solid rgb(70 99 77 / 28%);
-  outline-offset: 2px;
-}
-
-.muscle-table thead th:last-child {
-  padding-right: 20px;
-  padding-left: 6px;
-}
-
-.muscle-table.show-today-column thead .muscle-number-heading:not(:last-child) {
-  padding-right: 6px;
-}
-
-.muscle-table tbody + tbody tr:first-child > *,
-.muscle-table tbody tr + tr td {
-  position: relative;
-}
-
-.muscle-table tbody + tbody tr:first-child > *::before,
-.muscle-table tbody tr + tr td::before {
+.muscle-carousel-slide {
   position: absolute;
   top: 0;
   right: 0;
   left: 0;
-  height: 1px;
-  background: #edf0ea;
-  content: '';
+  width: 100%;
   pointer-events: none;
+  will-change: transform;
 }
 
-.muscle-table tbody + tbody tr:first-child > *::before {
-  background: #cbd5c8;
-}
-
-.muscle-table tbody + tbody tr:first-child > *:first-child::before,
-.muscle-table tbody tr + tr td:first-child::before {
-  left: 8px;
-}
-
-.muscle-table tbody + tbody tr:first-child > *:last-child::before,
-.muscle-table tbody tr + tr td:last-child::before {
-  right: 20px;
-}
-
-.muscle-body-part {
-  border-right: 1px solid #edf0ea;
-  background: #f1f5ee;
-  color: #405047;
-  font-size: 0.88rem;
-  font-weight: 800;
-  text-align: center;
-  vertical-align: middle;
-}
-
-.muscle-body-part[data-region='肩'] {
-  background: #f1f6d8;
-}
-
-.muscle-body-part[data-region='屈肘'],
-.muscle-body-part[data-region='伸肘'],
-.muscle-body-part[data-region='前臂'] {
-  background: #f1edf5;
-}
-
-.muscle-body-part[data-region='背'] {
-  background: #e8f0ed;
-}
-
-.muscle-body-part[data-region='胸'] {
-  background: #f4ece8;
-}
-
-.muscle-body-part[data-region='腿'] {
-  background: #f4f0e1;
-}
-
-.muscle-name {
-  color: #405047;
-  font-size: 0.86rem;
-}
-
-.muscle-table td.muscle-total {
-  padding-right: 6px;
-  padding-left: 6px;
-  color: #234a31;
-  font-size: 0.9rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  text-align: right;
-}
-
-.muscle-table td.muscle-total:last-child {
-  padding-right: 20px;
-}
-
-.muscle-table td.muscle-today-total {
-  color: #b4423c;
-  white-space: nowrap;
-}
-
-.muscle-total-button {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  justify-content: center;
-  margin: -5px -4px;
-  padding: 5px 4px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-variant-numeric: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.muscle-total-button:disabled {
-  cursor: wait;
-}
-
-.muscle-total-button:focus-visible {
-  outline: 3px solid rgb(70 99 77 / 22%);
-  outline-offset: 2px;
+.muscle-carousel-slide.is-current {
+  pointer-events: auto;
 }
 </style>

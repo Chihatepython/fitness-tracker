@@ -83,6 +83,13 @@ export interface MuscleTrainingResult {
   sources: MuscleTrainingSources
 }
 
+export interface MuscleTrainingSnapshot extends MuscleTrainingResult {
+  periodIndex: number
+  weekOffset: number
+  dateRange: string
+  trainingSetCount: number
+}
+
 const TRACKED_MUSCLE_NAMES = new Set<string>(
   MUSCLE_GROUPS.flatMap((group) => [...group.muscles]),
 )

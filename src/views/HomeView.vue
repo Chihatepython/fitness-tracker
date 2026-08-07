@@ -29,6 +29,8 @@ const {
   selectedMuscleTrainingPeriodIndex,
   muscleTrainingPeriodWeekOffset,
   muscleTrainingPeriodRangeLabel,
+  olderMuscleTrainingSnapshot,
+  newerMuscleTrainingSnapshot,
   trainingCalendarDays,
   isLoadingTrainingCalendar,
   trainingCalendarError,
@@ -110,6 +112,8 @@ async function confirmDelete(): Promise<void> {
       :period-index="selectedMuscleTrainingPeriodIndex"
       :week-offset="muscleTrainingPeriodWeekOffset"
       :date-range="muscleTrainingPeriodRangeLabel"
+      :older-snapshot="olderMuscleTrainingSnapshot"
+      :newer-snapshot="newerMuscleTrainingSnapshot"
       :is-loading="isLoadingMuscleTrainingTotals"
       :is-loading-today="isLoadingTodaySets"
       :error="muscleTrainingTotalsError"
