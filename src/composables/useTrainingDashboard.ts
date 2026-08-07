@@ -34,7 +34,7 @@ export function useTrainingDashboard() {
   const isLoadingMuscleTrainingTotals = ref(true)
   const isRefreshingMuscleTrainingTotals = ref(false)
   const muscleTrainingTotalsError = ref('')
-  const selectedMuscleTrainingPeriodIndex = ref(0)
+  const selectedMuscleTrainingPeriodIndex = ref(1)
   const muscleTrainingPeriodWeekOffset = ref(0)
   const olderMuscleTrainingSnapshot = ref<MuscleTrainingSnapshot>()
   const newerMuscleTrainingSnapshot = ref<MuscleTrainingSnapshot>()
@@ -61,9 +61,9 @@ export function useTrainingDashboard() {
   const selectedMuscleTrainingPeriod = computed(
     () => TRAINING_PERIODS[selectedMuscleTrainingPeriodIndex.value]!,
   )
-  const todayMuscleTrainingTotals = computed(
-    () => calculateMuscleTraining(todaySets.value).totals,
-  )
+  const todayMuscleTraining = computed(() => calculateMuscleTraining(todaySets.value))
+  const todayMuscleTrainingTotals = computed(() => todayMuscleTraining.value.totals)
+  const todayMuscleTrainingSources = computed(() => todayMuscleTraining.value.sources)
   const muscleTrainingPeriodDateRange = computed(() =>
     getTrainingPeriodDateRange(
       selectedMuscleTrainingPeriod.value,
@@ -459,6 +459,7 @@ export function useTrainingDashboard() {
     muscleTrainingSources,
     muscleTrainingSetCount,
     todayMuscleTrainingTotals,
+    todayMuscleTrainingSources,
     isLoadingMuscleTrainingTotals,
     muscleTrainingTotalsError,
     selectedMuscleTrainingPeriodIndex,

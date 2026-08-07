@@ -25,6 +25,7 @@ const SWIPE_VELOCITY_PX_PER_MS = 0.5
 
 type SlidePosition = -1 | 0 | 1
 type GestureAxis = 'pending' | 'horizontal' | 'vertical'
+type MuscleSourceScope = 'period' | 'today'
 
 interface MuscleCarouselSlide {
   position: SlidePosition
@@ -35,6 +36,7 @@ const props = defineProps<{
   totals: Record<MuscleName, number>
   sources: MuscleTrainingSources
   todayTotals: Record<MuscleName, number>
+  todaySources: MuscleTrainingSources
   trainingSetCount: number
   periodIndex: number
   weekOffset: number
@@ -53,6 +55,7 @@ const emit = defineEmits<{
 
 const carouselViewport = ref<HTMLElement>()
 const selectedMuscle = ref<MuscleName>()
+const selectedMuscleSourceScope = ref<MuscleSourceScope>('period')
 const showTodayColumn = ref(localStorage.getItem(SHOW_TODAY_COLUMN_KEY) === 'true')
 const viewportHeight = ref(0)
 const dragOffset = ref(0)
@@ -94,11 +97,22 @@ const carouselSlides = computed<MuscleCarouselSlide[]>(() => {
 
   return slides
 })
-const selectedMuscleSources = computed(() =>
-  selectedMuscle.value ? props.sources[selectedMuscle.value] : [],
-)
-const selectedMuscleTotal = computed(() =>
-  selectedMuscle.value ? props.totals[selectedMuscle.value] : 0,
+const selectedMuscleSources = computed(() => {
+  if (!selectedMuscle.value) return []
+
+  return selectedMuscleSourceScope.value === 'today'
+    ? props.todaySources[selectedMuscle.value]
+    : props.sources[selectedMuscle.value]
+})
+const selectedMuscleTotal = computed(() => {
+  if (!selectedMuscle.value) return 0
+
+  return selectedMuscleSourceScope.value === 'today'
+    ? props.todayTotals[selectedMuscle.value]
+    : props.totals[selectedMuscle.value]
+})
+const selectedMuscleDateRange = computed(() =>
+  selectedMuscleSourceScope.value === 'today' ? '今天' : props.dateRange,
 )
 const carouselStyle = computed(() =>
   viewportHeight.value > 0 ? { height: `${viewportHeight.value}px` } : undefined,
@@ -119,7 +133,11 @@ function handleTableToggle(position: SlidePosition): void {
   if (position === 0 && !isDragging.value && !isAnimating.value) toggleTodayColumn()
 }
 
-function handleMuscleSelection(position: SlidePosition, muscle: MuscleName): void {
+function handleMuscleSelection(
+  position: SlidePosition,
+  muscle: MuscleName,
+  sourceScope: MuscleSourceScope,
+): void {
   if (
     position !== 0 ||
     isDragging.value ||
@@ -129,6 +147,7 @@ function handleMuscleSelection(position: SlidePosition, muscle: MuscleName): voi
     return
   }
 
+  selectedMuscleSourceScope.value = sourceScope
   selectedMuscle.value = muscle
 }
 
@@ -453,7 +472,8 @@ onBeforeUnmount(() => {
           :is-loading="slide.position === 0 && isLoading"
           :is-loading-today="isLoadingToday"
           :error="slide.position === 0 ? error : ''"
-          @select-muscle="handleMuscleSelection(slide.position, $event)"
+          @select-muscle="handleMuscleSelection(slide.position, $event, 'period')"
+          @select-today-muscle="handleMuscleSelection(slide.position, $event, 'today')"
           @toggle-today-column="handleTableToggle(slide.position)"
         />
       </div>
@@ -466,7 +486,7 @@ onBeforeUnmount(() => {
     :muscle="selectedMuscle"
     :sources="selectedMuscleSources"
     :total="selectedMuscleTotal"
-    :date-range="dateRange"
+    :date-range="selectedMuscleDateRange"
     @close="selectedMuscle = undefined"
   />
 </template>

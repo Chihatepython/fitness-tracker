@@ -103,13 +103,13 @@ onBeforeUnmount(() => {
 
       <ul class="muscle-source-list">
         <li v-for="source in sources" :key="source.exerciseId">
-          <div>
-            <strong>{{ EXERCISE_NAMES[source.exerciseId] }}</strong>
-            <span>
-              {{ source.setCount }} 组 × 每组 {{ formatWeightedSetCount(source.weightPerSet) }}
-            </span>
-          </div>
-          <strong>{{ formatWeightedSetCount(source.weightedSetCount) }} 组</strong>
+          <strong class="muscle-source-name">{{ EXERCISE_NAMES[source.exerciseId] }}</strong>
+          <span class="muscle-source-calculation">
+            {{ formatWeightedSetCount(source.weightPerSet) }} × {{ source.setCount }}
+          </span>
+          <strong class="muscle-source-total">
+            {{ formatWeightedSetCount(source.weightedSetCount) }} 组
+          </strong>
         </li>
       </ul>
     </div>
@@ -280,10 +280,9 @@ onBeforeUnmount(() => {
 }
 
 .muscle-source-list li {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 55%) 25% 20%;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
   padding: 15px 16px;
 }
 
@@ -291,29 +290,30 @@ onBeforeUnmount(() => {
   border-top: 1px solid #edf0ea;
 }
 
-.muscle-source-list li > div {
-  display: grid;
-  min-width: 0;
-  gap: 5px;
-}
-
-.muscle-source-list li > div strong {
+.muscle-source-name {
   overflow: hidden;
+  min-width: 0;
+  padding-right: 8px;
   font-size: 0.9rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.muscle-source-list li span {
+.muscle-source-calculation {
   color: #718078;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
 }
 
-.muscle-source-list li > strong {
-  flex: 0 0 auto;
+.muscle-source-total {
   color: #234a31;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {

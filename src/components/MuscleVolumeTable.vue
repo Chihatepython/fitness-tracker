@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   selectMuscle: [muscle: MuscleName]
+  selectTodayMuscle: [muscle: MuscleName]
   toggleTodayColumn: []
 }>()
 
@@ -99,13 +100,16 @@ const visibleMuscleGroups = computed(() =>
               </button>
             </td>
             <td v-if="showTodayColumn" class="muscle-total muscle-today-total">
-              {{
-                isLoadingToday
-                  ? '—'
-                  : todayTotals[muscle] > 0
-                    ? formatWeightedSetCount(todayTotals[muscle])
-                    : ''
-              }}
+              <span v-if="isLoadingToday">—</span>
+              <button
+                v-else-if="todayTotals[muscle] > 0"
+                class="muscle-total-button"
+                type="button"
+                :aria-label="`查看${muscle}今日训练来源`"
+                @click="emit('selectTodayMuscle', muscle)"
+              >
+                {{ formatWeightedSetCount(todayTotals[muscle]) }}
+              </button>
             </td>
           </tr>
         </tbody>
