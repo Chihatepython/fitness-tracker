@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 
 import MuscleSourceDialog from '@/components/MuscleSourceDialog.vue'
-import MuscleTableSettingsDialog from '@/components/MuscleTableSettingsDialog.vue'
 import {
   MUSCLE_GROUPS,
   TRAINING_PERIODS,
@@ -32,7 +31,6 @@ const emit = defineEmits<{
 }>()
 
 const selectedMuscle = ref<MuscleName>()
-const isTableSettingsOpen = ref(false)
 const showTodayColumn = ref(localStorage.getItem(SHOW_TODAY_COLUMN_KEY) === 'true')
 const selectedPeriod = computed(() => TRAINING_PERIODS[props.periodIndex]!)
 const visibleMuscleGroups = computed(() =>
@@ -66,32 +64,17 @@ function toggleTodayColumn(): void {
       </div>
       <div class="muscle-control-row">
         <span v-if="!isLoading" class="set-count">已训练 {{ trainingSetCount }} 组</span>
-        <div class="muscle-control-actions">
-          <button
-            class="table-settings-button"
-            type="button"
-            aria-label="打开肌束表格设置"
-            @click="isTableSettingsOpen = true"
-          >
-            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-              <path
-                d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"
-              />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
-          <select
-            class="period-select"
-            :value="periodIndex"
-            :disabled="isLoading"
-            aria-label="选择肌束训练量统计周期"
-            @change="handlePeriodChange"
-          >
-            <option v-for="(period, index) in TRAINING_PERIODS" :key="period.id" :value="index">
-              {{ period.label }}
-            </option>
-          </select>
-        </div>
+        <select
+          class="period-select"
+          :value="periodIndex"
+          :disabled="isLoading"
+          aria-label="选择肌束训练量统计周期"
+          @change="handlePeriodChange"
+        >
+          <option v-for="(period, index) in TRAINING_PERIODS" :key="period.id" :value="index">
+            {{ period.label }}
+          </option>
+        </select>
       </div>
       <div class="period-date-navigation">
         <button
@@ -134,13 +117,39 @@ function toggleTodayColumn(): void {
           <tr>
             <th scope="col">区域</th>
             <th scope="col">细分肌肉</th>
-            <th class="muscle-number-heading" scope="col">区间加权</th>
+            <th class="muscle-number-heading" scope="col">
+              <span v-if="showTodayColumn">区间加权</span>
+              <button
+                v-else
+                class="muscle-column-toggle"
+                type="button"
+                aria-label="显示今日新增列"
+                :aria-expanded="false"
+                @click="toggleTodayColumn"
+              >
+                <span>区间加权</span>
+                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                  <path d="m9 5 7 7-7 7" />
+                </svg>
+              </button>
+            </th>
             <th
               v-if="showTodayColumn"
               class="muscle-number-heading"
               scope="col"
             >
-              今日新增
+              <button
+                class="muscle-column-toggle"
+                type="button"
+                aria-label="隐藏今日新增列"
+                :aria-expanded="true"
+                @click="toggleTodayColumn"
+              >
+                <span>今日新增</span>
+                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                  <path d="m15 5-7 7 7 7" />
+                </svg>
+              </button>
             </th>
           </tr>
         </thead>
@@ -185,13 +194,6 @@ function toggleTodayColumn(): void {
     <p v-if="error" class="section-error" role="alert">{{ error }}</p>
   </section>
 
-  <MuscleTableSettingsDialog
-    :open="isTableSettingsOpen"
-    :show-today-column="showTodayColumn"
-    @close="isTableSettingsOpen = false"
-    @toggle-today-column="toggleTodayColumn"
-  />
-
   <MuscleSourceDialog
     :muscle="selectedMuscle"
     :sources="selectedMuscleSources"
@@ -208,8 +210,7 @@ function toggleTodayColumn(): void {
 }
 
 .muscle-title-row,
-.muscle-control-row,
-.muscle-control-actions {
+.muscle-control-row {
   display: flex;
   align-items: center;
 }
@@ -223,11 +224,6 @@ function toggleTodayColumn(): void {
   justify-content: space-between;
   gap: 12px;
   margin-top: 8px;
-}
-
-.muscle-control-actions {
-  flex: 0 0 auto;
-  gap: 8px;
 }
 
 .set-count {
@@ -258,8 +254,7 @@ function toggleTodayColumn(): void {
   white-space: nowrap;
 }
 
-.period-arrow-button,
-.table-settings-button {
+.period-arrow-button {
   display: grid;
   place-items: center;
   outline: none;
@@ -296,29 +291,9 @@ function toggleTodayColumn(): void {
   grid-column: 3;
 }
 
-.period-arrow-button:disabled,
-.table-settings-button:disabled {
+.period-arrow-button:disabled {
   cursor: default;
   opacity: 0.35;
-}
-
-.table-settings-button {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.table-settings-button svg {
-  display: block;
-  width: 30px;
-  height: 30px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
 }
 
 .muscle-table-wrapper {
@@ -362,9 +337,12 @@ function toggleTodayColumn(): void {
   width: 42%;
 }
 
-.muscle-table.show-today-column .muscle-total-column,
+.muscle-table.show-today-column .muscle-total-column {
+  width: 24%;
+}
+
 .muscle-table.show-today-column .muscle-today-column {
-  width: 22%;
+  width: 20%;
 }
 
 .muscle-table th,
@@ -384,11 +362,54 @@ function toggleTodayColumn(): void {
 }
 
 .muscle-table thead .muscle-number-heading {
+  position: relative;
   text-align: right;
 }
 
+.muscle-column-toggle {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 24px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muscle-column-toggle svg {
+  position: absolute;
+  right: -16px;
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.25;
+}
+
+.muscle-column-toggle:focus-visible {
+  outline: 2px solid rgb(70 99 77 / 28%);
+  outline-offset: 2px;
+}
+
 .muscle-table thead th:last-child {
-  padding-right: 16px;
+  padding-right: 20px;
+  padding-left: 6px;
+}
+
+.muscle-table.show-today-column thead .muscle-number-heading:not(:last-child) {
+  padding-right: 6px;
 }
 
 .muscle-table tbody + tbody tr:first-child > *,
@@ -419,7 +440,7 @@ function toggleTodayColumn(): void {
 
 .muscle-table tbody + tbody tr:first-child > *:last-child::before,
 .muscle-table tbody tr + tr td:last-child::before {
-  right: 16px;
+  right: 20px;
 }
 
 .muscle-body-part {
@@ -460,7 +481,7 @@ function toggleTodayColumn(): void {
 }
 
 .muscle-table td.muscle-total {
-  padding-right: 10px;
+  padding-right: 6px;
   padding-left: 6px;
   color: #234a31;
   font-size: 0.9rem;
@@ -470,7 +491,7 @@ function toggleTodayColumn(): void {
 }
 
 .muscle-table td.muscle-total:last-child {
-  padding-right: 16px;
+  padding-right: 20px;
 }
 
 .muscle-table td.muscle-today-total {
