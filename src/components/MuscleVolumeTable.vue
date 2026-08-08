@@ -11,6 +11,7 @@ const props = defineProps<{
   totals: Record<MuscleName, number>
   todayTotals: Record<MuscleName, number>
   showTodayColumn: boolean
+  showRegionColumn: boolean
   isLoading?: boolean
   isLoadingToday: boolean
   error?: string
@@ -20,6 +21,7 @@ const emit = defineEmits<{
   selectMuscle: [muscle: MuscleName]
   selectTodayMuscle: [muscle: MuscleName]
   toggleTodayColumn: []
+  toggleRegionColumn: []
 }>()
 
 const visibleMuscleGroups = computed(() =>
@@ -33,17 +35,51 @@ const visibleMuscleGroups = computed(() =>
 <template>
   <div class="muscle-table-content">
     <div v-if="visibleMuscleGroups.length" class="muscle-table-wrapper">
-      <table class="muscle-table" :class="{ 'show-today-column': showTodayColumn }">
+      <table
+        class="muscle-table"
+        :class="{
+          'show-today-column': showTodayColumn,
+          'show-region-column': showRegionColumn,
+        }"
+      >
         <colgroup>
-          <col class="muscle-body-part-column" />
+          <col v-if="showRegionColumn" class="muscle-body-part-column" />
           <col class="muscle-name-column" />
           <col class="muscle-total-column" />
           <col v-if="showTodayColumn" class="muscle-today-column" />
         </colgroup>
         <thead>
           <tr>
-            <th scope="col">区域</th>
-            <th scope="col">细分肌肉</th>
+            <th v-if="showRegionColumn" class="muscle-region-heading" scope="col">
+              <button
+                class="muscle-region-toggle"
+                type="button"
+                aria-label="隐藏区域列"
+                :aria-expanded="true"
+                @click="emit('toggleRegionColumn')"
+              >
+                <span>区域</span>
+                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                  <path d="m15 5-7 7 7 7" />
+                </svg>
+              </button>
+            </th>
+            <th class="muscle-name-heading" scope="col">
+              <span v-if="showRegionColumn">细分肌肉</span>
+              <button
+                v-else
+                class="muscle-region-toggle muscle-region-toggle--restore"
+                type="button"
+                aria-label="显示区域列"
+                :aria-expanded="false"
+                @click="emit('toggleRegionColumn')"
+              >
+                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                  <path d="m9 5 7 7-7 7" />
+                </svg>
+                <span>细分肌肉</span>
+              </button>
+            </th>
             <th class="muscle-number-heading" scope="col">
               <span v-if="showTodayColumn">区间加权</span>
               <button
@@ -68,7 +104,7 @@ const visibleMuscleGroups = computed(() =>
                 :aria-expanded="true"
                 @click="emit('toggleTodayColumn')"
               >
-                <span>今日新增</span>
+                <span>今日</span>
                 <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
                   <path d="m15 5-7 7 7 7" />
                 </svg>
@@ -77,9 +113,13 @@ const visibleMuscleGroups = computed(() =>
           </tr>
         </thead>
         <tbody v-for="group in visibleMuscleGroups" :key="group.region">
-          <tr v-for="(muscle, index) in group.muscles" :key="muscle">
+          <tr
+            v-for="(muscle, index) in group.muscles"
+            :key="muscle"
+            :data-region="group.region"
+          >
             <th
-              v-if="index === 0"
+              v-if="showRegionColumn && index === 0"
               class="muscle-body-part"
               :data-region="group.region"
               :rowspan="group.muscles.length"
@@ -161,8 +201,12 @@ const visibleMuscleGroups = computed(() =>
   width: 30%;
 }
 
+.muscle-table:not(.show-region-column) .muscle-name-column {
+  width: 70%;
+}
+
 .muscle-table.show-today-column .muscle-name-column {
-  width: 42%;
+  width: 44%;
 }
 
 .muscle-table.show-today-column .muscle-total-column {
@@ -170,7 +214,11 @@ const visibleMuscleGroups = computed(() =>
 }
 
 .muscle-table.show-today-column .muscle-today-column {
-  width: 20%;
+  width: 18%;
+}
+
+.muscle-table.show-today-column:not(.show-region-column) .muscle-name-column {
+  width: 58%;
 }
 
 .muscle-table th,
@@ -192,6 +240,51 @@ const visibleMuscleGroups = computed(() =>
 .muscle-table thead .muscle-number-heading {
   position: relative;
   text-align: right;
+}
+
+.muscle-table thead .muscle-region-heading {
+  padding-right: 4px;
+  padding-left: 6px;
+}
+
+.muscle-region-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 24px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muscle-region-toggle svg {
+  display: block;
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.25;
+}
+
+.muscle-region-toggle--restore {
+  gap: 3px;
+}
+
+.muscle-region-toggle:focus-visible {
+  outline: 2px solid rgb(70 99 77 / 28%);
+  outline-offset: 2px;
 }
 
 .muscle-column-toggle {
@@ -301,6 +394,42 @@ const visibleMuscleGroups = computed(() =>
 
 .muscle-body-part[data-region='腿'] {
   background: #f4f0e1;
+}
+
+.muscle-table:not(.show-region-column) tbody tr[data-region='肩'] {
+  --muscle-row-divider: #dce6ad;
+
+  background: #f1f6d8;
+}
+
+.muscle-table:not(.show-region-column) tbody tr[data-region='屈肘'],
+.muscle-table:not(.show-region-column) tbody tr[data-region='伸肘'],
+.muscle-table:not(.show-region-column) tbody tr[data-region='前臂'] {
+  --muscle-row-divider: #d9cfe2;
+
+  background: #f1edf5;
+}
+
+.muscle-table:not(.show-region-column) tbody tr[data-region='背'] {
+  --muscle-row-divider: #c9dad4;
+
+  background: #e8f0ed;
+}
+
+.muscle-table:not(.show-region-column) tbody tr[data-region='胸'] {
+  --muscle-row-divider: #decfc8;
+
+  background: #f4ece8;
+}
+
+.muscle-table:not(.show-region-column) tbody tr[data-region='腿'] {
+  --muscle-row-divider: #ded5b6;
+
+  background: #f4f0e1;
+}
+
+.muscle-table:not(.show-region-column) tbody tr + tr td::before {
+  background: var(--muscle-row-divider);
 }
 
 .muscle-name {

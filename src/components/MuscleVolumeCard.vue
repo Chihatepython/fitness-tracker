@@ -18,6 +18,7 @@ import {
 } from '@/domain/trainingStats'
 
 const SHOW_TODAY_COLUMN_KEY = 'fitness-tracker:show-today-muscle-column'
+const SHOW_REGION_COLUMN_KEY = 'fitness-tracker:show-muscle-region-column'
 const CAROUSEL_DURATION_MS = 220
 const HORIZONTAL_GESTURE_THRESHOLD_PX = 7
 const SWIPE_DISTANCE_RATIO = 0.22
@@ -57,6 +58,7 @@ const carouselViewport = ref<HTMLElement>()
 const selectedMuscle = ref<MuscleName>()
 const selectedMuscleSourceScope = ref<MuscleSourceScope>('period')
 const showTodayColumn = ref(localStorage.getItem(SHOW_TODAY_COLUMN_KEY) === 'true')
+const showRegionColumn = ref(localStorage.getItem(SHOW_REGION_COLUMN_KEY) !== 'false')
 const viewportHeight = ref(0)
 const dragOffset = ref(0)
 const transitionEnabled = ref(false)
@@ -129,8 +131,17 @@ function toggleTodayColumn(): void {
   localStorage.setItem(SHOW_TODAY_COLUMN_KEY, String(showTodayColumn.value))
 }
 
+function toggleRegionColumn(): void {
+  showRegionColumn.value = !showRegionColumn.value
+  localStorage.setItem(SHOW_REGION_COLUMN_KEY, String(showRegionColumn.value))
+}
+
 function handleTableToggle(position: SlidePosition): void {
   if (position === 0 && !isDragging.value && !isAnimating.value) toggleTodayColumn()
+}
+
+function handleRegionToggle(position: SlidePosition): void {
+  if (position === 0 && !isDragging.value && !isAnimating.value) toggleRegionColumn()
 }
 
 function handleMuscleSelection(
@@ -382,7 +393,7 @@ onMounted(() => {
 })
 
 watch(
-  [carouselSlides, showTodayColumn],
+  [carouselSlides, showTodayColumn, showRegionColumn],
   async () => {
     selectedMuscle.value = undefined
     await nextTick()
@@ -469,12 +480,14 @@ onBeforeUnmount(() => {
           :totals="slide.snapshot.totals"
           :today-totals="todayTotals"
           :show-today-column="showTodayColumn"
+          :show-region-column="showRegionColumn"
           :is-loading="slide.position === 0 && isLoading"
           :is-loading-today="isLoadingToday"
           :error="slide.position === 0 ? error : ''"
           @select-muscle="handleMuscleSelection(slide.position, $event, 'period')"
           @select-today-muscle="handleMuscleSelection(slide.position, $event, 'today')"
           @toggle-today-column="handleTableToggle(slide.position)"
+          @toggle-region-column="handleRegionToggle(slide.position)"
         />
       </div>
     </div>
