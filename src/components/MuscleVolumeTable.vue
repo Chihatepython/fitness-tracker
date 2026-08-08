@@ -14,6 +14,7 @@ const props = defineProps<{
   showTodayColumn: boolean
   showRegionColumn: boolean
   showElapsedColumn: boolean
+  allowCurrentColumns: boolean
   isLoading?: boolean
   isLoadingToday: boolean
   error?: string
@@ -85,6 +86,7 @@ const visibleMuscleGroups = computed(() =>
                 </button>
                 <span>细分肌肉</span>
                 <button
+                  v-if="allowCurrentColumns"
                   class="muscle-elapsed-toggle"
                   type="button"
                   :aria-label="showElapsedColumn ? '隐藏间隔列' : '显示间隔列'"
@@ -100,7 +102,7 @@ const visibleMuscleGroups = computed(() =>
             </th>
             <th v-if="showElapsedColumn" class="muscle-elapsed-heading" scope="col">间隔</th>
             <th class="muscle-number-heading" scope="col">
-              <span v-if="showTodayColumn">区间加权</span>
+              <span v-if="showTodayColumn || !allowCurrentColumns">区间加权</span>
               <button
                 v-else
                 class="muscle-column-toggle"
@@ -111,22 +113,22 @@ const visibleMuscleGroups = computed(() =>
               >
                 <span>区间加权</span>
                 <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-                  <path d="m9 5 7 7-7 7" />
+                  <path d="m15 5-7 7 7 7" />
                 </svg>
               </button>
             </th>
             <th v-if="showTodayColumn" class="muscle-number-heading" scope="col">
               <button
-                class="muscle-column-toggle"
+                class="muscle-column-toggle muscle-column-toggle--collapse-today"
                 type="button"
                 aria-label="隐藏今日新增列"
                 :aria-expanded="true"
                 @click="emit('toggleTodayColumn')"
               >
-                <span>今日</span>
                 <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-                  <path d="m15 5-7 7 7 7" />
+                  <path d="m9 5 7 7-7 7" />
                 </svg>
+                <span>今日</span>
               </button>
             </th>
           </tr>
@@ -412,6 +414,14 @@ const visibleMuscleGroups = computed(() =>
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2.25;
+}
+
+.muscle-column-toggle--collapse-today {
+  gap: 2px;
+}
+
+.muscle-column-toggle--collapse-today svg {
+  position: static;
 }
 
 .muscle-column-toggle:focus-visible {
