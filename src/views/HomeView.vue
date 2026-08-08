@@ -25,6 +25,7 @@ const {
   muscleTrainingSetCount,
   todayMuscleTrainingTotals,
   todayMuscleTrainingSources,
+  muscleLastTrainedHours,
   isLoadingMuscleTrainingTotals,
   muscleTrainingTotalsError,
   selectedMuscleTrainingPeriodIndex,
@@ -110,6 +111,7 @@ async function confirmDelete(): Promise<void> {
       :sources="muscleTrainingSources"
       :today-totals="todayMuscleTrainingTotals"
       :today-sources="todayMuscleTrainingSources"
+      :last-trained-hours="muscleLastTrainedHours"
       :training-set-count="muscleTrainingSetCount"
       :period-index="selectedMuscleTrainingPeriodIndex"
       :week-offset="muscleTrainingPeriodWeekOffset"

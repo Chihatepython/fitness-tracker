@@ -1,4 +1,4 @@
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import {
   deleteTrainingSet,
@@ -12,7 +12,10 @@ import {
 import {
   TRAINING_PERIODS,
   buildTrainingCalendarDays,
+  calculateHoursSinceLastTraining,
+  calculateMuscleLastTrainedAt,
   calculateMuscleTraining,
+  createEmptyMuscleLastTrainedAt,
   createEmptyMuscleTrainingSources,
   createEmptyMuscleTrainingTotals,
   formatDisplayDate,
@@ -40,7 +43,10 @@ export function useTrainingDashboard() {
   const newerMuscleTrainingSnapshot = ref<MuscleTrainingSnapshot>()
   const muscleTrainingSnapshotCache = new Map<string, MuscleTrainingSnapshot>()
   const pendingMuscleTrainingSnapshots = new Map<string, Promise<MuscleTrainingSnapshot>>()
+  const muscleLastTrainedAt = ref(createEmptyMuscleLastTrainedAt())
+  const currentTime = ref(Date.now())
   let muscleTrainingSnapshotCacheVersion = 0
+  let currentTimeTimer: number | undefined
 
   const trainingCalendarRange = getTrainingCalendarRange()
   const trainingCalendarDays = ref<TrainingCalendarDay[]>(
@@ -64,6 +70,9 @@ export function useTrainingDashboard() {
   const todayMuscleTraining = computed(() => calculateMuscleTraining(todaySets.value))
   const todayMuscleTrainingTotals = computed(() => todayMuscleTraining.value.totals)
   const todayMuscleTrainingSources = computed(() => todayMuscleTraining.value.sources)
+  const muscleLastTrainedHours = computed(() =>
+    calculateHoursSinceLastTraining(muscleLastTrainedAt.value, currentTime.value),
+  )
   const muscleTrainingPeriodDateRange = computed(() =>
     getTrainingPeriodDateRange(
       selectedMuscleTrainingPeriod.value,
@@ -279,6 +288,15 @@ export function useTrainingDashboard() {
     }
   }
 
+  async function loadMuscleLastTrainedAt(): Promise<void> {
+    try {
+      muscleLastTrainedAt.value = calculateMuscleLastTrainedAt(await getAllTrainingSets())
+      currentTime.value = Date.now()
+    } catch {
+      muscleLastTrainedAt.value = createEmptyMuscleLastTrainedAt()
+    }
+  }
+
   function changeMuscleTrainingPeriod(periodIndex: number): void {
     const cachedSnapshot = muscleTrainingSnapshotCache.get(
       getMuscleTrainingSnapshotKey(periodIndex, 0),
@@ -321,6 +339,7 @@ export function useTrainingDashboard() {
     void loadTodaySets()
     void loadMuscleTrainingTotals()
     void loadTrainingCalendar()
+    void loadMuscleLastTrainedAt()
   }
 
   function clearDeleteError(): void {
@@ -336,7 +355,11 @@ export function useTrainingDashboard() {
       todaySets.value = todaySets.value.filter(
         (trainingSet) => trainingSet.id !== trainingSetId,
       )
-      await Promise.all([loadMuscleTrainingTotals(), loadTrainingCalendar()])
+      await Promise.all([
+        loadMuscleTrainingTotals(),
+        loadTrainingCalendar(),
+        loadMuscleLastTrainedAt(),
+      ])
 
       return true
     } catch (error: unknown) {
@@ -431,7 +454,12 @@ export function useTrainingDashboard() {
       }
 
       await replaceAllTrainingSets(importedTrainingSets)
-      await Promise.all([loadTodaySets(), loadMuscleTrainingTotals(), loadTrainingCalendar()])
+      await Promise.all([
+        loadTodaySets(),
+        loadMuscleTrainingTotals(),
+        loadTrainingCalendar(),
+        loadMuscleLastTrainedAt(),
+      ])
       importStatus.value = `已导入 ${importedTrainingSets.length} 条训练记录`
     } catch (error: unknown) {
       importError.value =
@@ -449,6 +477,14 @@ export function useTrainingDashboard() {
     void loadTodaySets()
     void loadMuscleTrainingTotals()
     void loadTrainingCalendar()
+    void loadMuscleLastTrainedAt()
+    currentTimeTimer = window.setInterval(() => {
+      currentTime.value = Date.now()
+    }, 60 * 1000)
+  })
+
+  onBeforeUnmount(() => {
+    if (currentTimeTimer !== undefined) window.clearInterval(currentTimeTimer)
   })
 
   return {
@@ -460,6 +496,7 @@ export function useTrainingDashboard() {
     muscleTrainingSetCount,
     todayMuscleTrainingTotals,
     todayMuscleTrainingSources,
+    muscleLastTrainedHours,
     isLoadingMuscleTrainingTotals,
     muscleTrainingTotalsError,
     selectedMuscleTrainingPeriodIndex,

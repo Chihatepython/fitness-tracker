@@ -19,6 +19,7 @@ import {
 
 const SHOW_TODAY_COLUMN_KEY = 'fitness-tracker:show-today-muscle-column'
 const SHOW_REGION_COLUMN_KEY = 'fitness-tracker:show-muscle-region-column'
+const SHOW_ELAPSED_COLUMN_KEY = 'fitness-tracker:show-muscle-elapsed-column'
 const CAROUSEL_DURATION_MS = 220
 const HORIZONTAL_GESTURE_THRESHOLD_PX = 7
 const SWIPE_DISTANCE_RATIO = 0.22
@@ -38,6 +39,7 @@ const props = defineProps<{
   sources: MuscleTrainingSources
   todayTotals: Record<MuscleName, number>
   todaySources: MuscleTrainingSources
+  lastTrainedHours: Record<MuscleName, number | undefined>
   trainingSetCount: number
   periodIndex: number
   weekOffset: number
@@ -59,6 +61,7 @@ const selectedMuscle = ref<MuscleName>()
 const selectedMuscleSourceScope = ref<MuscleSourceScope>('period')
 const showTodayColumn = ref(localStorage.getItem(SHOW_TODAY_COLUMN_KEY) === 'true')
 const showRegionColumn = ref(localStorage.getItem(SHOW_REGION_COLUMN_KEY) !== 'false')
+const showElapsedColumn = ref(localStorage.getItem(SHOW_ELAPSED_COLUMN_KEY) !== 'false')
 const viewportHeight = ref(0)
 const dragOffset = ref(0)
 const transitionEnabled = ref(false)
@@ -136,12 +139,21 @@ function toggleRegionColumn(): void {
   localStorage.setItem(SHOW_REGION_COLUMN_KEY, String(showRegionColumn.value))
 }
 
+function toggleElapsedColumn(): void {
+  showElapsedColumn.value = !showElapsedColumn.value
+  localStorage.setItem(SHOW_ELAPSED_COLUMN_KEY, String(showElapsedColumn.value))
+}
+
 function handleTableToggle(position: SlidePosition): void {
   if (position === 0 && !isDragging.value && !isAnimating.value) toggleTodayColumn()
 }
 
 function handleRegionToggle(position: SlidePosition): void {
   if (position === 0 && !isDragging.value && !isAnimating.value) toggleRegionColumn()
+}
+
+function handleElapsedToggle(position: SlidePosition): void {
+  if (position === 0 && !isDragging.value && !isAnimating.value) toggleElapsedColumn()
 }
 
 function handleMuscleSelection(
@@ -393,7 +405,7 @@ onMounted(() => {
 })
 
 watch(
-  [carouselSlides, showTodayColumn, showRegionColumn],
+  [carouselSlides, showTodayColumn, showRegionColumn, showElapsedColumn],
   async () => {
     selectedMuscle.value = undefined
     await nextTick()
@@ -479,8 +491,10 @@ onBeforeUnmount(() => {
         <MuscleVolumeTable
           :totals="slide.snapshot.totals"
           :today-totals="todayTotals"
+          :last-trained-hours="lastTrainedHours"
           :show-today-column="showTodayColumn"
           :show-region-column="showRegionColumn"
+          :show-elapsed-column="showElapsedColumn"
           :is-loading="slide.position === 0 && isLoading"
           :is-loading-today="isLoadingToday"
           :error="slide.position === 0 ? error : ''"
@@ -488,6 +502,7 @@ onBeforeUnmount(() => {
           @select-today-muscle="handleMuscleSelection(slide.position, $event, 'today')"
           @toggle-today-column="handleTableToggle(slide.position)"
           @toggle-region-column="handleRegionToggle(slide.position)"
+          @toggle-elapsed-column="handleElapsedToggle(slide.position)"
         />
       </div>
     </div>

@@ -77,6 +77,7 @@ export interface MuscleSourceContribution {
 }
 
 export type MuscleTrainingSources = Record<MuscleName, MuscleSourceContribution[]>
+export type MuscleLastTrainedAt = Record<MuscleName, number | undefined>
 
 export interface MuscleTrainingResult {
   totals: Record<MuscleName, number>
@@ -206,6 +207,79 @@ export function createEmptyMuscleTrainingSources(): MuscleTrainingSources {
   return Object.fromEntries(
     MUSCLE_GROUPS.flatMap((group) => group.muscles.map((muscle) => [muscle, []])),
   ) as unknown as MuscleTrainingSources
+}
+
+export function createEmptyMuscleLastTrainedAt(): MuscleLastTrainedAt {
+  return Object.fromEntries(
+    MUSCLE_GROUPS.flatMap((group) => group.muscles.map((muscle) => [muscle, undefined])),
+  ) as MuscleLastTrainedAt
+}
+
+function getLocalDateFromTimestamp(timestamp: number): string {
+  const date = new Date(timestamp)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function getTrainingSetOccurredAt(trainingSet: TrainingSet): number {
+  if (
+    trainingSet.createdAt !== undefined &&
+    getLocalDateFromTimestamp(trainingSet.createdAt) === trainingSet.date
+  ) {
+    return trainingSet.createdAt
+  }
+
+  return new Date(`${trainingSet.date}T12:00:00`).getTime()
+}
+
+export function calculateMuscleLastTrainedAt(
+  trainingSets: TrainingSet[],
+): MuscleLastTrainedAt {
+  const lastTrainedAt = createEmptyMuscleLastTrainedAt()
+
+  for (const trainingSet of trainingSets) {
+    const exercise = EXERCISES.find((item) => item.id === trainingSet.exerciseId)
+
+    if (!exercise) continue
+
+    const occurredAt = getTrainingSetOccurredAt(trainingSet)
+
+    for (const muscleName of Object.keys(exercise.muscleWeights)) {
+      if (!TRACKED_MUSCLE_NAMES.has(muscleName)) continue
+
+      const trackedMuscleName = muscleName as MuscleName
+      const previousTimestamp = lastTrainedAt[trackedMuscleName]
+
+      if (previousTimestamp === undefined || occurredAt > previousTimestamp) {
+        lastTrainedAt[trackedMuscleName] = occurredAt
+      }
+    }
+  }
+
+  return lastTrainedAt
+}
+
+export function calculateHoursSinceLastTraining(
+  lastTrainedAt: MuscleLastTrainedAt,
+  currentTime = Date.now(),
+): Record<MuscleName, number | undefined> {
+  return Object.fromEntries(
+    MUSCLE_GROUPS.flatMap((group) =>
+      group.muscles.map((muscle) => {
+        const timestamp = lastTrainedAt[muscle]
+
+        return [
+          muscle,
+          timestamp === undefined
+            ? undefined
+            : Math.max(0, Math.floor((currentTime - timestamp) / (60 * 60 * 1000))),
+        ]
+      }),
+    ),
+  ) as Record<MuscleName, number | undefined>
 }
 
 function getBodyPartCountsByDate(

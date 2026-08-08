@@ -10,8 +10,10 @@ import {
 const props = defineProps<{
   totals: Record<MuscleName, number>
   todayTotals: Record<MuscleName, number>
+  lastTrainedHours: Record<MuscleName, number | undefined>
   showTodayColumn: boolean
   showRegionColumn: boolean
+  showElapsedColumn: boolean
   isLoading?: boolean
   isLoadingToday: boolean
   error?: string
@@ -22,6 +24,7 @@ const emit = defineEmits<{
   selectTodayMuscle: [muscle: MuscleName]
   toggleTodayColumn: []
   toggleRegionColumn: []
+  toggleElapsedColumn: []
 }>()
 
 const visibleMuscleGroups = computed(() =>
@@ -40,11 +43,13 @@ const visibleMuscleGroups = computed(() =>
         :class="{
           'show-today-column': showTodayColumn,
           'show-region-column': showRegionColumn,
+          'show-elapsed-column': showElapsedColumn,
         }"
       >
         <colgroup>
           <col v-if="showRegionColumn" class="muscle-body-part-column" />
           <col class="muscle-name-column" />
+          <col v-if="showElapsedColumn" class="muscle-elapsed-column" />
           <col class="muscle-total-column" />
           <col v-if="showTodayColumn" class="muscle-today-column" />
         </colgroup>
@@ -65,21 +70,35 @@ const visibleMuscleGroups = computed(() =>
               </button>
             </th>
             <th class="muscle-name-heading" scope="col">
-              <span v-if="showRegionColumn">细分肌肉</span>
-              <button
-                v-else
-                class="muscle-region-toggle muscle-region-toggle--restore"
-                type="button"
-                aria-label="显示区域列"
-                :aria-expanded="false"
-                @click="emit('toggleRegionColumn')"
-              >
-                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-                  <path d="m9 5 7 7-7 7" />
-                </svg>
+              <div class="muscle-name-heading-content">
+                <button
+                  v-if="!showRegionColumn"
+                  class="muscle-region-toggle muscle-region-toggle--restore"
+                  type="button"
+                  aria-label="显示区域列"
+                  :aria-expanded="false"
+                  @click="emit('toggleRegionColumn')"
+                >
+                  <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                    <path d="m9 5 7 7-7 7" />
+                  </svg>
+                </button>
                 <span>细分肌肉</span>
-              </button>
+                <button
+                  class="muscle-elapsed-toggle"
+                  type="button"
+                  :aria-label="showElapsedColumn ? '隐藏间隔列' : '显示间隔列'"
+                  :aria-expanded="showElapsedColumn"
+                  @click="emit('toggleElapsedColumn')"
+                >
+                  <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                    <path v-if="showElapsedColumn" d="m15 5-7 7 7 7" />
+                    <path v-else d="m9 5 7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </th>
+            <th v-if="showElapsedColumn" class="muscle-elapsed-heading" scope="col">间隔</th>
             <th class="muscle-number-heading" scope="col">
               <span v-if="showTodayColumn">区间加权</span>
               <button
@@ -128,6 +147,9 @@ const visibleMuscleGroups = computed(() =>
               {{ group.region }}
             </th>
             <td class="muscle-name">{{ muscle }}</td>
+            <td v-if="showElapsedColumn" class="muscle-elapsed">
+              {{ lastTrainedHours[muscle] === undefined ? '—' : `${lastTrainedHours[muscle]}h` }}
+            </td>
             <td class="muscle-total">
               <button
                 class="muscle-total-button"
@@ -205,6 +227,18 @@ const visibleMuscleGroups = computed(() =>
   width: 70%;
 }
 
+.muscle-table.show-elapsed-column .muscle-name-column {
+  width: 42%;
+}
+
+.muscle-table.show-elapsed-column .muscle-elapsed-column {
+  width: 14%;
+}
+
+.muscle-table.show-elapsed-column:not(.show-region-column) .muscle-name-column {
+  width: 56%;
+}
+
 .muscle-table.show-today-column .muscle-name-column {
   width: 44%;
 }
@@ -219,6 +253,18 @@ const visibleMuscleGroups = computed(() =>
 
 .muscle-table.show-today-column:not(.show-region-column) .muscle-name-column {
   width: 58%;
+}
+
+.muscle-table.show-today-column.show-elapsed-column .muscle-name-column {
+  width: 32%;
+}
+
+.muscle-table.show-today-column.show-elapsed-column .muscle-total-column {
+  width: 22%;
+}
+
+.muscle-table.show-today-column.show-elapsed-column:not(.show-region-column) .muscle-name-column {
+  width: 46%;
 }
 
 .muscle-table th,
@@ -279,12 +325,61 @@ const visibleMuscleGroups = computed(() =>
 }
 
 .muscle-region-toggle--restore {
+  width: auto;
+  flex: 0 0 auto;
   gap: 3px;
 }
 
 .muscle-region-toggle:focus-visible {
   outline: 2px solid rgb(70 99 77 / 28%);
   outline-offset: 2px;
+}
+
+.muscle-name-heading-content {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.muscle-elapsed-toggle {
+  display: inline-flex;
+  width: 14px;
+  min-height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muscle-elapsed-toggle svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.25;
+}
+
+.muscle-elapsed-toggle:focus-visible {
+  outline: 2px solid rgb(70 99 77 / 28%);
+  outline-offset: 2px;
+}
+
+.muscle-table thead .muscle-elapsed-heading {
+  padding-right: 4px;
+  padding-left: 4px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .muscle-column-toggle {
@@ -435,6 +530,17 @@ const visibleMuscleGroups = computed(() =>
 .muscle-name {
   color: #405047;
   font-size: 0.86rem;
+}
+
+.muscle-table td.muscle-elapsed {
+  padding-right: 4px;
+  padding-left: 4px;
+  color: #65736b;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .muscle-table td.muscle-total {
