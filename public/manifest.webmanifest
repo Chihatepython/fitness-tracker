@@ -1,0 +1,26 @@
+{
+  "id": "./",
+  "name": "训练记录",
+  "short_name": "训练记录",
+  "description": "记录每组训练，并查看肌束训练量。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1ea",
+  "theme_color": "#eef1ea",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
