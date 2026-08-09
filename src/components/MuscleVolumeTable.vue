@@ -34,6 +34,52 @@ const visibleMuscleGroups = computed(() =>
     muscles: group.muscles.filter((muscle) => props.totals[muscle] > 0),
   })).filter((group) => group.muscles.length > 0),
 )
+
+interface RecoveryThreshold {
+  trainableAt: number
+  fullyReadyAt: number
+}
+
+const RECOVERY_THRESHOLDS = {
+  三角肌前束: { trainableAt: 24, fullyReadyAt: 48 },
+  三角肌中束: { trainableAt: 24, fullyReadyAt: 48 },
+  三角肌后束: { trainableAt: 24, fullyReadyAt: 48 },
+  肱二头肌长头: { trainableAt: 24, fullyReadyAt: 48 },
+  肱二头肌短头: { trainableAt: 24, fullyReadyAt: 48 },
+  肱肌: { trainableAt: 24, fullyReadyAt: 48 },
+  肱三头肌长头: { trainableAt: 24, fullyReadyAt: 48 },
+  肱三头肌外侧头: { trainableAt: 24, fullyReadyAt: 48 },
+  肱三头肌内侧头: { trainableAt: 24, fullyReadyAt: 48 },
+  肱桡肌: { trainableAt: 18, fullyReadyAt: 36 },
+  前臂伸肌群: { trainableAt: 18, fullyReadyAt: 36 },
+  背阔肌: { trainableAt: 24, fullyReadyAt: 48 },
+  中背: { trainableAt: 24, fullyReadyAt: 48 },
+  斜方肌上束: { trainableAt: 18, fullyReadyAt: 36 },
+  外旋肌: { trainableAt: 18, fullyReadyAt: 36 },
+  竖脊肌: { trainableAt: 30, fullyReadyAt: 60 },
+  上胸: { trainableAt: 24, fullyReadyAt: 48 },
+  中胸: { trainableAt: 24, fullyReadyAt: 48 },
+  下胸: { trainableAt: 24, fullyReadyAt: 48 },
+  股四头肌: { trainableAt: 30, fullyReadyAt: 60 },
+  腘绳肌: { trainableAt: 30, fullyReadyAt: 60 },
+  臀大肌: { trainableAt: 24, fullyReadyAt: 48 },
+  臀中肌: { trainableAt: 18, fullyReadyAt: 36 },
+  内收肌群: { trainableAt: 24, fullyReadyAt: 48 },
+  腓肠肌: { trainableAt: 24, fullyReadyAt: 48 },
+  比目鱼肌: { trainableAt: 18, fullyReadyAt: 36 },
+  胫骨前肌: { trainableAt: 18, fullyReadyAt: 36 },
+} as const satisfies Record<MuscleName, RecoveryThreshold>
+
+function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): string | undefined {
+  if (elapsedHours === undefined) return undefined
+
+  const threshold = RECOVERY_THRESHOLDS[muscle]
+
+  if (elapsedHours >= threshold.fullyReadyAt) return 'muscle-elapsed--fully-ready'
+  return elapsedHours >= threshold.trainableAt
+    ? 'muscle-elapsed--trainable'
+    : 'muscle-elapsed--not-ready'
+}
 </script>
 
 <template>
@@ -149,8 +195,18 @@ const visibleMuscleGroups = computed(() =>
               {{ group.region }}
             </th>
             <td class="muscle-name">{{ muscle }}</td>
-            <td v-if="showElapsedColumn" class="muscle-elapsed">
-              {{ lastTrainedHours[muscle] === undefined ? '—' : `${lastTrainedHours[muscle]}h` }}
+            <td
+              v-if="showElapsedColumn"
+              class="muscle-elapsed"
+            >
+              <span v-if="lastTrainedHours[muscle] === undefined">—</span>
+              <span
+                v-else
+                class="muscle-elapsed-badge"
+                :class="getRecoveryStatusClass(muscle, lastTrainedHours[muscle])"
+              >
+                {{ lastTrainedHours[muscle] }}h
+              </span>
             </td>
             <td class="muscle-total">
               <button
@@ -551,6 +607,34 @@ const visibleMuscleGroups = computed(() =>
   font-weight: 700;
   text-align: center;
   white-space: nowrap;
+}
+
+.muscle-elapsed-badge {
+  display: inline-flex;
+  width: 38px;
+  height: 24px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.muscle-elapsed-badge.muscle-elapsed--not-ready {
+  background: #ecd4d1;
+  color: #994b46;
+}
+
+.muscle-elapsed-badge.muscle-elapsed--trainable {
+  background: #e7eab9;
+  color: #6f771f;
+}
+
+.muscle-elapsed-badge.muscle-elapsed--fully-ready {
+  background: #d4e5d8;
+  color: #356845;
 }
 
 .muscle-table td.muscle-total {
