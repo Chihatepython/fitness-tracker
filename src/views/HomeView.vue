@@ -247,7 +247,14 @@ async function confirmDelete(): Promise<void> {
       <p v-if="updateError" class="export-error" role="alert">{{ updateError }}</p>
     </section>
 
-    <button class="add-set-button" type="button" aria-label="添加一组" @click="addSetDialog?.open()">
+    <RouterLink class="performance-link" to="/performance">训练表现</RouterLink>
+
+    <button
+      class="add-set-button"
+      type="button"
+      aria-label="添加一组"
+      @click="addSetDialog?.open()"
+    >
       +
     </button>
 
@@ -302,6 +309,25 @@ async function confirmDelete(): Promise<void> {
 
 .update-button {
   margin-top: 10px;
+}
+
+.performance-link {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 10px;
+  place-items: center;
+  border: 1px solid #d5ddd1;
+  border-radius: 14px;
+  background: #fff;
+  color: #46634d;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.performance-link:focus-visible {
+  outline: 3px solid rgb(70 99 77 / 22%);
+  outline-offset: 2px;
 }
 
 .import-file-input {
