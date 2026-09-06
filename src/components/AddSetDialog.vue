@@ -7,12 +7,28 @@ import {
   EXERCISES,
   addTrainingSet,
   createTrainingSetId,
+  getAllTrainingSets,
   getTrainingSetsByDate,
+  type BodyPart,
   type ExerciseId,
+  type TrainingSet,
 } from '@/database'
 
 const DEFAULT_EXERCISE_ID = EXERCISES[0].id
-const exerciseOptions = EXERCISES
+const BODY_PART_FILTER_LABELS: Readonly<Record<BodyPart, string>> = {
+  手臂: '臂',
+  肩: '肩',
+  背: '背',
+  胸: '胸',
+  腿: '腿',
+}
+const bodyPartOptions = [
+  '肩',
+  '胸',
+  '背',
+  '腿',
+  '手臂',
+] as const satisfies ReadonlyArray<BodyPart>
 
 type MuscleWeightEntry = {
   muscle: string
@@ -20,6 +36,9 @@ type MuscleWeightEntry = {
 }
 
 type NumericField = 'weightKg' | 'reps' | 'rir'
+type AddSetPanelMode = 'classic' | 'alternate'
+
+const ADD_SET_PANEL_MODE_KEY = 'fitness-tracker:add-set-panel-mode'
 
 const keypadDigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 
@@ -34,6 +53,9 @@ const shouldReplaceActiveValue = ref(true)
 const errorMessage = ref('')
 const isSaving = ref(false)
 const isWeightsDialogOpen = ref(false)
+const activePanelMode = ref<AddSetPanelMode>(getSavedPanelMode())
+const selectedBodyPart = ref<BodyPart>(EXERCISES[0].bodyPart)
+const trainingHistory = ref<TrainingSet[]>([])
 const emit = defineEmits<{ saved: [] }>()
 const { lockPageScroll, unlockPageScroll } = usePageScrollLock()
 
@@ -49,6 +71,109 @@ const selectedExerciseName = computed(
   () => EXERCISES.find((exercise) => exercise.id === exerciseId.value)?.name ?? '',
 )
 
+const activePanelNumber = computed(() => (activePanelMode.value === 'classic' ? 1 : 2))
+
+const exerciseOptions = computed(() => {
+  if (activePanelMode.value === 'classic') return EXERCISES
+
+  return EXERCISES.filter((exercise) => exercise.bodyPart === selectedBodyPart.value)
+})
+
+const availableBodyParts = computed(
+  () => new Set<BodyPart>(EXERCISES.map((exercise) => exercise.bodyPart)),
+)
+
+const currentExerciseHistory = computed(() =>
+  trainingHistory.value
+    .map((trainingSet, index) => ({ trainingSet, index }))
+    .filter(({ trainingSet }) => trainingSet.exerciseId === exerciseId.value)
+    .sort((left, right) => {
+      const leftTime = left.trainingSet.createdAt ?? new Date(left.trainingSet.date).getTime()
+      const rightTime = right.trainingSet.createdAt ?? new Date(right.trainingSet.date).getTime()
+
+      return rightTime - leftTime || right.index - left.index
+    })
+    .map(({ trainingSet }) => trainingSet),
+)
+
+const recentWeights = computed(() => {
+  const weights: number[] = []
+
+  for (const trainingSet of currentExerciseHistory.value) {
+    if (!weights.includes(trainingSet.weightKg)) weights.push(trainingSet.weightKg)
+    if (weights.length === 3) break
+  }
+
+  return weights
+})
+
+const recentReps = computed(() => {
+  const currentWeight = Number(weightKg.value)
+  const hasCurrentWeight = Boolean(weightKg.value) && Number.isFinite(currentWeight)
+  const matchingWeightSets = hasCurrentWeight
+    ? currentExerciseHistory.value.filter((trainingSet) => trainingSet.weightKg === currentWeight)
+    : []
+  const otherWeightSets = hasCurrentWeight
+    ? currentExerciseHistory.value.filter((trainingSet) => trainingSet.weightKg !== currentWeight)
+    : currentExerciseHistory.value
+
+  const repsValues: number[] = []
+
+  for (const trainingSet of [...matchingWeightSets, ...otherWeightSets]) {
+    if (repsValues.includes(trainingSet.reps)) continue
+
+    repsValues.push(trainingSet.reps)
+    if (repsValues.length === 3) break
+  }
+
+  return repsValues
+})
+
+function getSavedPanelMode(): AddSetPanelMode {
+  try {
+    return localStorage.getItem(ADD_SET_PANEL_MODE_KEY) === 'alternate' ? 'alternate' : 'classic'
+  } catch {
+    return 'classic'
+  }
+}
+
+function switchPanel(): void {
+  activePanelMode.value = activePanelMode.value === 'classic' ? 'alternate' : 'classic'
+
+  if (activePanelMode.value === 'alternate') {
+    const currentExercise = EXERCISES.find((exercise) => exercise.id === exerciseId.value)
+    if (currentExercise) selectedBodyPart.value = currentExercise.bodyPart
+  }
+
+  try {
+    localStorage.setItem(ADD_SET_PANEL_MODE_KEY, activePanelMode.value)
+  } catch {
+    // 浏览器禁用本地存储时，本次打开期间仍然可以正常切换。
+  }
+}
+
+function selectBodyPart(bodyPart: BodyPart): void {
+  if (!availableBodyParts.value.has(bodyPart)) return
+
+  selectedBodyPart.value = bodyPart
+
+  const currentExercise = EXERCISES.find((exercise) => exercise.id === exerciseId.value)
+  if (currentExercise?.bodyPart === bodyPart) return
+
+  const firstExercise = EXERCISES.find((exercise) => exercise.bodyPart === bodyPart)
+  if (firstExercise) exerciseId.value = firstExercise.id
+}
+
+function selectRecentWeight(value: number): void {
+  weightKg.value = String(value)
+  activateNumericField('weightKg')
+}
+
+function selectRecentReps(value: number): void {
+  reps.value = String(value)
+  activateNumericField('reps')
+}
+
 function getLocalDate(): string {
   const today = new Date()
   const year = today.getFullYear()
@@ -63,6 +188,7 @@ async function open(): Promise<void> {
 
   date.value = today
   exerciseId.value = DEFAULT_EXERCISE_ID
+  selectedBodyPart.value = EXERCISES[0].bodyPart
   weightKg.value = ''
   reps.value = ''
   rir.value = ''
@@ -72,11 +198,18 @@ async function open(): Promise<void> {
   isWeightsDialogOpen.value = false
 
   try {
-    const todayTrainingSets = await getTrainingSetsByDate(today)
+    const [todayTrainingSets, allTrainingSets] = await Promise.all([
+      getTrainingSetsByDate(today),
+      getAllTrainingSets(),
+    ])
+    trainingHistory.value = allTrainingSets
     const lastTrainingSet = todayTrainingSets[todayTrainingSets.length - 1]
 
     if (lastTrainingSet) {
       exerciseId.value = lastTrainingSet.exerciseId
+      selectedBodyPart.value =
+        EXERCISES.find((exercise) => exercise.id === lastTrainingSet.exerciseId)?.bodyPart ??
+        EXERCISES[0].bodyPart
       weightKg.value = String(lastTrainingSet.weightKg)
       reps.value = String(lastTrainingSet.reps)
       rir.value = String(lastTrainingSet.rir)
@@ -195,109 +328,187 @@ defineExpose({ open })
     <form class="set-form" @submit.prevent="save">
       <header class="dialog-header">
         <h2>添加一组</h2>
-        <button class="close-button" type="button" aria-label="关闭" @click="close">×</button>
+        <div class="dialog-header-actions">
+          <button
+            class="panel-switch-button"
+            type="button"
+            :aria-label="`切换到面板 ${activePanelNumber === 1 ? 2 : 1}`"
+            :title="`当前为面板 ${activePanelNumber}`"
+            @click="switchPanel"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="7" width="12" height="12" rx="2.5" />
+              <path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h8A2.5 2.5 0 0 1 21 5.5v8a2.5 2.5 0 0 1-2.5 2.5H16" />
+            </svg>
+            <span>{{ activePanelNumber }}</span>
+          </button>
+          <button class="close-button" type="button" aria-label="关闭" @click="close">×</button>
+        </div>
       </header>
 
-      <label>
-        <span>日期</span>
-        <input v-model="date" type="date" required />
-      </label>
+      <section :key="activePanelMode" class="panel-content" :data-panel="activePanelMode">
+        <label v-if="activePanelMode === 'classic'">
+          <span>日期</span>
+          <input v-model="date" type="date" required />
+        </label>
 
-      <div class="exercise-field">
-        <label for="exercise-select">动作</label>
-        <div class="exercise-control-row">
-          <select id="exercise-select" v-model="exerciseId" required>
-            <option v-for="exercise in exerciseOptions" :key="exercise.id" :value="exercise.id">
-              {{ exercise.bodyPart }} - {{ exercise.name }}
-            </option>
-          </select>
-          <button
-            type="button"
-            aria-label="查看当前动作的肌肉分权"
-            :disabled="!selectedMuscleWeights.length"
-            @click="isWeightsDialogOpen = true"
-          >
-            i
-          </button>
+        <label v-else class="alternate-date-row">
+          <span>日期</span>
+          <input v-model="date" type="date" required />
+        </label>
+
+        <div class="exercise-field">
+          <label v-if="activePanelMode === 'classic'" for="exercise-select">动作</label>
+          <div v-else class="alternate-exercise-heading">
+            <label for="exercise-select">动作</label>
+            <div class="body-part-filter" role="group" aria-label="按部位筛选动作">
+              <button
+                v-for="bodyPart in bodyPartOptions"
+                :key="bodyPart"
+                type="button"
+                :class="{ selected: selectedBodyPart === bodyPart }"
+                :aria-pressed="selectedBodyPart === bodyPart"
+                :disabled="!availableBodyParts.has(bodyPart)"
+                @click="selectBodyPart(bodyPart)"
+              >
+                {{ BODY_PART_FILTER_LABELS[bodyPart] }}
+              </button>
+            </div>
+          </div>
+          <div class="exercise-control-row">
+            <select id="exercise-select" v-model="exerciseId" required>
+              <option v-for="exercise in exerciseOptions" :key="exercise.id" :value="exercise.id">
+                {{ exercise.bodyPart }} - {{ exercise.name }}
+              </option>
+            </select>
+            <button
+              type="button"
+              aria-label="查看当前动作的肌肉分权"
+              :disabled="!selectedMuscleWeights.length"
+              @click="isWeightsDialogOpen = true"
+            >
+              i
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div class="field-row">
-        <label :class="{ 'active-field': activeNumericField === 'weightKg' }">
-          <span>重量（kg）</span>
-          <input
-            v-model="weightKg"
-            type="text"
-            inputmode="none"
-            placeholder="0"
-            readonly
-            required
-            @focus="activateNumericField('weightKg')"
-            @click="activateNumericField('weightKg')"
-          />
-        </label>
+        <div class="field-row">
+          <label :class="{ 'active-field': activeNumericField === 'weightKg' }">
+            <span>重量（kg）</span>
+            <input
+              v-model="weightKg"
+              type="text"
+              inputmode="none"
+              placeholder="0"
+              readonly
+              required
+              @focus="activateNumericField('weightKg')"
+              @click="activateNumericField('weightKg')"
+            />
+          </label>
 
-        <label :class="{ 'active-field': activeNumericField === 'reps' }">
-          <span>次数</span>
-          <input
-            v-model="reps"
-            type="text"
-            inputmode="none"
-            placeholder="0"
-            readonly
-            required
-            @focus="activateNumericField('reps')"
-            @click="activateNumericField('reps')"
-          />
-        </label>
+          <label :class="{ 'active-field': activeNumericField === 'reps' }">
+            <span>次数</span>
+            <input
+              v-model="reps"
+              type="text"
+              inputmode="none"
+              placeholder="0"
+              readonly
+              required
+              @focus="activateNumericField('reps')"
+              @click="activateNumericField('reps')"
+            />
+          </label>
 
-        <label :class="{ 'active-field': activeNumericField === 'rir' }">
-          <span>RIR</span>
-          <input
-            v-model="rir"
-            type="text"
-            inputmode="none"
-            placeholder="0"
-            readonly
-            required
-            @focus="activateNumericField('rir')"
-            @click="activateNumericField('rir')"
-          />
-        </label>
-      </div>
+          <label :class="{ 'active-field': activeNumericField === 'rir' }">
+            <span>RIR</span>
+            <input
+              v-model="rir"
+              type="text"
+              inputmode="none"
+              placeholder="0"
+              readonly
+              required
+              @focus="activateNumericField('rir')"
+              @click="activateNumericField('rir')"
+            />
+          </label>
+        </div>
 
-      <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
+        <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
 
-      <div class="number-keypad" aria-label="数字键盘">
-        <button
-          v-for="digit in keypadDigits"
-          :key="digit"
-          type="button"
-          @click="enterDigit(digit)"
+        <div
+          v-if="
+            activePanelMode === 'alternate' && (recentWeights.length > 0 || recentReps.length > 0)
+          "
+          class="recent-value-suggestions"
+          aria-label="当前动作的最近值"
         >
-          {{ digit }}
-        </button>
-        <button
-          class="decimal-key"
-          type="button"
-          :disabled="activeNumericField !== 'weightKg'"
-          aria-label="小数点"
-          @click="enterDecimalPoint"
-        >
-          .
-        </button>
-        <button type="button" @click="enterDigit('0')">0</button>
-        <button class="clear-key" type="button" @click="clearActiveValue">清空</button>
-      </div>
+          <div v-if="recentWeights.length" class="recent-value-row">
+            <span>重量</span>
+            <div role="group" aria-label="当前动作最近使用的重量">
+              <button
+                v-for="value in recentWeights"
+                :key="value"
+                type="button"
+                :class="{ selected: Number(weightKg) === value }"
+                :aria-pressed="Number(weightKg) === value"
+                @click="selectRecentWeight(value)"
+              >
+                {{ value }}
+              </button>
+            </div>
+          </div>
 
-      <footer class="dialog-actions">
-        <button class="cancel-button" type="button" :disabled="isSaving" @click="close">
-          Cancel
-        </button>
-        <button class="save-button" type="submit" :disabled="isSaving">
-          {{ isSaving ? '保存中…' : 'OK' }}
-        </button>
-      </footer>
+          <div v-if="recentReps.length" class="recent-value-row">
+            <span>次数</span>
+            <div role="group" aria-label="当前动作最近完成的次数，优先匹配当前重量">
+              <button
+                v-for="value in recentReps"
+                :key="value"
+                type="button"
+                :class="{ selected: Number(reps) === value }"
+                :aria-pressed="Number(reps) === value"
+                @click="selectRecentReps(value)"
+              >
+                {{ value }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="number-keypad" aria-label="数字键盘">
+          <button
+            v-for="digit in keypadDigits"
+            :key="digit"
+            type="button"
+            @click="enterDigit(digit)"
+          >
+            {{ digit }}
+          </button>
+          <button
+            class="decimal-key"
+            type="button"
+            :disabled="activeNumericField !== 'weightKg'"
+            aria-label="小数点"
+            @click="enterDecimalPoint"
+          >
+            .
+          </button>
+          <button type="button" @click="enterDigit('0')">0</button>
+          <button class="clear-key" type="button" @click="clearActiveValue">清空</button>
+        </div>
+
+        <footer class="dialog-actions">
+          <button class="cancel-button" type="button" :disabled="isSaving" @click="close">
+            Cancel
+          </button>
+          <button class="save-button" type="submit" :disabled="isSaving">
+            {{ isSaving ? '保存中…' : 'OK' }}
+          </button>
+        </footer>
+      </section>
     </form>
   </dialog>
 
@@ -343,10 +554,63 @@ defineExpose({ open })
   letter-spacing: -0.03em;
 }
 
-.close-button {
+.dialog-header-actions {
   position: absolute;
   top: 0;
   right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-switch-button {
+  position: relative;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #dce3d8;
+  border-radius: 50%;
+  outline: none;
+  background: #fff;
+  color: #52675a;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.panel-switch-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.panel-switch-button span {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  width: 15px;
+  height: 15px;
+  place-items: center;
+  border: 2px solid #f8faf5;
+  border-radius: 50%;
+  background: #315e40;
+  color: #fff;
+  font-size: 0.56rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.panel-switch-button:active {
+  background: #edf3e9;
+}
+
+.close-button {
   display: grid;
   width: 36px;
   height: 36px;
@@ -379,6 +643,62 @@ label + label,
 
 .exercise-field > label {
   margin-bottom: 8px;
+}
+
+.alternate-date-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.alternate-exercise-heading {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.alternate-exercise-heading > label {
+  flex: 0 0 auto;
+}
+
+.body-part-filter {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+}
+
+.body-part-filter button {
+  display: grid;
+  width: 32px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d5ddd1;
+  border-radius: 9px;
+  background: #fff;
+  color: #657169;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.body-part-filter button.selected {
+  border-color: #789383;
+  background: #e5eddf;
+  color: #285b39;
+}
+
+.body-part-filter button:disabled {
+  background: #edf0eb;
+  color: #afb6b0;
+  cursor: default;
 }
 
 .exercise-control-row {
@@ -464,6 +784,52 @@ input[readonly] {
   margin: 16px 0 0;
   color: #a52d2d;
   font-size: 0.82rem;
+}
+
+.recent-value-suggestions {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.recent-value-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.recent-value-row > span {
+  color: #718078;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.recent-value-row > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.recent-value-row button {
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid #dce3d8;
+  border-radius: 9px;
+  background: #f0f4ed;
+  color: #405148;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 750;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recent-value-row button.selected {
+  border-color: #789383;
+  background: #e5eddf;
+  color: #285b39;
 }
 
 .number-keypad {
