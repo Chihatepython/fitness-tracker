@@ -35,6 +35,10 @@ const visibleMuscleGroups = computed(() =>
   })).filter((group) => group.muscles.length > 0),
 )
 
+function isGroupTrainedToday(muscles: readonly MuscleName[]): boolean {
+  return props.allowCurrentColumns && muscles.some((muscle) => props.todayTotals[muscle] > 0)
+}
+
 interface RecoveryThreshold {
   trainableAt: number
   fullyReadyAt: number
@@ -179,7 +183,12 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
             </th>
           </tr>
         </thead>
-        <tbody v-for="group in visibleMuscleGroups" :key="group.region">
+        <tbody
+          v-for="group in visibleMuscleGroups"
+          :key="group.region"
+          :class="{ 'is-trained-today': isGroupTrainedToday(group.muscles) }"
+          :data-region="group.region"
+        >
           <tr
             v-for="(muscle, index) in group.muscles"
             :key="muscle"
@@ -591,6 +600,49 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
 
 .muscle-table:not(.show-region-column) tbody tr + tr td::before {
   background: var(--muscle-row-divider);
+}
+
+.muscle-table tbody.is-trained-today[data-region='肩'] {
+  --today-region-border: #bad622;
+}
+
+.muscle-table tbody.is-trained-today[data-region='屈肘'],
+.muscle-table tbody.is-trained-today[data-region='伸肘'],
+.muscle-table tbody.is-trained-today[data-region='前臂'] {
+  --today-region-border: #a77ac5;
+}
+
+.muscle-table tbody.is-trained-today[data-region='背'] {
+  --today-region-border: #55a488;
+}
+
+.muscle-table tbody.is-trained-today[data-region='胸'] {
+  --today-region-border: #d88762;
+}
+
+.muscle-table tbody.is-trained-today[data-region='腿'] {
+  --today-region-border: #c6a43e;
+}
+
+.muscle-table tbody.is-trained-today tr:first-child > * {
+  border-top: 2px solid var(--today-region-border);
+}
+
+.muscle-table tbody.is-trained-today tr:last-child > * {
+  border-bottom: 2px solid var(--today-region-border);
+}
+
+.muscle-table.show-region-column tbody.is-trained-today .muscle-body-part {
+  border-bottom: 2px solid var(--today-region-border);
+  border-left: 2px solid var(--today-region-border);
+}
+
+.muscle-table:not(.show-region-column) tbody.is-trained-today tr > *:first-child {
+  border-left: 2px solid var(--today-region-border);
+}
+
+.muscle-table tbody.is-trained-today tr > *:last-child {
+  border-right: 2px solid var(--today-region-border);
 }
 
 .muscle-name {

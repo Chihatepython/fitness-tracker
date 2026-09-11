@@ -288,6 +288,126 @@ export const EXERCISES = [
       肱三头肌内侧头: 0.5,
     },
   },
+  {
+    id: 'barbellBackSquat',
+    name: '杠铃深蹲',
+    bodyPart: '腿',
+    muscleWeights: {
+      股四头肌: 1,
+      腘绳肌: 0.25,
+      臀大肌: 1,
+      臀中肌: 0.25,
+      内收肌群: 0.5,
+    },
+  },
+  {
+    id: 'dumbbellSquat',
+    name: '哑铃深蹲',
+    bodyPart: '腿',
+    muscleWeights: {
+      股四头肌: 1,
+      腘绳肌: 0.25,
+      臀大肌: 1,
+      臀中肌: 0.25,
+      内收肌群: 0.5,
+    },
+  },
+  {
+    id: 'quadDominantBulgarianSplitSquat',
+    name: '保加利亚分腿蹲（股四头肌主导）',
+    bodyPart: '腿',
+    muscleWeights: {
+      股四头肌: 1,
+      腘绳肌: 0.25,
+      臀大肌: 0.5,
+      臀中肌: 0.25,
+      内收肌群: 0.25,
+    },
+  },
+  {
+    id: 'gluteDominantBulgarianSplitSquat',
+    name: '保加利亚分腿蹲（臀部主导）',
+    bodyPart: '腿',
+    muscleWeights: {
+      股四头肌: 0.5,
+      腘绳肌: 0.5,
+      臀大肌: 1,
+      臀中肌: 0.25,
+      内收肌群: 0.25,
+    },
+  },
+  {
+    id: 'romanianDeadlift',
+    name: '罗马尼亚硬拉',
+    bodyPart: '腿',
+    muscleWeights: {
+      腘绳肌: 1,
+      臀大肌: 1,
+      内收肌群: 0.25,
+    },
+  },
+  {
+    id: 'seatedLegExtension',
+    name: '坐姿腿屈伸',
+    bodyPart: '腿',
+    muscleWeights: {
+      股四头肌: 1,
+    },
+  },
+  {
+    id: 'seatedLegCurl',
+    name: '坐姿腿弯举',
+    bodyPart: '腿',
+    muscleWeights: {
+      腘绳肌: 1,
+    },
+  },
+  {
+    id: 'machineHipThrust',
+    name: '器械臀推',
+    bodyPart: '腿',
+    muscleWeights: {
+      腘绳肌: 0.25,
+      臀大肌: 1,
+    },
+  },
+  {
+    id: 'gluteFocusedReverseHackSquat',
+    name: '反向哈克深蹲（臀部主导）',
+    bodyPart: '腿',
+    muscleWeights: {
+      股四头肌: 0.5,
+      腘绳肌: 0.25,
+      臀大肌: 1,
+      内收肌群: 0.5,
+    },
+  },
+  {
+    id: 'seatedHipAbductionUpright',
+    name: '坐姿髋外展（直立）',
+    bodyPart: '腿',
+    muscleWeights: {
+      臀大肌: 0.5,
+      臀中肌: 1,
+    },
+  },
+  {
+    id: 'seatedHipAbductionForwardLean',
+    name: '坐姿髋外展（前倾）',
+    bodyPart: '腿',
+    muscleWeights: {
+      臀大肌: 0.5,
+      臀中肌: 1,
+    },
+  },
+  {
+    id: 'seatedHipAdduction',
+    name: '坐姿髋内收',
+    bodyPart: '腿',
+    muscleWeights: {
+      内收肌群: 1,
+    },
+  },
 ] as const satisfies ReadonlyArray<ExerciseDefinition>
 
 export type ExerciseId = (typeof EXERCISES)[number]['id']
