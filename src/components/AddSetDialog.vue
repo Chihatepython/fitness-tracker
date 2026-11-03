@@ -383,8 +383,7 @@ defineExpose({ open })
             </select>
             <button
               type="button"
-              aria-label="查看当前动作的肌肉分权"
-              :disabled="!selectedMuscleWeights.length"
+              aria-label="查看当前动作详情"
               @click="isWeightsDialogOpen = true"
             >
               i
@@ -514,6 +513,7 @@ defineExpose({ open })
 
   <ExerciseWeightsDialog
     :is-open="isWeightsDialogOpen"
+    :exercise-id="exerciseId"
     :exercise-name="selectedExerciseName"
     :weights="selectedMuscleWeights"
     @close="isWeightsDialogOpen = false"
