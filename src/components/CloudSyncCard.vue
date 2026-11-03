@@ -165,10 +165,10 @@ onBeforeUnmount(() => {
             v-model="otp"
             autocomplete="one-time-code"
             inputmode="numeric"
-            maxlength="6"
+            maxlength="10"
             name="otp"
-            pattern="[0-9]{6}"
-            placeholder="六位验证码"
+            pattern="[0-9]{6,10}"
+            placeholder="邮件验证码"
             type="text"
             :disabled="isVerifyingOtp"
             required

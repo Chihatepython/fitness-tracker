@@ -94,8 +94,8 @@ async function verifyEmailOtp(email: string, token: string): Promise<boolean> {
     return false
   }
 
-  if (normalizedToken.length !== 6) {
-    error.value = '请输入邮件中的六位验证码'
+  if (normalizedToken.length < 6 || normalizedToken.length > 10) {
+    error.value = '请输入邮件中的验证码'
     return false
   }
 
