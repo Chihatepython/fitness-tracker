@@ -6,18 +6,22 @@ import { useTrainingSync } from '@/composables/useTrainingSync'
 import { TRAINING_DATA_CHANGED_EVENT } from '@/database'
 
 const email = ref('')
+const otp = ref('')
+const isAwaitingOtp = ref(false)
 
 const {
   error,
   initialize,
   isConfigured,
   isInitializing,
-  isSendingLink,
+  isSendingOtp,
   isSigningOut,
-  sendMagicLink,
+  isVerifyingOtp,
+  sendEmailOtp,
   session,
   signOut,
   status,
+  verifyEmailOtp,
 } = useSupabaseAuth()
 
 const {
@@ -45,9 +49,21 @@ const lastSyncLabel = computed(() => {
 })
 
 async function submitEmail(): Promise<void> {
-  const wasSent = await sendMagicLink(email.value)
+  const wasSent = await sendEmailOtp(email.value)
 
-  if (wasSent) email.value = ''
+  if (wasSent) {
+    isAwaitingOtp.value = true
+    otp.value = ''
+  }
+}
+
+async function submitOtp(): Promise<void> {
+  const wasVerified = await verifyEmailOtp(email.value, otp.value)
+
+  if (wasVerified) {
+    isAwaitingOtp.value = false
+    otp.value = ''
+  }
 }
 
 function handleLocalDataChanged(): void {
@@ -120,25 +136,49 @@ onBeforeUnmount(() => {
       </button>
     </template>
 
-    <form v-else-if="isConfigured" class="cloud-login-form" @submit.prevent="submitEmail">
-      <label for="cloud-email">邮箱</label>
-      <div class="cloud-login-row">
-        <input
-          id="cloud-email"
-          v-model="email"
-          autocomplete="email"
-          inputmode="email"
-          name="email"
-          placeholder="name@example.com"
-          type="email"
-          :disabled="isSendingLink"
-          required
-        />
-        <button type="submit" :disabled="isSendingLink">
-          {{ isSendingLink ? '发送中…' : '发送登录链接' }}
-        </button>
-      </div>
-    </form>
+    <div v-else-if="isConfigured" class="cloud-login-form">
+      <form @submit.prevent="submitEmail">
+        <label for="cloud-email">邮箱</label>
+        <div class="cloud-login-row">
+          <input
+            id="cloud-email"
+            v-model="email"
+            autocomplete="email"
+            inputmode="email"
+            name="email"
+            placeholder="name@example.com"
+            type="email"
+            :disabled="isSendingOtp || isVerifyingOtp"
+            required
+          />
+          <button type="submit" :disabled="isSendingOtp || isVerifyingOtp">
+            {{ isSendingOtp ? '发送中…' : isAwaitingOtp ? '重新发送' : '发送验证码' }}
+          </button>
+        </div>
+      </form>
+
+      <form v-if="isAwaitingOtp" class="cloud-otp-form" @submit.prevent="submitOtp">
+        <label for="cloud-otp">邮件验证码</label>
+        <div class="cloud-login-row">
+          <input
+            id="cloud-otp"
+            v-model="otp"
+            autocomplete="one-time-code"
+            inputmode="numeric"
+            maxlength="6"
+            name="otp"
+            pattern="[0-9]{6}"
+            placeholder="六位验证码"
+            type="text"
+            :disabled="isVerifyingOtp"
+            required
+          />
+          <button type="submit" :disabled="isVerifyingOtp">
+            {{ isVerifyingOtp ? '验证中…' : '确认登录' }}
+          </button>
+        </div>
+      </form>
+    </div>
 
     <p v-if="!session && pendingCount" class="cloud-sync-message" role="status">
       本机有 {{ pendingCount }} 项修改，登录后将自动上传。
@@ -183,6 +223,15 @@ onBeforeUnmount(() => {
   color: #52635a;
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.cloud-otp-form {
+  margin-top: 12px;
+}
+
+#cloud-otp {
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
 }
 
 .cloud-login-row {

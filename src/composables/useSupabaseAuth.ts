@@ -5,17 +5,14 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 
 const session = ref<Session | null>(null)
 const isInitializing = ref(false)
-const isSendingLink = ref(false)
+const isSendingOtp = ref(false)
+const isVerifyingOtp = ref(false)
 const isSigningOut = ref(false)
 const status = ref('')
 const error = ref('')
 
 let initializationPromise: Promise<void> | undefined
 let hasAuthListener = false
-
-function getEmailRedirectUrl(): string {
-  return new URL(import.meta.env.BASE_URL, window.location.origin).href
-}
 
 async function initialize(): Promise<void> {
   if (!supabase) return
@@ -46,7 +43,7 @@ async function initialize(): Promise<void> {
   await initializationPromise
 }
 
-async function sendMagicLink(email: string): Promise<boolean> {
+async function sendEmailOtp(email: string): Promise<boolean> {
   if (!supabase) {
     error.value = '尚未配置 Supabase'
     return false
@@ -59,7 +56,7 @@ async function sendMagicLink(email: string): Promise<boolean> {
     return false
   }
 
-  isSendingLink.value = true
+  isSendingOtp.value = true
   status.value = ''
   error.value = ''
 
@@ -67,20 +64,63 @@ async function sendMagicLink(email: string): Promise<boolean> {
     const { error: signInError } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
       options: {
-        emailRedirectTo: getEmailRedirectUrl(),
         shouldCreateUser: true,
       },
     })
 
     if (signInError) throw signInError
 
-    status.value = '登录链接已发送，请前往邮箱打开'
+    status.value = '六位登录验证码已发送，请返回这里输入验证码'
     return true
   } catch (caughtError) {
-    error.value = caughtError instanceof Error ? caughtError.message : '发送登录链接失败'
+    error.value = caughtError instanceof Error ? caughtError.message : '发送登录验证码失败'
     return false
   } finally {
-    isSendingLink.value = false
+    isSendingOtp.value = false
+  }
+}
+
+async function verifyEmailOtp(email: string, token: string): Promise<boolean> {
+  if (!supabase) {
+    error.value = '尚未配置 Supabase'
+    return false
+  }
+
+  const normalizedEmail = email.trim().toLowerCase()
+  const normalizedToken = token.replace(/\D/g, '')
+
+  if (!normalizedEmail) {
+    error.value = '请输入接收验证码的邮箱地址'
+    return false
+  }
+
+  if (normalizedToken.length !== 6) {
+    error.value = '请输入邮件中的六位验证码'
+    return false
+  }
+
+  isVerifyingOtp.value = true
+  status.value = ''
+  error.value = ''
+
+  try {
+    const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      email: normalizedEmail,
+      token: normalizedToken,
+      type: 'email',
+    })
+
+    if (verifyError) throw verifyError
+    if (!data.session) throw new Error('验证码已验证，但没有取得登录状态')
+
+    session.value = data.session
+    status.value = '登录成功，正在同步本机训练记录'
+    return true
+  } catch (caughtError) {
+    error.value = caughtError instanceof Error ? caughtError.message : '验证码验证失败'
+    return false
+  } finally {
+    isVerifyingOtp.value = false
   }
 }
 
@@ -110,11 +150,13 @@ export function useSupabaseAuth() {
     initialize,
     isConfigured: isSupabaseConfigured,
     isInitializing,
-    isSendingLink,
+    isSendingOtp,
     isSigningOut,
-    sendMagicLink,
+    isVerifyingOtp,
+    sendEmailOtp,
     session,
     signOut,
     status,
+    verifyEmailOtp,
   }
 }
