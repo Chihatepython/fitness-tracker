@@ -7,6 +7,7 @@ import {
   getTrainingSetsByDateRange,
   parseTrainingSetImport,
   replaceAllTrainingSets,
+  TRAINING_DATA_SYNCED_EVENT,
   type TrainingSet,
 } from '@/database'
 import {
@@ -342,6 +343,13 @@ export function useTrainingDashboard() {
     void loadMuscleLastTrainedAt()
   }
 
+  function refreshAfterCloudSync(): void {
+    void loadTodaySets()
+    void loadMuscleTrainingTotals()
+    void loadTrainingCalendar()
+    void loadMuscleLastTrainedAt()
+  }
+
   function clearDeleteError(): void {
     deleteError.value = ''
   }
@@ -481,10 +489,12 @@ export function useTrainingDashboard() {
     currentTimeTimer = window.setInterval(() => {
       currentTime.value = Date.now()
     }, 60 * 1000)
+    window.addEventListener(TRAINING_DATA_SYNCED_EVENT, refreshAfterCloudSync)
   })
 
   onBeforeUnmount(() => {
     if (currentTimeTimer !== undefined) window.clearInterval(currentTimeTimer)
+    window.removeEventListener(TRAINING_DATA_SYNCED_EVENT, refreshAfterCloudSync)
   })
 
   return {

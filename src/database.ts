@@ -1,6 +1,13 @@
 export const DATABASE_NAME = 'fitness-tracker'
-export const DATABASE_VERSION = 1
+export const DATABASE_VERSION = 2
 export const SETS_STORE_NAME = 'sets'
+export const SYNC_OUTBOX_STORE_NAME = 'sync_outbox'
+export const SYNC_META_STORE_NAME = 'sync_meta'
+export const SYNC_STATE_STORE_NAME = 'sync_state'
+export const TRAINING_DATA_CHANGED_EVENT = 'fitness-training-data-changed'
+export const TRAINING_DATA_SYNCED_EVENT = 'fitness-training-data-synced'
+
+const ACTIVE_SYNC_ACCOUNT_KEY = 'fitness-tracker:active-sync-account'
 
 export const BODY_PARTS = ['手臂', '肩', '背', '胸', '腿'] as const
 
@@ -461,6 +468,34 @@ export interface TrainingSet {
   createdAt?: number
 }
 
+export interface TrainingSetSyncMeta {
+  key: string
+  accountId: string
+  entityId: string
+  remoteVersion: number
+  remoteUpdatedAt: string
+  remoteDeletedAt?: string
+  remoteDeviceId?: string
+}
+
+export interface TrainingSetOutboxEntry {
+  id: string
+  accountId?: string
+  entityType: 'training_set'
+  entityId: string
+  operation: 'upsert' | 'delete'
+  record?: TrainingSet
+  mutatedAt: number
+  baseVersion?: number
+  attempts: number
+  lastError?: string
+}
+
+export interface SyncStateEntry<T = unknown> {
+  key: string
+  value: T
+}
+
 type NewTrainingSet = Omit<TrainingSet, 'createdAt'>
 
 const ALPHANUMERIC_ID_PATTERN = /^[A-Za-z0-9]+$/
@@ -474,6 +509,42 @@ export function createTrainingSetId(): string {
   const randomBytes = crypto.getRandomValues(new Uint8Array(16))
 
   return Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+export function getActiveSyncAccountId(): string | undefined {
+  return localStorage.getItem(ACTIVE_SYNC_ACCOUNT_KEY) ?? undefined
+}
+
+export function setActiveSyncAccountId(accountId?: string): void {
+  if (accountId) {
+    localStorage.setItem(ACTIVE_SYNC_ACCOUNT_KEY, accountId)
+  } else {
+    localStorage.removeItem(ACTIVE_SYNC_ACCOUNT_KEY)
+  }
+}
+
+export function createTrainingSetOutboxId(entityId: string): string {
+  return `training_set:${entityId}`
+}
+
+export function createTrainingSetSyncMetaKey(accountId: string, entityId: string): string {
+  return `${accountId}:training_set:${entityId}`
+}
+
+function dispatchTrainingDataChanged(): void {
+  window.dispatchEvent(new Event(TRAINING_DATA_CHANGED_EVENT))
+}
+
+function areStoredTrainingSetsEqual(left: TrainingSet, right: TrainingSet): boolean {
+  return (
+    left.id === right.id &&
+    left.date === right.date &&
+    left.exerciseId === right.exerciseId &&
+    left.weightKg === right.weightKg &&
+    left.reps === right.reps &&
+    left.rir === right.rir &&
+    (left.createdAt ?? null) === (right.createdAt ?? null)
+  )
 }
 
 function isValidDate(value: string): boolean {
@@ -588,6 +659,24 @@ export function openFitnessDatabase(): Promise<IDBDatabase> {
         setsStore.createIndex('date', 'date')
         setsStore.createIndex('exerciseId', 'exerciseId')
       }
+
+      if (!database.objectStoreNames.contains(SYNC_OUTBOX_STORE_NAME)) {
+        const outboxStore = database.createObjectStore(SYNC_OUTBOX_STORE_NAME, { keyPath: 'id' })
+
+        outboxStore.createIndex('accountId', 'accountId')
+        outboxStore.createIndex('mutatedAt', 'mutatedAt')
+      }
+
+      if (!database.objectStoreNames.contains(SYNC_META_STORE_NAME)) {
+        const metaStore = database.createObjectStore(SYNC_META_STORE_NAME, { keyPath: 'key' })
+
+        metaStore.createIndex('accountId', 'accountId')
+        metaStore.createIndex('entityId', 'entityId')
+      }
+
+      if (!database.objectStoreNames.contains(SYNC_STATE_STORE_NAME)) {
+        database.createObjectStore(SYNC_STATE_STORE_NAME, { keyPath: 'key' })
+      }
     }
 
     request.onsuccess = () => {
@@ -615,13 +704,51 @@ export async function addTrainingSet(trainingSet: NewTrainingSet): Promise<void>
   const database = await openFitnessDatabase()
 
   await new Promise<void>((resolve, reject) => {
-    const transaction = database.transaction(SETS_STORE_NAME, 'readwrite')
+    const transaction = database.transaction(
+      [SETS_STORE_NAME, SYNC_OUTBOX_STORE_NAME, SYNC_META_STORE_NAME],
+      'readwrite',
+    )
+    const accountId = getActiveSyncAccountId()
+    const setsStore = transaction.objectStore(SETS_STORE_NAME)
+    const outboxStore = transaction.objectStore(SYNC_OUTBOX_STORE_NAME)
 
-    transaction.objectStore(SETS_STORE_NAME).add(storedTrainingSet)
+    const queueMutation = (baseVersion?: number) => {
+      const outboxEntry: TrainingSetOutboxEntry = {
+        id: createTrainingSetOutboxId(storedTrainingSet.id),
+        accountId,
+        entityType: 'training_set',
+        entityId: storedTrainingSet.id,
+        operation: 'upsert',
+        record: storedTrainingSet,
+        mutatedAt: Date.now(),
+        baseVersion,
+        attempts: 0,
+      }
+
+      setsStore.add(storedTrainingSet)
+      outboxStore.put(outboxEntry)
+    }
+
+    if (accountId) {
+      const metaRequest = transaction
+        .objectStore(SYNC_META_STORE_NAME)
+        .get(createTrainingSetSyncMetaKey(accountId, storedTrainingSet.id))
+
+      metaRequest.onsuccess = () => {
+        const meta = metaRequest.result as TrainingSetSyncMeta | undefined
+        queueMutation(meta?.remoteVersion)
+      }
+      metaRequest.onerror = () => transaction.abort()
+    } else {
+      queueMutation()
+    }
+
     transaction.oncomplete = () => resolve()
     transaction.onerror = () => reject(transaction.error)
     transaction.onabort = () => reject(transaction.error)
   })
+
+  dispatchTrainingDataChanged()
 }
 
 export async function getTrainingSetsByDate(date: string): Promise<TrainingSet[]> {
@@ -688,19 +815,78 @@ export async function replaceAllTrainingSets(trainingSets: TrainingSet[]): Promi
     ids.add(trainingSet.id)
   }
 
-  const database = await openFitnessDatabase()
+  const [database, currentTrainingSets] = await Promise.all([
+    openFitnessDatabase(),
+    getAllTrainingSets(),
+  ])
+  const currentById = new Map(
+    currentTrainingSets.map((trainingSet) => [trainingSet.id, trainingSet]),
+  )
+  const importedById = new Map(trainingSets.map((trainingSet) => [trainingSet.id, trainingSet]))
+  const accountId = getActiveSyncAccountId()
+  const syncMeta = accountId ? await getAllTrainingSetSyncMeta(accountId) : []
+  const syncMetaByEntityId = new Map(syncMeta.map((meta) => [meta.entityId, meta]))
+  const mutationTime = Date.now()
 
   await new Promise<void>((resolve, reject) => {
-    const transaction = database.transaction(SETS_STORE_NAME, 'readwrite')
+    const transaction = database.transaction([SETS_STORE_NAME, SYNC_OUTBOX_STORE_NAME], 'readwrite')
     const setsStore = transaction.objectStore(SETS_STORE_NAME)
+    const outboxStore = transaction.objectStore(SYNC_OUTBOX_STORE_NAME)
 
     setsStore.clear()
-    for (const trainingSet of trainingSets) setsStore.add(trainingSet)
+    for (const trainingSet of trainingSets) {
+      setsStore.add(trainingSet)
+
+      const currentTrainingSet = currentById.get(trainingSet.id)
+
+      if (!currentTrainingSet || !areStoredTrainingSetsEqual(currentTrainingSet, trainingSet)) {
+        const meta = syncMetaByEntityId.get(trainingSet.id)
+        const outboxEntry: TrainingSetOutboxEntry = {
+          id: createTrainingSetOutboxId(trainingSet.id),
+          accountId,
+          entityType: 'training_set',
+          entityId: trainingSet.id,
+          operation: 'upsert',
+          record: trainingSet,
+          mutatedAt: mutationTime,
+          baseVersion: meta?.remoteVersion,
+          attempts: 0,
+        }
+
+        outboxStore.put(outboxEntry)
+      }
+    }
+
+    for (const currentTrainingSet of currentTrainingSets) {
+      if (importedById.has(currentTrainingSet.id)) continue
+
+      const meta = syncMetaByEntityId.get(currentTrainingSet.id)
+      const outboxId = createTrainingSetOutboxId(currentTrainingSet.id)
+
+      if (meta) {
+        const outboxEntry: TrainingSetOutboxEntry = {
+          id: outboxId,
+          accountId,
+          entityType: 'training_set',
+          entityId: currentTrainingSet.id,
+          operation: 'delete',
+          mutatedAt: mutationTime,
+          baseVersion: meta.remoteVersion,
+          attempts: 0,
+        }
+
+        outboxStore.put(outboxEntry)
+      } else {
+        outboxStore.delete(outboxId)
+      }
+    }
 
     transaction.oncomplete = () => resolve()
     transaction.onerror = () => reject(transaction.error)
     transaction.onabort = () => reject(transaction.error)
   })
+
+  dispatchTrainingDataChanged()
 }
 
 export async function deleteTrainingSet(id: string): Promise<void> {
@@ -709,9 +895,288 @@ export async function deleteTrainingSet(id: string): Promise<void> {
   const database = await openFitnessDatabase()
 
   await new Promise<void>((resolve, reject) => {
-    const transaction = database.transaction(SETS_STORE_NAME, 'readwrite')
+    const transaction = database.transaction(
+      [SETS_STORE_NAME, SYNC_OUTBOX_STORE_NAME, SYNC_META_STORE_NAME],
+      'readwrite',
+    )
+    const accountId = getActiveSyncAccountId()
+    const outboxId = createTrainingSetOutboxId(id)
+    const outboxStore = transaction.objectStore(SYNC_OUTBOX_STORE_NAME)
 
     transaction.objectStore(SETS_STORE_NAME).delete(id)
+
+    const queueDelete = (meta?: TrainingSetSyncMeta) => {
+      if (!meta) {
+        outboxStore.delete(outboxId)
+        return
+      }
+
+      const outboxEntry: TrainingSetOutboxEntry = {
+        id: outboxId,
+        accountId,
+        entityType: 'training_set',
+        entityId: id,
+        operation: 'delete',
+        mutatedAt: Date.now(),
+        baseVersion: meta.remoteVersion,
+        attempts: 0,
+      }
+
+      outboxStore.put(outboxEntry)
+    }
+
+    if (accountId) {
+      const metaRequest = transaction
+        .objectStore(SYNC_META_STORE_NAME)
+        .get(createTrainingSetSyncMetaKey(accountId, id))
+
+      metaRequest.onsuccess = () =>
+        queueDelete(metaRequest.result as TrainingSetSyncMeta | undefined)
+      metaRequest.onerror = () => transaction.abort()
+    } else {
+      queueDelete()
+    }
+
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
+    transaction.onabort = () => reject(transaction.error)
+  })
+
+  dispatchTrainingDataChanged()
+}
+
+export interface RemoteTrainingSetApplication {
+  accountId: string
+  entityId: string
+  trainingSet?: TrainingSet
+  meta: TrainingSetSyncMeta
+  expectedOutboxMutationAt?: number
+}
+
+export async function getAllTrainingSetOutboxEntries(
+  accountId?: string,
+): Promise<TrainingSetOutboxEntry[]> {
+  const database = await openFitnessDatabase()
+
+  const entries = await new Promise<TrainingSetOutboxEntry[]>((resolve, reject) => {
+    const transaction = database.transaction(SYNC_OUTBOX_STORE_NAME, 'readonly')
+    const request = transaction.objectStore(SYNC_OUTBOX_STORE_NAME).getAll()
+
+    request.onsuccess = () => resolve(request.result as TrainingSetOutboxEntry[])
+    request.onerror = () => reject(request.error)
+  })
+
+  return entries
+    .filter((entry) => !accountId || !entry.accountId || entry.accountId === accountId)
+    .sort((left, right) => left.mutatedAt - right.mutatedAt || left.id.localeCompare(right.id))
+}
+
+export async function getAllTrainingSetSyncMeta(accountId: string): Promise<TrainingSetSyncMeta[]> {
+  const database = await openFitnessDatabase()
+
+  const meta = await new Promise<TrainingSetSyncMeta[]>((resolve, reject) => {
+    const transaction = database.transaction(SYNC_META_STORE_NAME, 'readonly')
+    const request = transaction
+      .objectStore(SYNC_META_STORE_NAME)
+      .index('accountId')
+      .getAll(accountId)
+
+    request.onsuccess = () => resolve(request.result as TrainingSetSyncMeta[])
+    request.onerror = () => reject(request.error)
+  })
+
+  return meta
+}
+
+export async function claimUnassignedTrainingSetOutboxEntries(accountId: string): Promise<void> {
+  const database = await openFitnessDatabase()
+
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(SYNC_OUTBOX_STORE_NAME, 'readwrite')
+    const store = transaction.objectStore(SYNC_OUTBOX_STORE_NAME)
+    const request = store.getAll()
+
+    request.onsuccess = () => {
+      for (const entry of request.result as TrainingSetOutboxEntry[]) {
+        if (!entry.accountId) store.put({ ...entry, accountId })
+      }
+    }
+    request.onerror = () => transaction.abort()
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
+    transaction.onabort = () => reject(transaction.error)
+  })
+}
+
+export async function ensureLocalTrainingSetsQueuedForSync(
+  accountId: string,
+  remoteEntityIds: ReadonlySet<string>,
+): Promise<number> {
+  const [database, trainingSets, outboxEntries, syncMeta] = await Promise.all([
+    openFitnessDatabase(),
+    getAllTrainingSets(),
+    getAllTrainingSetOutboxEntries(accountId),
+    getAllTrainingSetSyncMeta(accountId),
+  ])
+  const outboxEntityIds = new Set(outboxEntries.map((entry) => entry.entityId))
+  const syncMetaByEntityId = new Map(syncMeta.map((meta) => [meta.entityId, meta]))
+  const entriesToQueue = trainingSets.filter(
+    (trainingSet) => !remoteEntityIds.has(trainingSet.id) && !outboxEntityIds.has(trainingSet.id),
+  )
+
+  if (!entriesToQueue.length) return 0
+
+  const mutationTime = Date.now()
+
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(SYNC_OUTBOX_STORE_NAME, 'readwrite')
+    const store = transaction.objectStore(SYNC_OUTBOX_STORE_NAME)
+
+    for (const trainingSet of entriesToQueue) {
+      const meta = syncMetaByEntityId.get(trainingSet.id)
+      const entry: TrainingSetOutboxEntry = {
+        id: createTrainingSetOutboxId(trainingSet.id),
+        accountId,
+        entityType: 'training_set',
+        entityId: trainingSet.id,
+        operation: 'upsert',
+        record: trainingSet,
+        mutatedAt: mutationTime,
+        baseVersion: meta?.remoteVersion,
+        attempts: 0,
+      }
+
+      store.put(entry)
+    }
+
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
+    transaction.onabort = () => reject(transaction.error)
+  })
+
+  return entriesToQueue.length
+}
+
+export async function applyRemoteTrainingSet(
+  application: RemoteTrainingSetApplication,
+): Promise<boolean> {
+  const database = await openFitnessDatabase()
+
+  return new Promise<boolean>((resolve, reject) => {
+    const transaction = database.transaction(
+      [SETS_STORE_NAME, SYNC_OUTBOX_STORE_NAME, SYNC_META_STORE_NAME],
+      'readwrite',
+    )
+    const setsStore = transaction.objectStore(SETS_STORE_NAME)
+    const outboxStore = transaction.objectStore(SYNC_OUTBOX_STORE_NAME)
+    const metaStore = transaction.objectStore(SYNC_META_STORE_NAME)
+    const outboxId = createTrainingSetOutboxId(application.entityId)
+    const outboxRequest = outboxStore.get(outboxId)
+    let wasApplied = false
+
+    outboxRequest.onsuccess = () => {
+      const currentOutbox = outboxRequest.result as TrainingSetOutboxEntry | undefined
+
+      if (
+        (application.expectedOutboxMutationAt === undefined && currentOutbox) ||
+        (application.expectedOutboxMutationAt !== undefined &&
+          currentOutbox?.mutatedAt !== application.expectedOutboxMutationAt)
+      ) {
+        return
+      }
+
+      if (application.trainingSet) {
+        setsStore.put(application.trainingSet)
+      } else {
+        setsStore.delete(application.entityId)
+      }
+
+      metaStore.put(application.meta)
+      if (currentOutbox) outboxStore.delete(outboxId)
+      wasApplied = true
+    }
+    outboxRequest.onerror = () => transaction.abort()
+    transaction.oncomplete = () => resolve(wasApplied)
+    transaction.onerror = () => reject(transaction.error)
+    transaction.onabort = () => reject(transaction.error)
+  })
+}
+
+export async function removeTrainingSetOutboxEntryIfUnchanged(
+  entry: TrainingSetOutboxEntry,
+): Promise<boolean> {
+  const database = await openFitnessDatabase()
+
+  return new Promise<boolean>((resolve, reject) => {
+    const transaction = database.transaction(SYNC_OUTBOX_STORE_NAME, 'readwrite')
+    const store = transaction.objectStore(SYNC_OUTBOX_STORE_NAME)
+    const request = store.get(entry.id)
+    let wasRemoved = false
+
+    request.onsuccess = () => {
+      const currentEntry = request.result as TrainingSetOutboxEntry | undefined
+
+      if (currentEntry?.mutatedAt === entry.mutatedAt) {
+        store.delete(entry.id)
+        wasRemoved = true
+      }
+    }
+    request.onerror = () => transaction.abort()
+    transaction.oncomplete = () => resolve(wasRemoved)
+    transaction.onerror = () => reject(transaction.error)
+    transaction.onabort = () => reject(transaction.error)
+  })
+}
+
+export async function recordTrainingSetOutboxFailure(
+  entry: TrainingSetOutboxEntry,
+  message: string,
+): Promise<void> {
+  const database = await openFitnessDatabase()
+
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(SYNC_OUTBOX_STORE_NAME, 'readwrite')
+    const store = transaction.objectStore(SYNC_OUTBOX_STORE_NAME)
+    const request = store.get(entry.id)
+
+    request.onsuccess = () => {
+      const currentEntry = request.result as TrainingSetOutboxEntry | undefined
+
+      if (currentEntry?.mutatedAt === entry.mutatedAt) {
+        store.put({
+          ...currentEntry,
+          attempts: currentEntry.attempts + 1,
+          lastError: message,
+        })
+      }
+    }
+    request.onerror = () => transaction.abort()
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
+    transaction.onabort = () => reject(transaction.error)
+  })
+}
+
+export async function getSyncState<T>(key: string): Promise<T | undefined> {
+  const database = await openFitnessDatabase()
+
+  return new Promise<T | undefined>((resolve, reject) => {
+    const transaction = database.transaction(SYNC_STATE_STORE_NAME, 'readonly')
+    const request = transaction.objectStore(SYNC_STATE_STORE_NAME).get(key)
+
+    request.onsuccess = () => resolve((request.result as SyncStateEntry<T> | undefined)?.value)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function setSyncState<T>(key: string, value: T): Promise<void> {
+  const database = await openFitnessDatabase()
+
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(SYNC_STATE_STORE_NAME, 'readwrite')
+    const entry: SyncStateEntry<T> = { key, value }
+
+    transaction.objectStore(SYNC_STATE_STORE_NAME).put(entry)
     transaction.oncomplete = () => resolve()
     transaction.onerror = () => reject(transaction.error)
     transaction.onabort = () => reject(transaction.error)

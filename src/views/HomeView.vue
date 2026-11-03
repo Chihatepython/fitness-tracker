@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 
 import AddSetDialog from '@/components/AddSetDialog.vue'
+import CloudSyncCard from '@/components/CloudSyncCard.vue'
 import DeleteSetDialog from '@/components/DeleteSetDialog.vue'
 import MuscleVolumeCard from '@/components/MuscleVolumeCard.vue'
 import TodayRecordsCard from '@/components/TodayRecordsCard.vue'
@@ -248,6 +249,8 @@ async function confirmDelete(): Promise<void> {
     </section>
 
     <RouterLink class="performance-link" to="/performance">训练表现</RouterLink>
+
+    <CloudSyncCard />
 
     <button
       class="add-set-button"
