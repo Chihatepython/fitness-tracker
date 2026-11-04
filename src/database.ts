@@ -339,6 +339,18 @@ export const EXERCISES = [
     },
   },
   {
+    id: 'smithMachineSquatStandard',
+    name: '史密斯深蹲（标准）',
+    bodyPart: '腿',
+    muscleWeights: {
+      股四头肌: 1,
+      腨绳肌: 0.25,
+      臀大肌: 1,
+      臀中肌: 0.25,
+      内收肌群: 0.5,
+    },
+  },
+  {
     id: 'dumbbellSquat',
     name: '哑铃深蹲',
     bodyPart: '腿',
