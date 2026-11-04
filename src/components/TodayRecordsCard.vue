@@ -247,6 +247,7 @@ watch(exerciseGroups, (groups) => {
 }
 
 .exercise-summary {
+  position: relative;
   display: grid;
   width: 100%;
   min-height: 72px;
@@ -278,6 +279,9 @@ watch(exerciseGroups, (groups) => {
 }
 
 .exercise-set-count {
+  position: absolute;
+  top: 3px;
+  left: 3px;
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
