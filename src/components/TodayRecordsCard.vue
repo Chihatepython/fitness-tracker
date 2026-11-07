@@ -311,8 +311,9 @@ watch(exerciseGroups, (groups) => {
 
 .set-stack {
   display: grid;
-  width: 31px;
+  width: auto;
   min-width: 31px;
+  flex: 0 0 auto;
   place-items: center;
   gap: 2px;
   padding: 4px 3px;
@@ -323,6 +324,7 @@ watch(exerciseGroups, (groups) => {
 .set-stack b {
   font-size: 0.86rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .set-stack small {
