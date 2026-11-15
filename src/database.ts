@@ -207,7 +207,7 @@ export const EXERCISES = [
     bodyPart: '背',
     muscleWeights: {
       中背: 1,
-      背阔肌: 0.5,
+      背阔肌: 1,
       三角肌后束: 0.5,
       肱二头肌长头: 0.25,
       肱二头肌短头: 0.25,
