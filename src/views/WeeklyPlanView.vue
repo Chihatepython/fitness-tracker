@@ -1,14 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
+import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { EXERCISES, type ExerciseId } from '@/database'
 import { MUSCLE_GROUPS, type MuscleName, type MuscleRegion } from '@/domain/trainingStats'
-import type { WeeklyPlanExercise, WeeklyPlanMuscleTarget } from '@/domain/weeklyPlan'
+import type {
+  WeeklyPlanDraftContent,
+  WeeklyPlanExercise,
+  WeeklyPlanMuscleTarget,
+} from '@/domain/weeklyPlan'
 import {
   clearWeeklyPlanDraft,
   getWeeklyPlanDraft,
   saveWeeklyPlanDraftLocally,
 } from '@/services/weeklyPlanDraft'
+import {
+  createWeeklyPlan,
+  listWeeklyPlans,
+  updateWeeklyPlan,
+  type CloudWeeklyPlan,
+} from '@/services/weeklyPlans'
 
 const PLAN_PARTS = ['肩', '胸', '背', '手臂', '腿'] as const
 const PART_REGIONS: Record<PlanPart, readonly MuscleRegion[]> = {
@@ -40,6 +51,12 @@ const editingMuscle = ref<MuscleName>()
 const editingTargetSets = ref(4)
 const statusMessage = ref('')
 const errorMessage = ref('')
+const cloudErrorMessage = ref('')
+const cloudPlans = ref<CloudWeeklyPlan[]>([])
+const activeCloudPlanId = ref<string>()
+const isCloudListOpen = ref(false)
+const isLoadingCloudPlans = ref(false)
+const { initialize: initializeAuth, session } = useSupabaseAuth()
 let saveQueue: Promise<void> = Promise.resolve()
 let clearConfirmationTimer: number | undefined
 
@@ -125,13 +142,9 @@ const exerciseSections = computed(() => {
   ] as const
 })
 
-const dateRangeLabel = computed(() => {
-  const start = parseLocalDate(startDate.value)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 6)
-
-  return `${formatShortDate(start)}—${formatShortDate(end)}`
-})
+const activeCloudPlan = computed(() =>
+  cloudPlans.value.find((plan) => plan.id === activeCloudPlanId.value),
+)
 
 function getMusclesForPart(part: PlanPart): MuscleName[] {
   const regions = new Set<MuscleRegion>(PART_REGIONS[part])
@@ -157,16 +170,6 @@ function toLocalDateString(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
-}
-
-function parseLocalDate(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number)
-
-  return new Date(year!, month! - 1, day, 12)
-}
-
-function formatShortDate(date: Date): string {
-  return `${date.getMonth() + 1}月${date.getDate()}日`
 }
 
 function formatSetCount(value: number): string {
@@ -280,12 +283,22 @@ function getDraftExercises(): WeeklyPlanExercise[] {
   })
 }
 
-function persistDraft(): Promise<void> {
-  const content = {
+function getCloudPlanSetCount(plan: CloudWeeklyPlan): number {
+  return plan.exercises.reduce((total, exercise) => total + exercise.plannedSets, 0)
+}
+
+function getCurrentPlanContent(): WeeklyPlanDraftContent {
+  return {
     startDate: startDate.value,
-    targets: targets.value,
+    targets: targets.value.map((target) => ({ ...target })),
     exercises: getDraftExercises(),
   }
+}
+
+function persistDraft(): Promise<void> {
+  if (activeCloudPlanId.value) return Promise.resolve()
+
+  const content = getCurrentPlanContent()
 
   saveQueue = saveQueue
     .then(async () => {
@@ -299,13 +312,18 @@ function persistDraft(): Promise<void> {
   return saveQueue
 }
 
+function markPlanChanged(): void {
+  isConfirmingClear.value = false
+  statusMessage.value = activeCloudPlanId.value ? '云端计划有未保存修改' : '本地草稿'
+  if (!activeCloudPlanId.value) void persistDraft()
+}
+
 function changeExerciseSets(exerciseId: ExerciseId, delta: number): void {
   plannedSets.value = {
     ...plannedSets.value,
     [exerciseId]: Math.max(0, Math.min(99, getExerciseSetCount(exerciseId) + delta)),
   }
-  statusMessage.value = '本地草稿'
-  void persistDraft()
+  markPlanChanged()
 }
 
 function openTargetEditor(muscle: MuscleName): void {
@@ -335,9 +353,8 @@ function saveMuscleTarget(): void {
     (left, right) =>
       (canonicalMuscleOrder.get(left.muscle) ?? 0) - (canonicalMuscleOrder.get(right.muscle) ?? 0),
   )
-  statusMessage.value = '本地草稿'
   closeTargetEditor()
-  void persistDraft()
+  markPlanChanged()
 }
 
 function removeMuscleTarget(): void {
@@ -345,19 +362,88 @@ function removeMuscleTarget(): void {
   if (!muscle) return
 
   targets.value = targets.value.filter((target) => target.muscle !== muscle)
-  statusMessage.value = '本地草稿'
   closeTargetEditor()
-  void persistDraft()
+  markPlanChanged()
 }
 
 async function handleSave(): Promise<void> {
   isSaving.value = true
   statusMessage.value = ''
+  errorMessage.value = ''
+  cloudErrorMessage.value = ''
 
-  await persistDraft()
+  try {
+    await initializeAuth()
+    const userId = session.value?.user.id
+    if (!userId) throw new Error('请先在主页登录云同步账户')
 
-  if (!errorMessage.value) statusMessage.value = '已保存到本机'
-  isSaving.value = false
+    const content = getCurrentPlanContent()
+
+    if (activeCloudPlanId.value) {
+      await updateWeeklyPlan(userId, activeCloudPlanId.value, content)
+      await loadCloudPlans()
+      statusMessage.value = `已更新${activeCloudPlan.value?.name ?? '云端计划'}`
+    } else {
+      await persistDraft()
+      if (errorMessage.value) return
+
+      const createdPlanId = await createWeeklyPlan(userId, content)
+      await loadCloudPlans()
+      const createdPlan = cloudPlans.value.find((plan) => plan.id === createdPlanId)
+      activeCloudPlanId.value = createdPlanId
+      statusMessage.value = `已保存为${createdPlan?.name ?? '云端计划'}`
+    }
+  } catch (error: unknown) {
+    cloudErrorMessage.value = error instanceof Error ? error.message : '无法保存云端计划'
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function loadCloudPlans(): Promise<void> {
+  isLoadingCloudPlans.value = true
+  cloudErrorMessage.value = ''
+
+  try {
+    await initializeAuth()
+    const userId = session.value?.user.id
+    if (!userId) throw new Error('请先在主页登录云同步账户')
+
+    cloudPlans.value = await listWeeklyPlans(userId)
+  } catch (error: unknown) {
+    cloudErrorMessage.value = error instanceof Error ? error.message : '无法读取云端计划'
+  } finally {
+    isLoadingCloudPlans.value = false
+  }
+}
+
+async function toggleCloudPlanList(): Promise<void> {
+  isCloudListOpen.value = !isCloudListOpen.value
+  if (isCloudListOpen.value) await loadCloudPlans()
+}
+
+async function openCloudPlan(plan: CloudWeeklyPlan): Promise<void> {
+  if (!activeCloudPlanId.value) await saveQueue
+
+  activeCloudPlanId.value = plan.id
+  startDate.value = plan.startDate
+  targets.value = plan.targets.map((target) => ({ ...target }))
+  plannedSets.value = Object.fromEntries(
+    plan.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
+  )
+  isConfirmingClear.value = false
+  isCloudListOpen.value = false
+  errorMessage.value = ''
+  cloudErrorMessage.value = ''
+  statusMessage.value = `正在修改${plan.name}`
+}
+
+async function cancelCloudChanges(): Promise<void> {
+  activeCloudPlanId.value = undefined
+  isConfirmingClear.value = false
+  cloudErrorMessage.value = ''
+  await loadDraft()
+  if (!errorMessage.value) statusMessage.value = '已返回本地草稿'
 }
 
 async function handleClear(): Promise<void> {
@@ -399,6 +485,10 @@ async function loadDraft(): Promise<void> {
       plannedSets.value = Object.fromEntries(
         draft.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
       )
+    } else {
+      startDate.value = getUpcomingMonday()
+      targets.value = []
+      plannedSets.value = {}
     }
   } catch (error: unknown) {
     errorMessage.value = error instanceof Error ? error.message : '无法读取本地计划'
@@ -422,6 +512,15 @@ onMounted(() => void loadDraft())
         <h1>七天训练计划</h1>
         <div class="plan-header-actions">
           <button
+            v-if="activeCloudPlanId"
+            class="cancel-cloud-button"
+            type="button"
+            @click="cancelCloudChanges"
+          >
+            取消修改
+          </button>
+          <button
+            v-else
             class="clear-plan-button"
             :class="{ confirming: isConfirmingClear }"
             type="button"
@@ -432,13 +531,73 @@ onMounted(() => void loadDraft())
           <button class="save-plan-button" type="button" :disabled="isSaving" @click="handleSave">
             {{ isSaving ? '保存中…' : '保存' }}
           </button>
+          <button
+            class="cloud-plans-button"
+            type="button"
+            :aria-expanded="isCloudListOpen"
+            aria-controls="cloud-plan-list"
+            @click="toggleCloudPlanList"
+          >
+            计划
+            <svg aria-hidden="true" viewBox="0 0 16 16">
+              <path d="m4 6 4 4 4-4" />
+            </svg>
+          </button>
         </div>
       </header>
 
-      <div class="plan-period-row">
-        <span>{{ dateRangeLabel }}</span>
-        <span class="draft-state">{{ statusMessage || '本地草稿' }}</span>
+      <div
+        v-if="statusMessage || activeCloudPlanId || (cloudErrorMessage && !isCloudListOpen)"
+        class="plan-status-row"
+      >
+        <span
+          class="draft-state"
+          :class="{ error: cloudErrorMessage && !isCloudListOpen }"
+        >
+          {{
+            (!isCloudListOpen && cloudErrorMessage) ||
+            statusMessage ||
+            activeCloudPlan?.name ||
+            '云端计划'
+          }}
+        </span>
       </div>
+
+      <section
+        v-if="isCloudListOpen"
+        id="cloud-plan-list"
+        class="cloud-plan-panel"
+        aria-label="云端训练计划"
+      >
+        <header>
+          <strong>云端计划</strong>
+          <span>{{ cloudPlans.length }} 份</span>
+        </header>
+        <p v-if="isLoadingCloudPlans" class="cloud-plan-state">正在读取…</p>
+        <p v-else-if="cloudErrorMessage" class="cloud-plan-state error" role="alert">
+          {{ cloudErrorMessage }}
+        </p>
+        <p v-else-if="cloudPlans.length === 0" class="cloud-plan-state">
+          还没有保存到云端的训练计划
+        </p>
+        <div v-else class="cloud-plan-list">
+          <button
+            v-for="plan in cloudPlans"
+            :key="plan.id"
+            type="button"
+            :class="{ active: plan.id === activeCloudPlanId }"
+            @click="openCloudPlan(plan)"
+          >
+            <span>
+              <strong>{{ plan.name }}</strong>
+              <small>{{ plan.targets.length }} 个目标 · {{ getCloudPlanSetCount(plan) }} 组</small>
+            </span>
+            <svg aria-hidden="true" viewBox="0 0 20 20">
+              <path d="m8 5 5 5-5 5" />
+            </svg>
+          </button>
+        </div>
+      </section>
 
       <section class="plan-muscle-board" aria-label="肌束目标看板">
         <div class="plan-muscle-strip">
@@ -698,7 +857,9 @@ onMounted(() => void loadDraft())
 }
 
 .clear-plan-button,
-.save-plan-button {
+.save-plan-button,
+.cancel-cloud-button,
+.cloud-plans-button {
   min-height: 38px;
   padding: 0 12px;
   border: 0;
@@ -711,6 +872,11 @@ onMounted(() => void loadDraft())
 .clear-plan-button {
   background: #f5e7e4;
   color: #a75a55;
+}
+
+.cancel-cloud-button {
+  background: #f1ece2;
+  color: #7b6748;
 }
 
 .clear-plan-button.confirming {
@@ -728,11 +894,32 @@ onMounted(() => void loadDraft())
   opacity: 0.6;
 }
 
-.plan-period-row {
+.cloud-plans-button {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 2px;
+  background: #e3ebe0;
+  color: #46634d;
+}
+
+.cloud-plans-button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transition: transform 160ms ease;
+}
+
+.cloud-plans-button[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.plan-status-row {
+  display: flex;
+  justify-content: flex-end;
   padding: 0 3px 7px;
   color: #718078;
   font-size: 0.74rem;
@@ -745,6 +932,99 @@ onMounted(() => void loadDraft())
   background: #e3ecdf;
   color: #52705a;
   white-space: nowrap;
+}
+
+.draft-state.error {
+  background: #f5e7e4;
+  color: #a75a55;
+}
+
+.cloud-plan-panel {
+  margin: 0 0 8px;
+  padding: 10px;
+  border: 1px solid #d7e0d4;
+  border-radius: 15px;
+  background: rgb(255 255 255 / 84%);
+  box-shadow: 0 7px 20px rgb(48 67 52 / 8%);
+}
+
+.cloud-plan-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 7px;
+  color: #43564a;
+  font-size: 0.78rem;
+}
+
+.cloud-plan-panel > header span {
+  color: #809087;
+  font-size: 0.7rem;
+}
+
+.cloud-plan-list {
+  display: grid;
+  max-height: 178px;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.cloud-plan-list button {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 11px;
+  background: #eef3eb;
+  color: #2d4334;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cloud-plan-list button.active {
+  box-shadow: inset 0 0 0 2px #6c9275;
+}
+
+.cloud-plan-list button > span {
+  display: grid;
+  gap: 2px;
+}
+
+.cloud-plan-list button strong {
+  color: #2d4334;
+  font-size: 0.82rem;
+}
+
+.cloud-plan-list button small {
+  color: #728179;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cloud-plan-list button > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: #728179;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.cloud-plan-state {
+  margin: 4px 0 2px;
+  color: #718078;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.cloud-plan-state.error {
+  color: #a75a55;
 }
 
 .plan-muscle-board {
@@ -1255,6 +1535,9 @@ onMounted(() => void loadDraft())
 .plan-back-link:focus-visible,
 .clear-plan-button:focus-visible,
 .save-plan-button:focus-visible,
+.cancel-cloud-button:focus-visible,
+.cloud-plans-button:focus-visible,
+.cloud-plan-list button:focus-visible,
 .plan-muscle-card:focus-visible,
 .plan-part-selector button:focus-visible,
 .exercise-scope-selector button:focus-visible,
@@ -1294,7 +1577,9 @@ onMounted(() => void loadDraft())
   }
 
   .clear-plan-button,
-  .save-plan-button {
+  .save-plan-button,
+  .cancel-cloud-button,
+  .cloud-plans-button {
     padding-inline: 9px;
   }
 
