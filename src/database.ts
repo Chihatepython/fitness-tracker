@@ -1,6 +1,7 @@
 export const DATABASE_NAME = 'fitness-tracker'
-export const DATABASE_VERSION = 2
+export const DATABASE_VERSION = 3
 export const SETS_STORE_NAME = 'sets'
+export const WEEKLY_PLAN_DRAFT_STORE_NAME = 'weekly_plan_draft'
 export const SYNC_OUTBOX_STORE_NAME = 'sync_outbox'
 export const SYNC_META_STORE_NAME = 'sync_meta'
 export const SYNC_STATE_STORE_NAME = 'sync_state'
@@ -689,6 +690,15 @@ export function openFitnessDatabase(): Promise<IDBDatabase> {
 
       if (!database.objectStoreNames.contains(SYNC_STATE_STORE_NAME)) {
         database.createObjectStore(SYNC_STATE_STORE_NAME, { keyPath: 'key' })
+      }
+
+      if (!database.objectStoreNames.contains(WEEKLY_PLAN_DRAFT_STORE_NAME)) {
+        const weeklyPlanDraftStore = database.createObjectStore(WEEKLY_PLAN_DRAFT_STORE_NAME, {
+          keyPath: 'id',
+        })
+
+        weeklyPlanDraftStore.createIndex('startDate', 'startDate')
+        weeklyPlanDraftStore.createIndex('updatedAt', 'updatedAt')
       }
     }
 

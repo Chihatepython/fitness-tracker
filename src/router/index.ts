@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import ExerciseFirstSetView from '@/views/ExerciseFirstSetView.vue'
 import HomeView from '@/views/HomeView.vue'
 import TrainingPerformanceView from '@/views/TrainingPerformanceView.vue'
+import WeeklyPlanView from '@/views/WeeklyPlanView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -16,6 +17,11 @@ const router = createRouter({
       path: '/performance',
       name: 'training-performance',
       component: TrainingPerformanceView,
+    },
+    {
+      path: '/plan',
+      name: 'weekly-plan',
+      component: WeeklyPlanView,
     },
     {
       path: '/performance/:exerciseId/first-set',

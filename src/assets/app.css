@@ -8,6 +8,11 @@
   text-rendering: optimizeLegibility;
 }
 
+html,
+body {
+  touch-action: manipulation;
+}
+
 * {
   box-sizing: border-box;
 }

@@ -249,6 +249,7 @@ async function confirmDelete(): Promise<void> {
     </section>
 
     <RouterLink class="performance-link" to="/performance">训练表现</RouterLink>
+    <RouterLink class="performance-link" to="/plan">七天训练计划</RouterLink>
 
     <CloudSyncCard />
 
