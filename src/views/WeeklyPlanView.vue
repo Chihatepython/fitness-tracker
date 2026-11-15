@@ -85,11 +85,7 @@ const muscleTotals = computed(() => {
 const visibleExercises = computed(() => {
   if (exerciseScope.value === 'all') return EXERCISES
 
-  const selectedMuscles = new Set<string>(selectedPartMuscles.value)
-
-  return EXERCISES.filter((exercise) =>
-    Object.keys(exercise.muscleWeights ?? {}).some((muscle) => selectedMuscles.has(muscle)),
-  )
+  return EXERCISES.filter((exercise) => exercise.bodyPart === selectedPart.value)
 })
 
 function groupExercisesByPart(exercises: readonly (typeof EXERCISES)[number][]) {
@@ -112,6 +108,10 @@ const exerciseSections = computed(() => {
       label: '已安排',
       emptyLabel: '还没有安排动作',
       count: planned.length,
+      setCount: planned.reduce(
+        (total, exercise) => total + getExerciseSetCount(exercise.id),
+        0,
+      ),
       groups: groupExercisesByPart(planned),
     },
     {
@@ -119,6 +119,7 @@ const exerciseSections = computed(() => {
       label: '未安排',
       emptyLabel: '当前范围内的动作均已安排',
       count: unplanned.length,
+      setCount: 0,
       groups: groupExercisesByPart(unplanned),
     },
   ] as const
@@ -170,6 +171,16 @@ function formatShortDate(date: Date): string {
 
 function formatSetCount(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '')
+}
+
+function formatPlanProgressValue(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
+
+function getMuscleProgressLabel(muscle: MuscleName): string {
+  return `${formatPlanProgressValue(muscleTotals.value[muscle])}/${getTargetSets(muscle)}`
 }
 
 function getExerciseSetCount(exerciseId: ExerciseId): number {
@@ -239,8 +250,10 @@ function getRingSegments(muscle: MuscleName): RingSegment[] {
 
   const radius = 42
   const strokeWidth = 8
-  const dense = target > 8
-  const visibleGapPixels = dense ? 2 : 3
+  // Keep the same rounded segment shape for the common 4/8/16/24 targets.
+  // Only extremely dense rings switch to flat caps so their arcs stay valid.
+  const dense = target > 24
+  const visibleGapPixels = 2
   const geometricGapPixels = dense ? visibleGapPixels : strokeWidth + visibleGapPixels
   const gap = (geometricGapPixels / (2 * Math.PI * radius)) * 360
   const span = (360 - target * gap) / target
@@ -460,11 +473,12 @@ onMounted(() => void loadDraft())
               </g>
             </svg>
             <div class="plan-muscle-center">
-              <small>{{ selectedPart }}</small>
               <strong>{{ getShortMuscleName(muscle) }}</strong>
-              <span v-if="hasTarget(muscle)">
-                {{ formatSetCount(muscleTotals[muscle]) }} /
-                <small>{{ getTargetSets(muscle) }}</small>
+              <span
+                v-if="hasTarget(muscle)"
+                :class="{ compact: getMuscleProgressLabel(muscle).length >= 7 }"
+              >
+                {{ getMuscleProgressLabel(muscle) }}
               </span>
               <em v-else>设置目标</em>
             </div>
@@ -499,7 +513,7 @@ onMounted(() => void loadDraft())
             :aria-pressed="exerciseScope === 'related'"
             @click="exerciseScope = 'related'"
           >
-            相关
+            当前部位
           </button>
           <button
             type="button"
@@ -523,7 +537,10 @@ onMounted(() => void loadDraft())
         >
           <header class="plan-exercise-section-heading">
             <h3 :id="`exercise-section-${section.key}`">{{ section.label }}</h3>
-            <span>{{ section.count }} 个动作</span>
+            <span v-if="section.key === 'planned'">
+              {{ section.count }} 个动作，共 {{ section.setCount }} 组
+            </span>
+            <span v-else>{{ section.count }} 个动作</span>
           </header>
 
           <p v-if="section.groups.length === 0" class="plan-exercise-empty">
@@ -737,11 +754,11 @@ onMounted(() => void loadDraft())
 .plan-muscle-strip {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 108px;
+  grid-auto-columns: 96px;
   justify-content: start;
   gap: 7px;
   overflow-x: auto;
-  padding: 2px 1px 8px;
+  padding: 1px 1px 6px;
   scrollbar-width: none;
   scroll-snap-type: x proximity;
 }
@@ -754,19 +771,29 @@ onMounted(() => void loadDraft())
 .plan-muscle-card {
   --plan-accent: #7d8d3e;
   position: relative;
-  width: 108px;
-  height: 108px;
+  width: 96px;
+  height: 96px;
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: #fff;
+  background: transparent;
   color: #17211a;
-  box-shadow: 0 6px 14px rgb(48 67 52 / 10%);
+  box-shadow: none;
   scroll-snap-align: start;
   cursor: pointer;
 }
 
-.plan-muscle-card:not(.targeted) {
+.plan-muscle-card::before {
+  position: absolute;
+  z-index: 0;
+  inset: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 5px 12px rgb(48 67 52 / 9%);
+  content: '';
+}
+
+.plan-muscle-card:not(.targeted)::before {
   background: #f8faf6;
   box-shadow: inset 0 0 0 1px #e0e7dd;
 }
@@ -789,9 +816,10 @@ onMounted(() => void loadDraft())
 
 .plan-muscle-ring {
   position: absolute;
-  inset: 5px;
-  width: 98px;
-  height: 98px;
+  z-index: 1;
+  inset: 0;
+  width: 96px;
+  height: 96px;
 }
 
 .ring-track,
@@ -802,7 +830,7 @@ onMounted(() => void loadDraft())
 }
 
 .ring-track {
-  stroke: #e4eae1;
+  stroke: #ccd6ca;
 }
 
 .ring-fill {
@@ -816,39 +844,38 @@ onMounted(() => void loadDraft())
 
 .plan-muscle-center {
   position: absolute;
+  z-index: 2;
   inset: 0;
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 2px;
+  gap: 4px;
   text-align: center;
 }
 
-.plan-muscle-center > small {
-  color: #718078;
-  font-size: 0.68rem;
-  font-style: normal;
-  font-weight: 700;
-}
-
 .plan-muscle-center strong {
-  max-width: 76px;
+  max-width: 74px;
   overflow: hidden;
-  font-size: 0.94rem;
+  font-size: 0.9rem;
+  line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .plan-muscle-center span {
+  max-width: 72px;
+  overflow: hidden;
   color: var(--plan-accent);
   font-size: 1rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
-.plan-muscle-center span small {
-  color: #718078;
-  font-size: 0.68rem;
+.plan-muscle-center span.compact {
+  font-size: 0.84rem;
 }
 
 .plan-muscle-center em {
