@@ -91,17 +91,6 @@ function getCardForWeekday(index: number): WeeklyPlanDayCard | undefined {
   return cardId ? schedule.value?.cards.find((card) => card.id === cardId) : undefined
 }
 
-function getCardPreview(card: WeeklyPlanDayCard): string {
-  const names = card.exercises
-    .slice(0, 2)
-    .map((exercise) => getExercise(exercise.exerciseId)?.name)
-    .filter(Boolean)
-
-  if (!names.length) return '暂无动作'
-  const remainingCount = card.exercises.length - names.length
-  return `${names.join('、')}${remainingCount > 0 ? ` +${remainingCount}` : ''}`
-}
-
 function persist(message = '已保存到本地'): void {
   if (!schedule.value) return
 
@@ -114,7 +103,7 @@ function persist(message = '已保存到本地'): void {
   }, 1400)
 }
 
-function createCard(): void {
+function createCard(weekdayIndex?: number): void {
   if (!schedule.value) return
 
   const usedNumbers = schedule.value.cards.flatMap((card) => {
@@ -124,26 +113,22 @@ function createCard(): void {
   const nextNumber = Math.max(0, ...usedNumbers) + 1
   const card = createWeeklyPlanDayCard(nextNumber)
   schedule.value.cards.push(card)
+  if (weekdayIndex !== undefined) schedule.value.weekdayCardIds[weekdayIndex] = card.id
   selectedCardId.value = card.id
   persist('已新建训练日')
 }
 
-function selectCard(cardId: string): void {
-  selectedCardId.value = cardId
-}
+function handleWeekdaySlotClick(targetIndex: number): void {
+  if (!schedule.value) return
 
-function assignSelectedCardToWeekday(targetIndex: number): void {
-  if (!schedule.value || !selectedCardId.value) return
-
-  const selectedId = selectedCardId.value
-  const currentIndex = schedule.value.weekdayCardIds.findIndex((cardId) => cardId === selectedId)
   const targetId = schedule.value.weekdayCardIds[targetIndex] ?? null
 
-  if (targetId === selectedId) return
+  if (targetId) {
+    selectedCardId.value = targetId
+    return
+  }
 
-  schedule.value.weekdayCardIds[targetIndex] = selectedId
-  if (currentIndex >= 0) schedule.value.weekdayCardIds[currentIndex] = targetId
-  persist(currentIndex >= 0 && targetId ? '已交换训练日' : '已安排到星期')
+  createCard(targetIndex)
 }
 
 function addExerciseSet(exerciseId: ExerciseId): void {
@@ -193,10 +178,12 @@ onMounted(async () => {
     if (!schedule.value.cards.length) {
       const firstCard = createWeeklyPlanDayCard(1)
       schedule.value.cards.push(firstCard)
+      schedule.value.weekdayCardIds[0] = firstCard.id
       selectedCardId.value = firstCard.id
       persist('已创建第一个训练日')
     } else {
-      selectedCardId.value = schedule.value.cards[0]?.id
+      const firstAssignedCardId = schedule.value.weekdayCardIds.find(Boolean)
+      selectedCardId.value = firstAssignedCardId ?? schedule.value.cards[0]?.id
       persist('')
     }
   } catch (error) {
@@ -240,7 +227,7 @@ onMounted(async () => {
         <div class="section-heading">
           <div>
             <h2 id="week-board-title">本周安排</h2>
-            <p>选中训练日，再点星期槽；已有卡片时自动交换</p>
+            <p>点击已有卡片查看详情；点击空槽新建训练日</p>
           </div>
         </div>
 
@@ -258,31 +245,25 @@ onMounted(async () => {
               selected: getCardForWeekday(index)?.id === selectedCardId,
             }"
             :aria-label="`${weekday}${getCardForWeekday(index)?.name ?? '未安排'}`"
-            @click="assignSelectedCardToWeekday(index)"
+            @click="handleWeekdaySlotClick(index)"
           >
             <template v-if="getCardForWeekday(index)">
               <strong>{{ getCardForWeekday(index)?.name.replace('训练日', '日') }}</strong>
               <span>{{ getCardSetCount(getCardForWeekday(index)!) }}组</span>
-              <small>{{ getCardPreview(getCardForWeekday(index)!) }}</small>
+              <div class="slot-exercise-list">
+                <small
+                  v-for="exercise in getCardForWeekday(index)?.exercises"
+                  :key="exercise.exerciseId"
+                >
+                  {{ getExercise(exercise.exerciseId)?.name }}
+                </small>
+                <small v-if="!getCardForWeekday(index)?.exercises.length">暂无动作</small>
+              </div>
             </template>
             <span v-else class="slot-plus">＋</span>
           </button>
         </div>
       </section>
-
-      <nav class="day-card-strip" aria-label="选择训练日卡片">
-        <button
-          v-for="card in schedule.cards"
-          :key="card.id"
-          type="button"
-          :aria-pressed="card.id === selectedCardId"
-          @click="selectCard(card.id)"
-        >
-          <strong>{{ card.name }}</strong>
-          <span>{{ getCardSetCount(card) }}组</span>
-        </button>
-        <button type="button" class="new-card-button" @click="createCard">＋ 训练日</button>
-      </nav>
 
       <section class="schedule-workspace">
         <article class="day-detail">
@@ -499,7 +480,8 @@ a {
 
 .weekday-slot strong,
 .weekday-slot span,
-.weekday-slot small {
+.weekday-slot small,
+.slot-exercise-list {
   max-width: 100%;
 }
 
@@ -513,15 +495,23 @@ a {
   font-weight: 800;
 }
 
+.slot-exercise-list {
+  width: 100%;
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+}
+
 .weekday-slot small {
-  display: -webkit-box;
+  display: block;
+  width: 100%;
   overflow: hidden;
   color: #75847a;
   font-size: clamp(0.43rem, 1.75vw, 0.53rem);
   line-height: 1.35;
   text-align: center;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .slot-plus {
@@ -529,60 +519,12 @@ a {
   font-weight: 400;
 }
 
-.day-card-strip {
-  width: 95%;
-  display: flex;
-  gap: 7px;
-  margin: 10px auto;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.day-card-strip::-webkit-scrollbar {
-  display: none;
-}
-
-.day-card-strip button {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: #fff;
-  color: #718078;
-  cursor: pointer;
-}
-
-.day-card-strip button[aria-pressed='true'] {
-  border-color: #738d78;
-  background: #e2ecdf;
-  color: #36513e;
-}
-
-.day-card-strip strong {
-  font-size: 0.72rem;
-}
-
-.day-card-strip span {
-  font-size: 0.62rem;
-  font-weight: 700;
-}
-
-.day-card-strip .new-card-button {
-  border-style: dashed;
-  border-color: #c9d4c9;
-  background: transparent;
-}
-
 .schedule-workspace {
   width: 95%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
-  margin: 0 auto 18px;
+  margin: 10px auto 18px;
 }
 
 .day-detail,
@@ -835,7 +777,6 @@ a {
   .schedule-page > *,
   .schedule-header,
   .week-board,
-  .day-card-strip,
   .schedule-workspace,
   .action-pool {
     max-width: 720px;
