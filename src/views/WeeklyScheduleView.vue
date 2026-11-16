@@ -137,7 +137,7 @@ function assignSelectedCardToWeekday(targetIndex: number): void {
 
   const selectedId = selectedCardId.value
   const currentIndex = schedule.value.weekdayCardIds.findIndex((cardId) => cardId === selectedId)
-  const targetId = schedule.value.weekdayCardIds[targetIndex]
+  const targetId = schedule.value.weekdayCardIds[targetIndex] ?? null
 
   if (targetId === selectedId) return
 
