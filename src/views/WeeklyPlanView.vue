@@ -20,6 +20,11 @@ import {
   updateWeeklyPlan,
   type CloudWeeklyPlan,
 } from '@/services/weeklyPlans'
+import {
+  loadWeeklyPlanSchedule,
+  reconcileWeeklyPlanSchedule,
+  saveWeeklyPlanSchedule,
+} from '@/services/weeklyPlanSchedule'
 
 const PLAN_PARTS = ['肩', '胸', '背', '手臂', '腿'] as const
 const PART_REGIONS: Record<PlanPart, readonly MuscleRegion[]> = {
@@ -395,16 +400,23 @@ async function handleSave(): Promise<void> {
     if (!userId) throw new Error('请先在主页登录云同步账户')
 
     const content = getCurrentPlanContent()
+    const schedule = reconcileWeeklyPlanSchedule(
+      loadWeeklyPlanSchedule(content.startDate),
+      Object.fromEntries(
+        content.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
+      ),
+    )
+    saveWeeklyPlanSchedule(schedule)
 
     if (activeCloudPlanId.value) {
-      await updateWeeklyPlan(userId, activeCloudPlanId.value, content)
+      await updateWeeklyPlan(userId, activeCloudPlanId.value, content, schedule)
       await loadCloudPlans()
       statusMessage.value = `已更新${activeCloudPlan.value?.name ?? '云端计划'}`
     } else {
       await persistDraft()
       if (errorMessage.value) return
 
-      const createdPlanId = await createWeeklyPlan(userId, content)
+      const createdPlanId = await createWeeklyPlan(userId, content, schedule)
       await loadCloudPlans()
       const createdPlan = cloudPlans.value.find((plan) => plan.id === createdPlanId)
       activeCloudPlanId.value = createdPlanId
@@ -447,6 +459,14 @@ async function openCloudPlan(plan: CloudWeeklyPlan): Promise<void> {
   targets.value = plan.targets.map((target) => ({ ...target }))
   plannedSets.value = Object.fromEntries(
     plan.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
+  )
+  saveWeeklyPlanSchedule(
+    reconcileWeeklyPlanSchedule(
+      plan.schedule,
+      Object.fromEntries(
+        plan.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
+      ),
+    ),
   )
   isConfirmingClear.value = false
   isCloudListOpen.value = false

@@ -75,6 +75,36 @@ export function createWeeklyPlanDayCard(sequence: number): WeeklyPlanDayCard {
   }
 }
 
+export function normalizeWeeklyPlanSchedule(
+  value: unknown,
+  sourceStartDate: string,
+): WeeklyPlanSchedule {
+  if (!value || typeof value !== 'object') return createEmptyWeeklyPlanSchedule(sourceStartDate)
+
+  const rawCards = 'cards' in value ? value.cards : undefined
+  const rawAssignments = 'weekdayCardIds' in value ? value.weekdayCardIds : undefined
+  const cards = Array.isArray(rawCards)
+    ? rawCards.flatMap((card, index) => {
+        const normalized = normalizeCard(card, index)
+        return normalized ? [normalized] : []
+      })
+    : []
+  const cardIds = new Set(cards.map((card) => card.id))
+  const weekdayCardIds = Array.from({ length: WEEKDAY_COUNT }, (_, index) => {
+    const cardId = Array.isArray(rawAssignments) ? rawAssignments[index] : null
+    return typeof cardId === 'string' && cardIds.has(cardId) ? cardId : null
+  })
+
+  return {
+    schemaVersion: WEEKLY_PLAN_SCHEDULE_SCHEMA_VERSION,
+    sourceStartDate,
+    cards,
+    weekdayCardIds,
+    updatedAt:
+      'updatedAt' in value && typeof value.updatedAt === 'number' ? value.updatedAt : Date.now(),
+  }
+}
+
 export function loadWeeklyPlanSchedule(sourceStartDate: string): WeeklyPlanSchedule {
   const rawValue = localStorage.getItem(STORAGE_KEY)
   if (!rawValue) return createEmptyWeeklyPlanSchedule(sourceStartDate)
@@ -86,28 +116,7 @@ export function loadWeeklyPlanSchedule(sourceStartDate: string): WeeklyPlanSched
     const storedStartDate = 'sourceStartDate' in value ? value.sourceStartDate : undefined
     if (storedStartDate !== sourceStartDate) return createEmptyWeeklyPlanSchedule(sourceStartDate)
 
-    const rawCards = 'cards' in value ? value.cards : undefined
-    const rawAssignments = 'weekdayCardIds' in value ? value.weekdayCardIds : undefined
-    const cards = Array.isArray(rawCards)
-      ? rawCards.flatMap((card, index) => {
-          const normalized = normalizeCard(card, index)
-          return normalized ? [normalized] : []
-        })
-      : []
-    const cardIds = new Set(cards.map((card) => card.id))
-    const weekdayCardIds = Array.from({ length: WEEKDAY_COUNT }, (_, index) => {
-      const cardId = Array.isArray(rawAssignments) ? rawAssignments[index] : null
-      return typeof cardId === 'string' && cardIds.has(cardId) ? cardId : null
-    })
-
-    return {
-      schemaVersion: WEEKLY_PLAN_SCHEDULE_SCHEMA_VERSION,
-      sourceStartDate,
-      cards,
-      weekdayCardIds,
-      updatedAt:
-        'updatedAt' in value && typeof value.updatedAt === 'number' ? value.updatedAt : Date.now(),
-    }
+    return normalizeWeeklyPlanSchedule(value, sourceStartDate)
   } catch {
     return createEmptyWeeklyPlanSchedule(sourceStartDate)
   }
