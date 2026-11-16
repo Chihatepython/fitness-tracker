@@ -376,14 +376,14 @@ a {
 }
 
 .schedule-header h1 {
-  font-size: 1.14rem;
+  font-size: var(--text-title);
   letter-spacing: -0.035em;
 }
 
 .schedule-header p,
 .save-state {
   color: #7a887f;
-  font-size: 0.66rem;
+  font-size: var(--text-micro);
   font-weight: 700;
 }
 
@@ -413,19 +413,19 @@ a {
 }
 
 .section-heading h2 {
-  font-size: 0.95rem;
+  font-size: var(--text-title);
 }
 
 .section-heading p {
   margin-top: 2px;
   color: #89958e;
-  font-size: 0.6rem;
+  font-size: var(--text-micro);
   font-weight: 650;
 }
 
 .section-heading > strong {
   color: #55705c;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
 }
 
 .weekday-labels,
@@ -438,7 +438,7 @@ a {
 .weekday-labels {
   margin: 0 0 5px;
   color: #7b8980;
-  font-size: clamp(0.5rem, 2.1vw, 0.64rem);
+  font-size: clamp(0.5rem, 2.1vw, var(--text-micro));
   font-weight: 800;
   text-align: center;
 }
@@ -487,7 +487,7 @@ a {
 }
 
 .slot-set-count span {
-  font-size: clamp(0.58rem, 2.25vw, 0.72rem);
+  font-size: clamp(var(--text-micro), 2.25vw, var(--text-caption));
   font-weight: 850;
   white-space: nowrap;
 }
@@ -505,7 +505,7 @@ a {
   width: 100%;
   overflow: hidden;
   color: #75847a;
-  font-size: clamp(0.43rem, 1.75vw, 0.53rem);
+  font-size: clamp(0.5rem, 1.75vw, var(--text-micro));
   line-height: 1.35;
   text-align: center;
   text-overflow: ellipsis;
@@ -514,7 +514,7 @@ a {
 
 .slot-plus {
   margin: auto;
-  font-size: 1.2rem;
+  font-size: var(--text-title);
   font-weight: 400;
 }
 
@@ -547,18 +547,18 @@ a {
 .day-detail header span,
 .analysis-placeholder > span {
   color: #89958e;
-  font-size: 0.57rem;
+  font-size: var(--text-micro);
   font-weight: 700;
 }
 
 .day-detail h2 {
   margin: 1px 0 0;
-  font-size: 0.86rem;
+  font-size: var(--text-body);
 }
 
 .day-detail header > strong {
   color: #55705c;
-  font-size: 0.67rem;
+  font-size: var(--text-micro);
 }
 
 .day-exercise-list {
@@ -583,20 +583,20 @@ a {
   border-radius: var(--radius-sm);
   background: #edf3e9;
   color: #55705c;
-  font-size: 0.55rem;
+  font-size: var(--text-micro);
   font-weight: 800;
 }
 
 .day-exercise-row > strong {
   overflow: hidden;
-  font-size: clamp(0.58rem, 2.3vw, 0.69rem);
+  font-size: clamp(var(--text-caption), 2.3vw, var(--text-body));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .day-exercise-row > span:not(.part-badge) {
   color: #5d6e62;
-  font-size: 0.59rem;
+  font-size: var(--text-micro);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -617,7 +617,7 @@ a {
 .detail-empty {
   margin: 32px 5px;
   color: #9ba59e;
-  font-size: 0.64rem;
+  font-size: var(--text-micro);
   line-height: 1.55;
 }
 
@@ -650,7 +650,7 @@ a {
 .analysis-placeholder p {
   margin: 5px 0 0;
   color: #a0aaa3;
-  font-size: 0.62rem;
+  font-size: var(--text-micro);
   text-align: center;
 }
 
@@ -692,7 +692,7 @@ a {
   border-radius: var(--radius-sm);
   background: #edf3e9;
   color: #55705c;
-  font-size: 0.59rem;
+  font-size: var(--text-micro);
   font-weight: 800;
 }
 
@@ -700,7 +700,7 @@ a {
   min-width: 0;
   align-self: end;
   overflow: hidden;
-  font-size: clamp(0.65rem, 2.7vw, 0.77rem);
+  font-size: clamp(var(--text-caption), 2.7vw, var(--text-body));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -708,7 +708,7 @@ a {
 .action-pool-grid em {
   align-self: start;
   color: #8b978f;
-  font-size: 0.57rem;
+  font-size: var(--text-micro);
   font-style: normal;
   font-weight: 700;
 }
@@ -717,7 +717,7 @@ a {
   grid-column: 3;
   grid-row: 1 / 3;
   color: #6d826f;
-  font-size: 1rem;
+  font-size: var(--text-control);
   font-style: normal;
 }
 
@@ -733,7 +733,7 @@ a {
   padding: 24px;
   border: 1px dashed #cbd5ca;
   border-radius: var(--radius-card);
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
@@ -758,7 +758,7 @@ a {
 }
 
 .empty-state span {
-  font-size: 0.74rem;
+  font-size: var(--text-caption);
 }
 
 .empty-state a {
@@ -767,7 +767,7 @@ a {
   border-radius: var(--radius-pill);
   background: #55705c;
   color: #fff;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   font-weight: 800;
   text-decoration: none;
 }

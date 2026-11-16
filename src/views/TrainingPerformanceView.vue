@@ -349,7 +349,7 @@ onMounted(() => void loadTrainingSets())
 
 .performance-page-header h1 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: var(--text-display);
   letter-spacing: -0.025em;
 }
 
@@ -395,7 +395,7 @@ onMounted(() => void loadTrainingSets())
   border-radius: var(--radius-control);
   background: transparent;
   color: #69756c;
-  font-size: 0.88rem;
+  font-size: var(--text-body);
   font-weight: 800;
   cursor: pointer;
 }
@@ -434,7 +434,7 @@ onMounted(() => void loadTrainingSets())
   border-radius: var(--radius-pill);
   background: #f7f9f5;
   color: #738078;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 750;
   white-space: nowrap;
   cursor: pointer;
@@ -465,7 +465,7 @@ onMounted(() => void loadTrainingSets())
 
 .comparison-heading h2 {
   margin: 0 0 4px;
-  font-size: 1.2rem;
+  font-size: var(--text-title);
   letter-spacing: -0.025em;
 }
 
@@ -473,7 +473,7 @@ onMounted(() => void loadTrainingSets())
 .swipe-hint {
   margin: 0;
   color: #7a867d;
-  font-size: 0.76rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
@@ -495,7 +495,7 @@ onMounted(() => void loadTrainingSets())
   border-radius: var(--radius-pill);
   background: #f5f8f3;
   color: #45634d;
-  font-size: 0.76rem;
+  font-size: var(--text-caption);
   font-weight: 800;
   white-space: nowrap;
   cursor: pointer;
@@ -545,7 +545,7 @@ onMounted(() => void loadTrainingSets())
   padding: 11px 12px;
   background: #edf2e9;
   color: #53645a;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   line-height: 1.35;
   text-align: left;
   white-space: nowrap;
@@ -601,13 +601,13 @@ onMounted(() => void loadTrainingSets())
 
 .comparison-table tbody .date-column strong {
   margin: 3px 0;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
   white-space: nowrap;
 }
 
 .comparison-table tbody .date-column span {
   color: #829087;
-  font-size: 0.7rem;
+  font-size: var(--text-caption);
 }
 
 .comparison-table tbody .date-column .recorded-hour {
@@ -634,7 +634,7 @@ onMounted(() => void loadTrainingSets())
   align-items: center;
   gap: 4px;
   color: #294c36;
-  font-size: 0.74rem;
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 
@@ -644,7 +644,7 @@ onMounted(() => void loadTrainingSets())
 
 .set-performance-list li > span {
   color: #8a958d;
-  font-size: 0.68rem;
+  font-size: var(--text-micro);
 }
 
 .set-performance-list strong {
@@ -664,7 +664,7 @@ onMounted(() => void loadTrainingSets())
   border: 1px dashed #d5ddd1;
   border-radius: var(--radius-card);
   color: #7a867d;
-  font-size: 0.85rem;
+  font-size: var(--text-body);
   text-align: center;
 }
 
@@ -672,7 +672,7 @@ onMounted(() => void loadTrainingSets())
   margin: 0;
   padding: 20px 12px;
   color: #a52d2d;
-  font-size: 0.85rem;
+  font-size: var(--text-body);
   text-align: center;
 }
 

@@ -212,20 +212,20 @@ onBeforeUnmount(() => {
 .muscle-source-eyebrow {
   margin-bottom: 5px;
   color: #718078;
-  font-size: 0.75rem;
+  font-size: var(--text-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 
 .muscle-source-header h2 {
   margin-bottom: 5px;
-  font-size: 1.4rem;
+  font-size: var(--text-display);
   letter-spacing: -0.03em;
 }
 
 .muscle-source-header span {
   color: #718078;
-  font-size: 0.8rem;
+  font-size: var(--text-body);
   font-weight: 700;
 }
 
@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
   outline: none;
   background: #fff;
   color: #536158;
-  font-size: 1.35rem;
+  font-size: var(--text-display);
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -265,7 +265,7 @@ onBeforeUnmount(() => {
 }
 
 .muscle-source-summary strong {
-  font-size: 1.15rem;
+  font-size: var(--text-title);
   font-variant-numeric: tabular-nums;
 }
 
@@ -294,14 +294,14 @@ onBeforeUnmount(() => {
   overflow: hidden;
   min-width: 0;
   padding-right: 8px;
-  font-size: 0.9rem;
+  font-size: var(--text-body);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .muscle-source-calculation {
   color: #718078;
-  font-size: 0.9rem;
+  font-size: var(--text-body);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   text-align: center;
@@ -310,7 +310,7 @@ onBeforeUnmount(() => {
 
 .muscle-source-total {
   color: #234a31;
-  font-size: 0.9rem;
+  font-size: var(--text-body);
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;

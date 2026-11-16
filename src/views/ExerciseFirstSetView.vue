@@ -179,13 +179,13 @@ onMounted(() => void loadTrainingSets())
 
 .first-set-page-header span {
   color: #7a867d;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
 .first-set-page-header h1 {
   margin: 1px 0 0;
-  font-size: 1.35rem;
+  font-size: var(--text-display);
   letter-spacing: -0.03em;
 }
 
@@ -230,7 +230,7 @@ onMounted(() => void loadTrainingSets())
   border-radius: var(--radius-pill);
   background: #f7f9f5;
   color: #738078;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 800;
   line-height: 34px;
   text-decoration: none;
@@ -264,14 +264,14 @@ onMounted(() => void loadTrainingSets())
 .first-set-analysis-heading p {
   margin: 0 0 3px;
   color: #7a867d;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
 .first-set-analysis-heading h2,
 .first-set-record-heading h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: var(--text-title);
   letter-spacing: -0.025em;
 }
 
@@ -280,7 +280,7 @@ onMounted(() => void loadTrainingSets())
   border-radius: var(--radius-pill);
   background: #e8f1e4;
   color: #42634b;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -291,14 +291,14 @@ onMounted(() => void loadTrainingSets())
 
 .first-set-record-heading > span {
   color: #879188;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
 .trend-note {
   margin: 4px 0 0;
   color: #7a867d;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   text-align: center;
 }
 
@@ -317,7 +317,7 @@ onMounted(() => void loadTrainingSets())
 .first-set-table td {
   padding: 10px 9px;
   border-top: 1px solid #e5eae3;
-  font-size: 0.75rem;
+  font-size: var(--text-caption);
   text-align: left;
   white-space: nowrap;
 }
@@ -362,7 +362,7 @@ onMounted(() => void loadTrainingSets())
   border: 1px dashed #d5ddd1;
   border-radius: var(--radius-card);
   color: #7a867d;
-  font-size: 0.85rem;
+  font-size: var(--text-body);
   text-align: center;
 }
 
@@ -370,7 +370,7 @@ onMounted(() => void loadTrainingSets())
   margin: 0;
   padding: 20px 12px;
   color: #a52d2d;
-  font-size: 0.85rem;
+  font-size: var(--text-body);
   text-align: center;
 }
 

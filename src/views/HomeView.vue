@@ -341,7 +341,7 @@ async function confirmDelete(): Promise<void> {
 .export-status,
 .export-error {
   margin: 10px 2px 0;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
   text-align: center;
 }
 
@@ -367,7 +367,7 @@ async function confirmDelete(): Promise<void> {
   background: #d9f36a;
   color: #18311f;
   box-shadow: 0 12px 28px rgb(31 62 40 / 24%);
-  font-size: 2rem;
+  font-size: var(--text-icon-lg);
   font-weight: 500;
   line-height: 1;
   cursor: pointer;

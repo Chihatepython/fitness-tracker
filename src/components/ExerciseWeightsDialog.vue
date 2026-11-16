@@ -269,14 +269,14 @@ watch(
 
 .exercise-weights-content h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: var(--text-title);
   letter-spacing: -0.03em;
 }
 
 .exercise-weights-content header p {
   margin: 5px 0 0;
   color: #718078;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
@@ -291,7 +291,7 @@ watch(
   border-radius: var(--radius-circle);
   background: #fff;
   color: #536158;
-  font-size: 1.3rem;
+  font-size: var(--text-display);
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -304,7 +304,7 @@ watch(
 .exercise-detail-section h3 {
   margin: 0 0 10px;
   color: #405148;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
 }
 
 .exercise-weight-lines p {
@@ -315,7 +315,7 @@ watch(
   margin: 0;
   padding: 6px 2px;
   color: #536158;
-  font-size: 0.9rem;
+  font-size: var(--text-body);
 }
 
 .exercise-weight-lines strong {
@@ -340,7 +340,7 @@ watch(
 .profile-message,
 .profile-error {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
 }
 
 .section-title-row span,
@@ -352,7 +352,7 @@ watch(
   display: grid;
   gap: 7px;
   color: #536158;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
@@ -406,7 +406,7 @@ watch(
   border: 0;
   background: transparent;
   color: #89938d;
-  font-size: 1.15rem;
+  font-size: var(--text-title);
 }
 
 .add-profile-field,

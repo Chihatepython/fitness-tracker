@@ -854,7 +854,7 @@ onMounted(() => void loadDraft())
 .plan-page-header h1 {
   margin: 0;
   overflow: hidden;
-  font-size: 1.18rem;
+  font-size: var(--text-title);
   letter-spacing: -0.025em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -891,7 +891,7 @@ onMounted(() => void loadDraft())
   padding: 0 12px;
   border: 0;
   border-radius: var(--radius-pill);
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 800;
   cursor: pointer;
 }
@@ -949,7 +949,7 @@ onMounted(() => void loadDraft())
   justify-content: flex-end;
   padding: 0 3px 7px;
   color: #718078;
-  font-size: 0.74rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
@@ -981,12 +981,12 @@ onMounted(() => void loadDraft())
   justify-content: space-between;
   padding: 0 2px 7px;
   color: #43564a;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
 }
 
 .cloud-plan-panel > header span {
   color: #809087;
-  font-size: 0.7rem;
+  font-size: var(--text-caption);
 }
 
 .cloud-plan-list {
@@ -1022,12 +1022,12 @@ onMounted(() => void loadDraft())
 
 .cloud-plan-list button strong {
   color: #2d4334;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
 }
 
 .cloud-plan-list button small {
   color: #728179;
-  font-size: 0.7rem;
+  font-size: var(--text-caption);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1046,7 +1046,7 @@ onMounted(() => void loadDraft())
 .cloud-plan-state {
   margin: 4px 0 2px;
   color: #718078;
-  font-size: 0.75rem;
+  font-size: var(--text-caption);
   text-align: center;
 }
 
@@ -1163,7 +1163,7 @@ onMounted(() => void loadDraft())
 .plan-muscle-center strong {
   max-width: 74px;
   overflow: hidden;
-  font-size: 0.9rem;
+  font-size: var(--text-body);
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1173,7 +1173,7 @@ onMounted(() => void loadDraft())
   max-width: 72px;
   overflow: hidden;
   color: var(--plan-accent);
-  font-size: 1rem;
+  font-size: var(--text-control);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -1182,12 +1182,12 @@ onMounted(() => void loadDraft())
 }
 
 .plan-muscle-center span.compact {
-  font-size: 0.84rem;
+  font-size: var(--text-body);
 }
 
 .plan-muscle-center em {
   color: #8a968e;
-  font-size: 0.7rem;
+  font-size: var(--text-caption);
   font-style: normal;
   font-weight: 700;
 }
@@ -1212,7 +1212,7 @@ onMounted(() => void loadDraft())
   border-radius: var(--radius-pill);
   background: #fff;
   color: #718078;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   cursor: pointer;
 }
 
@@ -1268,13 +1268,13 @@ onMounted(() => void loadDraft())
 }
 
 .schedule-entry strong {
-  font-size: 0.83rem;
+  font-size: var(--text-body);
 }
 
 .schedule-entry small {
   overflow: hidden;
   color: #718078;
-  font-size: 0.63rem;
+  font-size: var(--text-micro);
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1300,7 +1300,7 @@ onMounted(() => void loadDraft())
 
 .plan-action-heading h2 {
   margin: 0;
-  font-size: 1.08rem;
+  font-size: var(--text-title);
   letter-spacing: -0.025em;
 }
 
@@ -1318,7 +1318,7 @@ onMounted(() => void loadDraft())
   border-radius: var(--radius-pill);
   background: transparent;
   color: #718078;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   font-weight: 700;
   cursor: pointer;
 }
@@ -1348,14 +1348,14 @@ onMounted(() => void loadDraft())
 
 .plan-exercise-section-heading h3 {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
   font-weight: 800;
 }
 
 .plan-exercise-section-heading span,
 .plan-exercise-empty {
   color: #a0aaa3;
-  font-size: 0.68rem;
+  font-size: var(--text-micro);
   font-weight: 700;
 }
 
@@ -1373,7 +1373,7 @@ onMounted(() => void loadDraft())
   gap: 8px;
   margin: 0 2px 7px;
   color: #a0aaa3;
-  font-size: 0.7rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
@@ -1418,12 +1418,12 @@ onMounted(() => void loadDraft())
 }
 
 .plan-action-copy strong {
-  font-size: 0.86rem;
+  font-size: var(--text-body);
 }
 
 .plan-action-copy span {
   color: #718078;
-  font-size: 0.68rem;
+  font-size: var(--text-micro);
 }
 
 .plan-set-stepper {
@@ -1443,7 +1443,7 @@ onMounted(() => void loadDraft())
   border-radius: var(--radius-circle);
   background: #eef3eb;
   color: #46634d;
-  font-size: 1.25rem;
+  font-size: var(--text-title);
   cursor: pointer;
 }
 
@@ -1454,7 +1454,7 @@ onMounted(() => void loadDraft())
 
 .plan-set-stepper span {
   text-align: center;
-  font-size: 0.76rem;
+  font-size: var(--text-caption);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -1462,7 +1462,7 @@ onMounted(() => void loadDraft())
 .plan-state,
 .plan-error {
   margin: 18px 0;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
   text-align: center;
 }
 
@@ -1505,13 +1505,13 @@ onMounted(() => void loadDraft())
 .target-dialog-content header p {
   margin: 0 0 3px;
   color: #718078;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
 .target-dialog-content header h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: var(--text-title);
 }
 
 .target-dialog-content header button {
@@ -1524,14 +1524,14 @@ onMounted(() => void loadDraft())
   border-radius: var(--radius-circle);
   background: #eef3eb;
   color: #46634d;
-  font-size: 1.5rem;
+  font-size: var(--text-display);
   cursor: pointer;
 }
 
 .target-dialog-hint {
   margin: 18px 0 10px;
   color: #718078;
-  font-size: 0.76rem;
+  font-size: var(--text-caption);
   text-align: center;
 }
 
@@ -1552,7 +1552,7 @@ onMounted(() => void loadDraft())
   border-radius: var(--radius-circle);
   background: #eef3eb;
   color: #46634d;
-  font-size: 1.5rem;
+  font-size: var(--text-display);
   cursor: pointer;
 }
 
@@ -1563,14 +1563,14 @@ onMounted(() => void loadDraft())
 
 .target-stepper strong {
   text-align: center;
-  font-size: 2rem;
+  font-size: var(--text-icon-lg);
   font-variant-numeric: tabular-nums;
 }
 
 .target-stepper small {
   margin-left: 4px;
   color: #718078;
-  font-size: 0.8rem;
+  font-size: var(--text-body);
 }
 
 .target-dialog-content footer {

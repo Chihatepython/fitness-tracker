@@ -550,7 +550,7 @@ defineExpose({ open })
 
 .dialog-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: var(--text-display);
   letter-spacing: -0.03em;
 }
 
@@ -601,7 +601,7 @@ defineExpose({ open })
   border-radius: var(--radius-circle);
   background: #315e40;
   color: #fff;
-  font-size: 0.56rem;
+  font-size: var(--text-micro);
   font-weight: 800;
   line-height: 1;
 }
@@ -620,7 +620,7 @@ defineExpose({ open })
   border-radius: var(--radius-circle);
   background: #fff;
   color: #617067;
-  font-size: 1.45rem;
+  font-size: var(--text-display);
   cursor: pointer;
 }
 
@@ -628,7 +628,7 @@ label {
   display: grid;
   gap: 8px;
   color: #536158;
-  font-size: 0.8rem;
+  font-size: var(--text-body);
   font-weight: 700;
 }
 
@@ -682,7 +682,7 @@ label + label,
   background: #fff;
   color: #657169;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 750;
   cursor: pointer;
   touch-action: manipulation;
@@ -720,7 +720,7 @@ label + label,
   outline: none;
   background: transparent;
   color: #657169;
-  font-size: 0.7rem;
+  font-size: var(--text-caption);
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
@@ -750,7 +750,7 @@ select {
   background: #fff;
   color: #17211a;
   font: inherit;
-  font-size: 1rem;
+  font-size: var(--text-control);
 }
 
 input:focus,
@@ -783,7 +783,7 @@ input[readonly] {
 .error-message {
   margin: 16px 0 0;
   color: #a52d2d;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
 }
 
 .recent-value-suggestions {
@@ -801,7 +801,7 @@ input[readonly] {
 
 .recent-value-row > span {
   color: #718078;
-  font-size: 0.76rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
@@ -819,7 +819,7 @@ input[readonly] {
   background: #f0f4ed;
   color: #405148;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: var(--text-body);
   font-weight: 750;
   cursor: pointer;
   touch-action: manipulation;
@@ -846,7 +846,7 @@ input[readonly] {
   border-radius: var(--radius-control);
   background: #fff;
   color: #26372c;
-  font-size: 1.05rem;
+  font-size: var(--text-control);
   font-weight: 750;
   cursor: pointer;
   touch-action: manipulation;
@@ -866,7 +866,7 @@ input[readonly] {
 .number-keypad .clear-key {
   background: #e5eddf;
   color: #365640;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
 }
 
 .dialog-actions {

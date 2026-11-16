@@ -88,14 +88,14 @@ watch(
 
 .delete-confirmation h2 {
   margin-bottom: 0;
-  font-size: 1.35rem;
+  font-size: var(--text-display);
   letter-spacing: -0.03em;
 }
 
 .delete-dialog-eyebrow {
   margin-bottom: 5px;
   color: #718078;
-  font-size: 0.75rem;
+  font-size: var(--text-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
 }
@@ -113,20 +113,20 @@ watch(
 }
 
 .delete-record-summary strong {
-  font-size: 0.9rem;
+  font-size: var(--text-body);
 }
 
 .delete-record-summary span {
   flex-shrink: 0;
   color: #617067;
-  font-size: 0.84rem;
+  font-size: var(--text-body);
   font-variant-numeric: tabular-nums;
 }
 
 .delete-error {
   margin: 14px 0 0;
   color: #a52d2d;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
 }
 
 .delete-actions {

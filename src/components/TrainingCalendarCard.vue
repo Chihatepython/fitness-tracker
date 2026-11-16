@@ -80,7 +80,7 @@ watch(
 <style scoped>
 .training-calendar-section h2 {
   margin: 0 0 14px;
-  font-size: 1.25rem;
+  font-size: var(--text-title);
   letter-spacing: -0.025em;
 }
 
@@ -105,7 +105,7 @@ watch(
 .calendar-weekdays {
   margin-bottom: 8px;
   color: #718078;
-  font-size: 0.64rem;
+  font-size: var(--text-micro);
   font-weight: 700;
   text-align: center;
 }
@@ -148,12 +148,12 @@ watch(
 
 .calendar-day time strong {
   color: inherit;
-  font-size: 0.92rem;
+  font-size: var(--text-body);
   font-variant-numeric: tabular-nums;
 }
 
 .calendar-body-part {
-  font-size: 0.8rem;
+  font-size: var(--text-body);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -200,7 +200,7 @@ watch(
   margin: 0;
   place-items: center;
   color: #718078;
-  font-size: 0.85rem;
+  font-size: var(--text-body);
 }
 
 .calendar-error {

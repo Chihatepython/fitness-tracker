@@ -201,14 +201,14 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-pill);
   background: #edf4e9;
   color: #46634d;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 800;
 }
 
 .cloud-sync-description {
   margin: 12px 0 0;
   color: #718078;
-  font-size: 0.84rem;
+  font-size: var(--text-body);
   line-height: 1.55;
 }
 
@@ -221,7 +221,7 @@ onBeforeUnmount(() => {
   display: block;
   margin-bottom: 7px;
   color: #52635a;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
   font-weight: 800;
 }
 
@@ -263,7 +263,7 @@ onBeforeUnmount(() => {
   padding: 0 14px;
   background: #edf4e9;
   color: #46634d;
-  font-size: 0.84rem;
+  font-size: var(--text-body);
   font-weight: 800;
   cursor: pointer;
 }
@@ -288,7 +288,7 @@ onBeforeUnmount(() => {
 
 .cloud-account {
   margin-bottom: 10px;
-  font-size: 0.9rem;
+  font-size: var(--text-body);
   font-weight: 800;
   overflow-wrap: anywhere;
 }
@@ -299,13 +299,13 @@ onBeforeUnmount(() => {
   gap: 10px;
   margin: -2px 2px 12px;
   color: #718078;
-  font-size: 0.76rem;
+  font-size: var(--text-caption);
 }
 
 .cloud-sync-message,
 .cloud-sync-error {
   margin: 10px 2px 0;
-  font-size: 0.8rem;
+  font-size: var(--text-body);
   text-align: center;
 }
 

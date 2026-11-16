@@ -175,7 +175,7 @@ watch(exerciseGroups, (groups) => {
   border-radius: var(--radius-pill);
   background: #e5eddf;
   color: #46634d;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 800;
 }
 
@@ -196,7 +196,7 @@ watch(exerciseGroups, (groups) => {
   border-radius: var(--radius-circle);
   background: #fff;
   color: #738078;
-  font-size: 1.2rem;
+  font-size: var(--text-title);
   line-height: 1;
   cursor: pointer;
 }
@@ -274,7 +274,7 @@ watch(exerciseGroups, (groups) => {
 }
 
 .exercise-copy strong {
-  font-size: 0.92rem;
+  font-size: var(--text-body);
   line-height: 1.25;
 }
 
@@ -288,7 +288,7 @@ watch(exerciseGroups, (groups) => {
   border-radius: var(--radius-pill);
   background: #edf3e9;
   color: #526b57;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 700;
   line-height: 1.15;
   white-space: nowrap;
@@ -322,7 +322,7 @@ watch(exerciseGroups, (groups) => {
 }
 
 .set-stack b {
-  font-size: 0.86rem;
+  font-size: var(--text-body);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -332,7 +332,7 @@ watch(exerciseGroups, (groups) => {
   padding-top: 2px;
   border-top: 1px solid #d9e2d4;
   color: #26352c;
-  font-size: 0.75rem;
+  font-size: var(--text-caption);
   font-weight: 700;
   text-align: center;
 }
@@ -370,7 +370,7 @@ watch(exerciseGroups, (groups) => {
   gap: 6px;
   border-top: 1px solid #edf0ea;
   color: #718078;
-  font-size: 0.8rem;
+  font-size: var(--text-body);
 }
 
 .set-detail-row.has-delete-action {
@@ -421,13 +421,13 @@ watch(exerciseGroups, (groups) => {
 
 .records-empty h3 {
   margin-bottom: 7px;
-  font-size: 0.95rem;
+  font-size: var(--text-body);
 }
 
 .records-empty p {
   margin-bottom: 0;
   color: #718078;
-  font-size: 0.84rem;
+  font-size: var(--text-body);
 }
 
 @media (max-width: 390px) {

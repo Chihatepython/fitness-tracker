@@ -6,6 +6,13 @@
   --radius-modal: 24px;
   --radius-pill: 999px;
   --radius-circle: 50%;
+  --text-micro: 0.625rem;
+  --text-caption: 0.75rem;
+  --text-body: 0.875rem;
+  --text-control: 1rem;
+  --text-title: 1.25rem;
+  --text-display: 1.5rem;
+  --text-icon-lg: 2rem;
   color: #17211a;
   background: #eef1eb;
   font-family:
@@ -67,14 +74,14 @@ p {
 
 .section-heading h2 {
   margin-bottom: 0;
-  font-size: 1.25rem;
+  font-size: var(--text-title);
   letter-spacing: -0.025em;
 }
 
 .eyebrow {
   margin: 0 0 6px;
   color: #718078;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -84,7 +91,7 @@ p {
   display: block;
   margin-top: 6px;
   color: #718078;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 700;
 }
 
@@ -96,7 +103,7 @@ p {
   border-radius: var(--radius-control);
   background: #fff;
   color: #46634d;
-  font-size: 0.86rem;
+  font-size: var(--text-body);
   font-weight: 700;
   cursor: pointer;
 }
@@ -114,5 +121,5 @@ p {
 .section-error {
   margin: 10px 0 0;
   color: #a52d2d;
-  font-size: 0.82rem;
+  font-size: var(--text-body);
 }

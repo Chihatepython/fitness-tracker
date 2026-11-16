@@ -548,7 +548,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-pill);
   background: #e5eddf;
   color: #46634d;
-  font-size: 0.78rem;
+  font-size: var(--text-caption);
   font-weight: 800;
 }
 
@@ -566,7 +566,7 @@ onBeforeUnmount(() => {
 .period-date-navigation .date-range {
   grid-column: 2;
   margin-top: 0;
-  font-size: 0.88rem;
+  font-size: var(--text-body);
   text-align: center;
   white-space: nowrap;
 }
