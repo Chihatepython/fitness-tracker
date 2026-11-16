@@ -208,9 +208,26 @@ function getShortMuscleName(muscle: MuscleName): string {
 
 function getPartProgress(part: PlanPart): { current: number; target: number } {
   const muscles = getMusclesForPart(part).filter((muscle) => hasTarget(muscle))
+  const muscleSet = new Set<MuscleName>(muscles)
+  const current = EXERCISES.filter((exercise) => exercise.bodyPart === part).reduce(
+    (partTotal, exercise) => {
+      const setCount = getExerciseSetCount(exercise.id)
+      if (!setCount) return partTotal
+
+      return (
+        partTotal +
+        Object.entries(exercise.muscleWeights ?? {}).reduce(
+          (exerciseTotal, [muscle, weight]) =>
+            muscleSet.has(muscle as MuscleName) ? exerciseTotal + setCount * weight : exerciseTotal,
+          0,
+        )
+      )
+    },
+    0,
+  )
 
   return {
-    current: muscles.reduce((sum, muscle) => sum + muscleTotals.value[muscle], 0),
+    current,
     target: muscles.reduce((sum, muscle) => sum + (getTargetSets(muscle) ?? 0), 0),
   }
 }
@@ -662,6 +679,16 @@ onMounted(() => void loadDraft())
         </nav>
       </section>
     </section>
+
+    <RouterLink class="schedule-entry" to="/plan/schedule">
+      <span>
+        <strong>安排到训练日</strong>
+        <small>把计划组数装进训练日卡片，再分配到星期</small>
+      </span>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m9 5 7 7-7 7" />
+      </svg>
+    </RouterLink>
 
     <section class="plan-action-section" aria-labelledby="plan-actions-title">
       <header class="plan-action-heading">
@@ -1217,6 +1244,50 @@ onMounted(() => void loadDraft())
 
 .plan-action-section {
   padding-top: 16px;
+}
+
+.schedule-entry {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 18px;
+  background: #e3ecdf;
+  color: #36513e;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgb(48 67 52 / 5%);
+}
+
+.schedule-entry span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.schedule-entry strong {
+  font-size: 0.83rem;
+}
+
+.schedule-entry small {
+  overflow: hidden;
+  color: #718078;
+  font-size: 0.63rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-entry svg {
+  width: 21px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .plan-action-heading {

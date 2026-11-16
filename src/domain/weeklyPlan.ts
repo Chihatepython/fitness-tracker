@@ -26,3 +26,24 @@ export interface WeeklyPlanDraft {
 }
 
 export type WeeklyPlanDraftContent = Pick<WeeklyPlanDraft, 'startDate' | 'targets' | 'exercises'>
+
+export const WEEKLY_PLAN_SCHEDULE_SCHEMA_VERSION = 1 as const
+
+export interface WeeklyPlanDayExercise {
+  exerciseId: ExerciseId
+  sets: number
+}
+
+export interface WeeklyPlanDayCard {
+  id: string
+  name: string
+  exercises: WeeklyPlanDayExercise[]
+}
+
+export interface WeeklyPlanSchedule {
+  schemaVersion: typeof WEEKLY_PLAN_SCHEDULE_SCHEMA_VERSION
+  sourceStartDate: string
+  cards: WeeklyPlanDayCard[]
+  weekdayCardIds: Array<string | null>
+  updatedAt: number
+}
