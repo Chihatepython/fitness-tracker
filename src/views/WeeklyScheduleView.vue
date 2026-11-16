@@ -16,7 +16,7 @@ import {
   saveWeeklyPlanSchedule,
 } from '@/services/weeklyPlanSchedule'
 
-const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const
+const PLAN_DAYS = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'] as const
 
 const draft = ref<WeeklyPlanDraft>()
 const schedule = ref<WeeklyPlanSchedule>()
@@ -223,33 +223,27 @@ onMounted(async () => {
     </section>
 
     <template v-else-if="schedule">
-      <section class="week-board" aria-labelledby="week-board-title">
-        <div class="section-heading">
-          <div>
-            <h2 id="week-board-title">本周安排</h2>
-            <p>点击已有卡片查看详情；点击空槽新建训练日</p>
-          </div>
-        </div>
-
+      <section class="week-board" aria-label="七日训练安排">
         <div class="weekday-labels" aria-hidden="true">
-          <span v-for="weekday in WEEKDAYS" :key="weekday">{{ weekday }}</span>
+          <span v-for="day in PLAN_DAYS" :key="day">{{ day }}</span>
         </div>
         <div class="weekday-slots">
           <button
-            v-for="(weekday, index) in WEEKDAYS"
-            :key="weekday"
+            v-for="(day, index) in PLAN_DAYS"
+            :key="day"
             type="button"
             class="weekday-slot"
             :class="{
               occupied: getCardForWeekday(index),
               selected: getCardForWeekday(index)?.id === selectedCardId,
             }"
-            :aria-label="`${weekday}${getCardForWeekday(index)?.name ?? '未安排'}`"
+            :aria-label="`${day}${getCardForWeekday(index)?.name ?? '未安排'}`"
             @click="handleWeekdaySlotClick(index)"
           >
             <template v-if="getCardForWeekday(index)">
-              <strong>{{ getCardForWeekday(index)?.name.replace('训练日', '日') }}</strong>
-              <span>{{ getCardSetCount(getCardForWeekday(index)!) }}组</span>
+              <div class="slot-set-count">
+                <span>{{ getCardSetCount(getCardForWeekday(index)!) }}组</span>
+              </div>
               <div class="slot-exercise-list">
                 <small
                   v-for="exercise in getCardForWeekday(index)?.exercises"
@@ -405,7 +399,7 @@ a {
 }
 
 .week-board {
-  padding: 13px 10px 12px;
+  padding: 9px 10px 12px;
   border-radius: 24px;
   background: rgb(255 255 255 / 76%);
   box-shadow: 0 8px 24px rgb(45 62 48 / 6%);
@@ -442,7 +436,7 @@ a {
 }
 
 .weekday-labels {
-  margin: 11px 0 4px;
+  margin: 0 0 5px;
   color: #7b8980;
   font-size: clamp(0.5rem, 2.1vw, 0.64rem);
   font-weight: 800;
@@ -455,8 +449,8 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
+  justify-content: flex-start;
+  gap: 2px;
   padding: 7px 3px;
   overflow: hidden;
   border: 1px dashed #ced8ce;
@@ -478,26 +472,30 @@ a {
   box-shadow: inset 0 0 0 1px #63816a;
 }
 
-.weekday-slot strong,
 .weekday-slot span,
 .weekday-slot small,
 .slot-exercise-list {
   max-width: 100%;
 }
 
-.weekday-slot strong {
-  font-size: clamp(0.55rem, 2.2vw, 0.7rem);
-  white-space: nowrap;
+.slot-set-count {
+  width: 100%;
+  height: 25px;
+  flex: 0 0 25px;
+  display: grid;
+  place-items: center;
 }
 
-.weekday-slot > span:not(.slot-plus) {
-  font-size: clamp(0.5rem, 2vw, 0.63rem);
-  font-weight: 800;
+.slot-set-count span {
+  font-size: clamp(0.58rem, 2.25vw, 0.72rem);
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .slot-exercise-list {
   width: 100%;
   display: grid;
+  align-content: start;
   gap: 1px;
   overflow: hidden;
 }
@@ -515,6 +513,7 @@ a {
 }
 
 .slot-plus {
+  margin: auto;
   font-size: 1.2rem;
   font-weight: 400;
 }
