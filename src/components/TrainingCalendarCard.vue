@@ -87,7 +87,7 @@ watch(
 .training-calendar-card {
   padding: 12px;
   border: 1px solid #e4e9e1;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: #f7f9f5;
   color: #17211a;
 }
@@ -133,7 +133,7 @@ watch(
   gap: 3px;
   padding: 6px 2px;
   border: 1px solid #edf0ea;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: #fff;
   color: #405047;
 }

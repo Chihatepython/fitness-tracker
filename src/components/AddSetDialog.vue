@@ -527,7 +527,7 @@ defineExpose({ open })
   margin: auto;
   padding: 0;
   border: 0;
-  border-radius: 24px;
+  border-radius: var(--radius-modal);
   background: #f8faf5;
   color: #17211a;
   box-shadow: 0 24px 80px rgb(13 31 20 / 30%);
@@ -571,7 +571,7 @@ defineExpose({ open })
   place-items: center;
   padding: 0;
   border: 1px solid #dce3d8;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   outline: none;
   background: #fff;
   color: #52675a;
@@ -598,7 +598,7 @@ defineExpose({ open })
   height: 15px;
   place-items: center;
   border: 2px solid #f8faf5;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: #315e40;
   color: #fff;
   font-size: 0.56rem;
@@ -617,7 +617,7 @@ defineExpose({ open })
   place-items: center;
   padding: 0 0 3px;
   border: 1px solid #dce3d8;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: #fff;
   color: #617067;
   font-size: 1.45rem;
@@ -678,7 +678,7 @@ label + label,
   place-items: center;
   padding: 0;
   border: 1px solid #d5ddd1;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: #fff;
   color: #657169;
   font: inherit;
@@ -716,7 +716,7 @@ label + label,
   place-items: center;
   padding: 0;
   border: 1px solid #8b978f;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   outline: none;
   background: transparent;
   color: #657169;
@@ -745,7 +745,7 @@ select {
   min-height: 48px;
   padding: 11px 12px;
   border: 1px solid #d5ddd1;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   outline: none;
   background: #fff;
   color: #17211a;
@@ -815,7 +815,7 @@ input[readonly] {
   min-height: 34px;
   padding: 4px 8px;
   border: 1px solid #dce3d8;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: #f0f4ed;
   color: #405148;
   font: inherit;
@@ -843,7 +843,7 @@ input[readonly] {
   min-height: 42px;
   padding: 6px;
   border: 1px solid #d5ddd1;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background: #fff;
   color: #26372c;
   font-size: 1.05rem;
@@ -878,7 +878,7 @@ input[readonly] {
 
 .dialog-actions button {
   min-height: 48px;
-  border-radius: 13px;
+  border-radius: var(--radius-control);
   font-weight: 800;
   cursor: pointer;
 }
@@ -906,7 +906,7 @@ input[readonly] {
     max-width: none;
     max-height: calc(100dvh - 24px);
     margin: auto 0 0;
-    border-radius: 24px 24px 0 0;
+    border-radius: var(--radius-modal) var(--radius-modal) 0 0;
   }
 
   .set-form {

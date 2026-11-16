@@ -248,7 +248,7 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
 .muscle-table-wrapper {
   overflow: hidden;
   border: 1px solid #e4e9e1;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: #f7f9f5;
 }
 
@@ -256,7 +256,7 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
   margin: 8px 0 0;
   padding: 28px 16px;
   border: 1px dashed #c8d1c5;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: #f7f9f5;
   color: #718078;
   font-size: 0.86rem;
@@ -616,7 +616,7 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
   box-sizing: border-box;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font: inherit;
   font-weight: 700;
   line-height: 1;
@@ -664,7 +664,7 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
   margin: -5px -4px;
   padding: 5px 4px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
   font: inherit;

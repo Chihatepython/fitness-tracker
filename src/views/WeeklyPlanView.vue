@@ -890,7 +890,7 @@ onMounted(() => void loadDraft())
   min-height: 38px;
   padding: 0 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
@@ -955,7 +955,7 @@ onMounted(() => void loadDraft())
 
 .draft-state {
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #e3ecdf;
   color: #52705a;
   white-space: nowrap;
@@ -970,7 +970,7 @@ onMounted(() => void loadDraft())
   margin: 0 0 8px;
   padding: 10px;
   border: 1px solid #d7e0d4;
-  border-radius: 15px;
+  border-radius: var(--radius-card);
   background: rgb(255 255 255 / 84%);
   box-shadow: 0 7px 20px rgb(48 67 52 / 8%);
 }
@@ -1004,7 +1004,7 @@ onMounted(() => void loadDraft())
   gap: 12px;
   padding: 8px 11px;
   border: 0;
-  border-radius: 11px;
+  border-radius: var(--radius-control);
   background: #eef3eb;
   color: #2d4334;
   text-align: left;
@@ -1082,7 +1082,7 @@ onMounted(() => void loadDraft())
   height: 96px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: transparent;
   color: #17211a;
   box-shadow: none;
@@ -1094,7 +1094,7 @@ onMounted(() => void loadDraft())
   position: absolute;
   z-index: 0;
   inset: 12px;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: #fff;
   box-shadow: 0 5px 12px rgb(48 67 52 / 9%);
   content: '';
@@ -1209,7 +1209,7 @@ onMounted(() => void loadDraft())
   gap: 5px;
   padding: 0 10px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #fff;
   color: #718078;
   font-size: 0.72rem;
@@ -1254,7 +1254,7 @@ onMounted(() => void loadDraft())
   gap: 12px;
   margin-top: 14px;
   padding: 10px 12px 10px 14px;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: #e3ecdf;
   color: #36513e;
   text-decoration: none;
@@ -1307,7 +1307,7 @@ onMounted(() => void loadDraft())
 .exercise-scope-selector {
   display: inline-flex;
   padding: 3px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #fff;
 }
 
@@ -1315,7 +1315,7 @@ onMounted(() => void loadDraft())
   min-height: 32px;
   padding: 0 11px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: #718078;
   font-size: 0.72rem;
@@ -1395,7 +1395,7 @@ onMounted(() => void loadDraft())
   align-items: center;
   gap: 10px;
   padding: 9px 10px 9px 12px;
-  border-radius: 17px;
+  border-radius: var(--radius-card);
   background: #fff;
   box-shadow: 0 4px 11px rgb(48 67 52 / 7%);
 }
@@ -1440,7 +1440,7 @@ onMounted(() => void loadDraft())
   place-items: center;
   padding: 0 0 2px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: #eef3eb;
   color: #46634d;
   font-size: 1.25rem;
@@ -1480,7 +1480,7 @@ onMounted(() => void loadDraft())
   margin: auto;
   padding: 0;
   border: 0;
-  border-radius: 22px;
+  border-radius: var(--radius-modal);
   background: #fff;
   color: #17211a;
   box-shadow: 0 22px 58px rgb(31 54 37 / 24%);
@@ -1521,7 +1521,7 @@ onMounted(() => void loadDraft())
   place-items: center;
   padding: 0 0 3px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: #eef3eb;
   color: #46634d;
   font-size: 1.5rem;
@@ -1549,7 +1549,7 @@ onMounted(() => void loadDraft())
   place-items: center;
   padding: 0 0 3px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: #eef3eb;
   color: #46634d;
   font-size: 1.5rem;
@@ -1583,7 +1583,7 @@ onMounted(() => void loadDraft())
 .target-dialog-content footer button {
   min-height: 46px;
   border: 0;
-  border-radius: 13px;
+  border-radius: var(--radius-control);
   font-weight: 800;
   cursor: pointer;
 }

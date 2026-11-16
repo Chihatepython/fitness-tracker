@@ -242,7 +242,7 @@ watch(
   margin: auto;
   padding: 0;
   border: 0;
-  border-radius: 20px;
+  border-radius: var(--radius-modal);
   outline: none;
   background: #f8faf5;
   color: #17211a;
@@ -288,7 +288,7 @@ watch(
   place-items: center;
   padding: 0 0 2px;
   border: 1px solid #d5ddd1;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: #fff;
   color: #536158;
   font-size: 1.3rem;
@@ -360,7 +360,7 @@ watch(
 .profile-section input {
   width: 100%;
   border: 1px solid #d5ddd1;
-  border-radius: 11px;
+  border-radius: var(--radius-control);
   outline: none;
   background: #fff;
   color: #17211a;
@@ -414,7 +414,7 @@ watch(
   width: 100%;
   min-height: 42px;
   margin-top: 10px;
-  border-radius: 11px;
+  border-radius: var(--radius-control);
   font: inherit;
   font-weight: 800;
 }

@@ -172,7 +172,7 @@ watch(exerciseGroups, (groups) => {
 <style scoped>
 .set-count {
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #e5eddf;
   color: #46634d;
   font-size: 0.78rem;
@@ -193,7 +193,7 @@ watch(exerciseGroups, (groups) => {
   place-items: center;
   padding: 0 0 2px;
   border: 1px solid #d5ddd1;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: #fff;
   color: #738078;
   font-size: 1.2rem;
@@ -222,7 +222,7 @@ watch(exerciseGroups, (groups) => {
 .records-status {
   padding: 24px;
   border: 1px solid #e4e9e1;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: #f7f9f5;
   color: #718078;
   text-align: center;
@@ -237,7 +237,7 @@ watch(exerciseGroups, (groups) => {
   margin-bottom: 0;
   padding: 0;
   border: 1px solid #e4e9e1;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: #f7f9f5;
   list-style: none;
 }
@@ -285,7 +285,7 @@ watch(exerciseGroups, (groups) => {
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #edf3e9;
   color: #526b57;
   font-size: 0.78rem;
@@ -317,7 +317,7 @@ watch(exerciseGroups, (groups) => {
   place-items: center;
   gap: 2px;
   padding: 4px 3px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #e9f0e5;
 }
 
@@ -395,7 +395,7 @@ watch(exerciseGroups, (groups) => {
   place-items: center;
   padding: 0;
   border: 1px solid #ecc5c5;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: #fff1f1;
   color: #ad3535;
   cursor: pointer;
@@ -414,7 +414,7 @@ watch(exerciseGroups, (groups) => {
 .records-empty {
   padding: 28px 22px;
   border: 1px dashed #c8d1c5;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: #f7f9f5;
   text-align: center;
 }

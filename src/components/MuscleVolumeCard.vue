@@ -545,7 +545,7 @@ onBeforeUnmount(() => {
 
 .set-count {
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #e5eddf;
   color: #46634d;
   font-size: 0.78rem;

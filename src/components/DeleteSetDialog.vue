@@ -71,7 +71,7 @@ watch(
   margin: auto;
   padding: 0;
   border: 0;
-  border-radius: 22px;
+  border-radius: var(--radius-modal);
   background: #f8faf5;
   color: #17211a;
   box-shadow: 0 24px 80px rgb(13 31 20 / 30%);
@@ -108,7 +108,7 @@ watch(
   margin-top: 20px;
   padding: 16px;
   border: 1px solid #e0e5dc;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: #fff;
 }
 
@@ -139,7 +139,7 @@ watch(
 .delete-actions button {
   min-height: 46px;
   border: 1px solid #d5ddd1;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: #fff;
   color: #536158;
   font-weight: 800;

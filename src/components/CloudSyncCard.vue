@@ -198,7 +198,7 @@ onBeforeUnmount(() => {
 
 .cloud-status-pill {
   padding: 5px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #edf4e9;
   color: #46634d;
   font-size: 0.78rem;
@@ -246,7 +246,7 @@ onBeforeUnmount(() => {
 .cloud-secondary-button {
   min-height: 44px;
   border: 1px solid #d5ddd1;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   font: inherit;
 }
 

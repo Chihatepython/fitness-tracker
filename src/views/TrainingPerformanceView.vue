@@ -374,7 +374,7 @@ onMounted(() => void loadTrainingSets())
 }
 
 .back-link:focus-visible {
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   outline: 3px solid rgb(70 99 77 / 22%);
 }
 
@@ -384,7 +384,7 @@ onMounted(() => void loadTrainingSets())
   gap: 5px;
   margin: 14px 0;
   padding: 4px;
-  border-radius: 15px;
+  border-radius: var(--radius-card);
   background: #dfe6dc;
 }
 
@@ -392,7 +392,7 @@ onMounted(() => void loadTrainingSets())
   min-height: 40px;
   padding: 0 4px;
   border: 0;
-  border-radius: 11px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: #69756c;
   font-size: 0.88rem;
@@ -431,7 +431,7 @@ onMounted(() => void loadTrainingSets())
   min-height: 34px;
   padding: 0 13px;
   border: 1px solid #d5ddd2;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #f7f9f5;
   color: #738078;
   font-size: 0.78rem;
@@ -492,7 +492,7 @@ onMounted(() => void loadTrainingSets())
   min-height: 32px;
   padding: 0 11px;
   border: 1px solid #d1dbce;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #f5f8f3;
   color: #45634d;
   font-size: 0.76rem;
@@ -509,7 +509,7 @@ onMounted(() => void loadTrainingSets())
 .comparison-table-scroll {
   overflow-x: auto;
   border: 1px solid #dbe3d8;
-  border-radius: 15px;
+  border-radius: var(--radius-card);
   background: #fafbf8;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
@@ -570,7 +570,7 @@ onMounted(() => void loadTrainingSets())
 }
 
 .exercise-analysis-link:focus-visible {
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   outline: 3px solid rgb(70 99 77 / 22%);
   outline-offset: 2px;
 }
@@ -662,7 +662,7 @@ onMounted(() => void loadTrainingSets())
   margin: 0;
   padding: 42px 16px;
   border: 1px dashed #d5ddd1;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   color: #7a867d;
   font-size: 0.85rem;
   text-align: center;

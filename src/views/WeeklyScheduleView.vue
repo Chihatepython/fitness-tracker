@@ -355,7 +355,7 @@ a {
   width: 38px;
   height: 38px;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   color: #46634d;
 }
 
@@ -400,7 +400,7 @@ a {
 
 .week-board {
   padding: 9px 10px 12px;
-  border-radius: 24px;
+  border-radius: var(--radius-panel);
   background: rgb(255 255 255 / 76%);
   box-shadow: 0 8px 24px rgb(45 62 48 / 6%);
 }
@@ -454,7 +454,7 @@ a {
   padding: 7px 3px;
   overflow: hidden;
   border: 1px dashed #ced8ce;
-  border-radius: 13px;
+  border-radius: var(--radius-control);
   background: #f5f7f2;
   color: #a0aaa3;
   cursor: pointer;
@@ -531,7 +531,7 @@ a {
   min-width: 0;
   min-height: 204px;
   padding: 11px;
-  border-radius: 19px;
+  border-radius: var(--radius-panel);
   background: #fff;
   box-shadow: 0 6px 18px rgb(49 66 52 / 6%);
 }
@@ -580,7 +580,7 @@ a {
   width: 20px;
   height: 20px;
   place-items: center;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: #edf3e9;
   color: #55705c;
   font-size: 0.55rem;
@@ -608,7 +608,7 @@ a {
   place-items: center;
   padding: 0 0 2px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: #f1f4ef;
   color: #6f7f74;
   cursor: pointer;
@@ -638,7 +638,7 @@ a {
 
 .analysis-placeholder i {
   width: 13%;
-  border-radius: 5px 5px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: #e7ede3;
 }
 
@@ -675,7 +675,7 @@ a {
   min-height: 62px;
   padding: 8px 8px;
   border: 0;
-  border-radius: 15px;
+  border-radius: var(--radius-card);
   background: #fff;
   color: #213027;
   text-align: left;
@@ -689,7 +689,7 @@ a {
   width: 25px;
   height: 25px;
   place-items: center;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #edf3e9;
   color: #55705c;
   font-size: 0.59rem;
@@ -732,7 +732,7 @@ a {
   margin-top: 10px;
   padding: 24px;
   border: 1px dashed #cbd5ca;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -764,7 +764,7 @@ a {
 .empty-state a {
   margin-top: 4px;
   padding: 9px 15px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #55705c;
   color: #fff;
   font-size: 0.72rem;

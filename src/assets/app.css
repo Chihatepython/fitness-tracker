@@ -1,4 +1,11 @@
 :root {
+  --radius-sm: 8px;
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-panel: 22px;
+  --radius-modal: 24px;
+  --radius-pill: 999px;
+  --radius-circle: 50%;
   color: #17211a;
   background: #eef1eb;
   font-family:
@@ -44,7 +51,7 @@ p {
 
 .dashboard-card {
   padding: 14px;
-  border-radius: 22px;
+  border-radius: var(--radius-panel);
   background: #fff;
 }
 
@@ -86,7 +93,7 @@ p {
   flex-shrink: 0;
   padding: 0 12px;
   border: 1px solid #d5ddd1;
-  border-radius: 11px;
+  border-radius: var(--radius-control);
   background: #fff;
   color: #46634d;
   font-size: 0.86rem;

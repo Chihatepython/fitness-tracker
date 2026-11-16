@@ -227,7 +227,7 @@ onMounted(() => void loadTrainingSets())
   flex: 0 0 auto;
   padding: 0 13px;
   border: 1px solid #d5ddd2;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #f7f9f5;
   color: #738078;
   font-size: 0.78rem;
@@ -277,7 +277,7 @@ onMounted(() => void loadTrainingSets())
 
 .first-set-analysis-heading > span {
   padding: 5px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: #e8f1e4;
   color: #42634b;
   font-size: 0.72rem;
@@ -360,7 +360,7 @@ onMounted(() => void loadTrainingSets())
   margin: 0;
   padding: 42px 16px;
   border: 1px dashed #d5ddd1;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   color: #7a867d;
   font-size: 0.85rem;
   text-align: center;
