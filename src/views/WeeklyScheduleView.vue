@@ -1,36 +1,42 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { onBeforeRouteLeave, RouterLink, useRoute } from 'vue-router'
 
+import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { EXERCISES, type ExerciseId } from '@/database'
-import type {
-  WeeklyPlanDayCard,
-  WeeklyPlanDraft,
-  WeeklyPlanSchedule,
-} from '@/domain/weeklyPlan'
-import { getWeeklyPlanDraft } from '@/services/weeklyPlanDraft'
+import type { WeeklyPlanDayCard, WeeklyPlanSchedule } from '@/domain/weeklyPlan'
 import {
+  listWeeklyPlans,
+  updateWeeklyPlanSchedule,
+  type CloudWeeklyPlan,
+} from '@/services/weeklyPlans'
+import {
+  createEmptyWeeklyPlanSchedule,
   createWeeklyPlanDayCard,
-  loadWeeklyPlanSchedule,
+  normalizeWeeklyPlanSchedule,
   reconcileWeeklyPlanSchedule,
-  saveWeeklyPlanSchedule,
 } from '@/services/weeklyPlanSchedule'
 
 const PLAN_DAYS = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'] as const
 
-const draft = ref<WeeklyPlanDraft>()
+const route = useRoute()
+const plan = ref<CloudWeeklyPlan>()
 const schedule = ref<WeeklyPlanSchedule>()
 const selectedCardId = ref<string>()
 const isLoading = ref(true)
+const isSaving = ref(false)
+const isDirty = ref(false)
+const isConfirmingClear = ref(false)
 const errorMessage = ref('')
 const savedMessage = ref('')
-let savedMessageTimer: number | undefined
+const { initialize: initializeAuth, session } = useSupabaseAuth()
+let clearConfirmationTimer: number | undefined
 
 const exerciseById = new Map(EXERCISES.map((exercise) => [exercise.id, exercise]))
 
 const plannedSetsByExercise = computed<Partial<Record<ExerciseId, number>>>(() =>
   Object.fromEntries(
-    (draft.value?.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
+    (plan.value?.exercises ?? []).map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
   ),
 )
 
@@ -51,7 +57,7 @@ const allocatedSetsByExercise = computed<Partial<Record<ExerciseId, number>>>(()
 })
 
 const remainingExercises = computed(() =>
-  (draft.value?.exercises ?? [])
+  (plan.value?.exercises ?? [])
     .map((plannedExercise) => ({
       plannedExercise,
       definition: exerciseById.get(plannedExercise.exerciseId),
@@ -67,7 +73,7 @@ const remainingExercises = computed(() =>
 )
 
 const totalPlannedSets = computed(() =>
-  (draft.value?.exercises ?? []).reduce((total, exercise) => total + exercise.plannedSets, 0),
+  (plan.value?.exercises ?? []).reduce((total, exercise) => total + exercise.plannedSets, 0),
 )
 
 const totalAllocatedSets = computed(() =>
@@ -91,16 +97,13 @@ function getCardForWeekday(index: number): WeeklyPlanDayCard | undefined {
   return cardId ? schedule.value?.cards.find((card) => card.id === cardId) : undefined
 }
 
-function persist(message = '已保存到本地'): void {
+function markChanged(message: string): void {
   if (!schedule.value) return
 
   schedule.value.updatedAt = Date.now()
-  saveWeeklyPlanSchedule(schedule.value)
+  isDirty.value = true
+  isConfirmingClear.value = false
   savedMessage.value = message
-  window.clearTimeout(savedMessageTimer)
-  savedMessageTimer = window.setTimeout(() => {
-    savedMessage.value = ''
-  }, 1400)
 }
 
 function createCard(weekdayIndex?: number): void {
@@ -115,14 +118,13 @@ function createCard(weekdayIndex?: number): void {
   schedule.value.cards.push(card)
   if (weekdayIndex !== undefined) schedule.value.weekdayCardIds[weekdayIndex] = card.id
   selectedCardId.value = card.id
-  persist('已新建训练日')
+  markChanged('未保存')
 }
 
 function handleWeekdaySlotClick(targetIndex: number): void {
   if (!schedule.value) return
 
   const targetId = schedule.value.weekdayCardIds[targetIndex] ?? null
-
   if (targetId) {
     selectedCardId.value = targetId
     return
@@ -144,7 +146,7 @@ function addExerciseSet(exerciseId: ExerciseId): void {
   if (existing) existing.sets += 1
   else selectedCard.value.exercises.push({ exerciseId, sets: 1 })
 
-  persist('已加入一组')
+  markChanged('未保存')
 }
 
 function removeExerciseSet(exerciseId: ExerciseId): void {
@@ -159,20 +161,72 @@ function removeExerciseSet(exerciseId: ExerciseId): void {
   if (exercise.sets > 1) exercise.sets -= 1
   else selectedCard.value.exercises.splice(exerciseIndex, 1)
 
-  persist('已移回动作池')
+  markChanged('未保存')
+}
+
+function handleClear(): void {
+  if (!plan.value) return
+
+  if (!isConfirmingClear.value) {
+    isConfirmingClear.value = true
+    window.clearTimeout(clearConfirmationTimer)
+    clearConfirmationTimer = window.setTimeout(() => {
+      isConfirmingClear.value = false
+    }, 3000)
+    return
+  }
+
+  window.clearTimeout(clearConfirmationTimer)
+  const emptySchedule = createEmptyWeeklyPlanSchedule(plan.value.startDate)
+  const firstCard = createWeeklyPlanDayCard(1)
+  emptySchedule.cards.push(firstCard)
+  emptySchedule.weekdayCardIds[0] = firstCard.id
+  schedule.value = emptySchedule
+  selectedCardId.value = firstCard.id
+  markChanged('未保存')
+}
+
+async function handleSave(): Promise<void> {
+  if (!plan.value || !schedule.value) return
+
+  isSaving.value = true
+  errorMessage.value = ''
+
+  try {
+    await initializeAuth()
+    const userId = session.value?.user.id
+    if (!userId) throw new Error('请先在主页登录云同步账户')
+
+    await updateWeeklyPlanSchedule(userId, plan.value.id, schedule.value)
+    plan.value.schedule = normalizeWeeklyPlanSchedule(schedule.value, plan.value.startDate)
+    isDirty.value = false
+    savedMessage.value = '已保存'
+  } catch (error: unknown) {
+    errorMessage.value = error instanceof Error ? error.message : '无法保存训练安排'
+  } finally {
+    isSaving.value = false
+  }
 }
 
 onMounted(async () => {
   try {
-    draft.value = await getWeeklyPlanDraft()
-    if (!draft.value) return
+    const planId = typeof route.query.plan === 'string' ? route.query.plan : undefined
+    if (!planId) throw new Error('没有指定要安排的云端计划')
 
-    const plannedSets = Object.fromEntries(
-      draft.value.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
-    ) as Partial<Record<ExerciseId, number>>
+    await initializeAuth()
+    const userId = session.value?.user.id
+    if (!userId) throw new Error('请先在主页登录云同步账户')
+
+    const plans = await listWeeklyPlans(userId)
+    const selectedPlan = plans.find((item) => item.id === planId)
+    if (!selectedPlan) throw new Error('找不到这个云端计划')
+
+    plan.value = selectedPlan
     schedule.value = reconcileWeeklyPlanSchedule(
-      loadWeeklyPlanSchedule(draft.value.startDate),
-      plannedSets,
+      normalizeWeeklyPlanSchedule(selectedPlan.schedule, selectedPlan.startDate),
+      Object.fromEntries(
+        selectedPlan.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
+      ),
     )
 
     if (!schedule.value.cards.length) {
@@ -180,43 +234,73 @@ onMounted(async () => {
       schedule.value.cards.push(firstCard)
       schedule.value.weekdayCardIds[0] = firstCard.id
       selectedCardId.value = firstCard.id
-      persist('已创建第一个训练日')
+      isDirty.value = true
+      savedMessage.value = '未保存'
     } else {
       const firstAssignedCardId = schedule.value.weekdayCardIds.find(Boolean)
       selectedCardId.value = firstAssignedCardId ?? schedule.value.cards[0]?.id
-      persist('')
+      savedMessage.value = '已保存'
     }
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '读取安排失败'
+  } catch (error: unknown) {
+    errorMessage.value = error instanceof Error ? error.message : '读取云端安排失败'
   } finally {
     isLoading.value = false
   }
 })
+
+onBeforeRouteLeave(() =>
+  !isDirty.value || window.confirm('当前训练日安排尚未保存，离开后这些修改会丢失。继续吗？'),
+)
 </script>
 
 <template>
   <main class="schedule-page">
     <header class="schedule-header">
-      <RouterLink class="back-link" to="/plan" aria-label="返回七天训练计划">
+      <RouterLink
+        class="back-link"
+        :to="{ name: 'weekly-plan', query: plan ? { plan: plan.id } : {} }"
+        aria-label="返回七天训练计划"
+      >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="m15 5-7 7 7 7" />
         </svg>
       </RouterLink>
-      <div>
+      <div class="schedule-title-copy">
         <h1>安排训练日</h1>
-        <p>{{ totalAllocatedSets }}/{{ totalPlannedSets }} 组已分配</p>
+        <p>{{ plan?.name ?? '云端计划' }} · {{ totalAllocatedSets }}/{{ totalPlannedSets }}组</p>
       </div>
-      <span class="save-state" aria-live="polite">{{ savedMessage }}</span>
+      <div class="schedule-header-actions">
+        <span class="save-state" :class="{ dirty: isDirty }" aria-live="polite">
+          {{ savedMessage || (isDirty ? '未保存' : '已保存') }}
+        </span>
+        <button
+          class="clear-schedule-button"
+          :class="{ confirming: isConfirmingClear }"
+          type="button"
+          :disabled="isLoading"
+          @click="handleClear"
+        >
+          {{ isConfirmingClear ? '确认' : '清空' }}
+        </button>
+        <button
+          class="save-schedule-button"
+          type="button"
+          :disabled="isLoading || isSaving || !isDirty"
+          @click="handleSave"
+        >
+          {{ isSaving ? '保存中' : '保存' }}
+        </button>
+      </div>
     </header>
 
     <p v-if="errorMessage" class="page-state error" role="alert">{{ errorMessage }}</p>
-    <p v-else-if="isLoading" class="page-state">正在读取本地计划…</p>
-    <section v-else-if="!draft" class="empty-state">
-      <strong>还没有七天训练计划</strong>
-      <span>先设置动作与计划组数，再安排到训练日。</span>
+    <p v-else-if="isLoading" class="page-state">正在读取云端计划…</p>
+    <section v-else-if="!plan" class="empty-state">
+      <strong>没有可用的云端计划</strong>
+      <span>返回七天训练计划后重新选择。</span>
       <RouterLink to="/plan">去制定计划</RouterLink>
     </section>
-    <section v-else-if="draft.exercises.length === 0" class="empty-state">
+    <section v-else-if="plan.exercises.length === 0" class="empty-state">
       <strong>计划中还没有动作</strong>
       <span>至少加入一个动作后，才能分配训练日。</span>
       <RouterLink to="/plan">返回添加动作</RouterLink>
@@ -343,9 +427,9 @@ a {
 
 .schedule-header {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   width: 95%;
   margin: 0 auto 12px;
 }
@@ -375,6 +459,10 @@ a {
   margin: 0;
 }
 
+.schedule-title-copy {
+  min-width: 0;
+}
+
 .schedule-header h1 {
   font-size: var(--text-title);
   letter-spacing: -0.035em;
@@ -388,8 +476,52 @@ a {
 }
 
 .save-state {
-  min-width: 62px;
-  text-align: right;
+  padding: 4px 7px;
+  border-radius: var(--radius-pill);
+  background: #e2ece0;
+  color: #54705b;
+  white-space: nowrap;
+}
+
+.save-state.dirty {
+  background: #f2ead9;
+  color: #8b7044;
+}
+
+.schedule-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.clear-schedule-button,
+.save-schedule-button {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-micro);
+  font-weight: 800;
+}
+
+.clear-schedule-button {
+  background: #f4e7e3;
+  color: #a25b55;
+}
+
+.clear-schedule-button.confirming {
+  background: #a25b55;
+  color: #fff;
+}
+
+.save-schedule-button {
+  background: #52765b;
+  color: #fff;
+}
+
+.clear-schedule-button:disabled,
+.save-schedule-button:disabled {
+  opacity: 0.5;
 }
 
 .week-board,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { EXERCISES, type ExerciseId } from '@/database'
@@ -8,12 +9,8 @@ import type {
   WeeklyPlanDraftContent,
   WeeklyPlanExercise,
   WeeklyPlanMuscleTarget,
+  WeeklyPlanSchedule,
 } from '@/domain/weeklyPlan'
-import {
-  clearWeeklyPlanDraft,
-  getWeeklyPlanDraft,
-  saveWeeklyPlanDraftLocally,
-} from '@/services/weeklyPlanDraft'
 import {
   createWeeklyPlan,
   listWeeklyPlans,
@@ -21,9 +18,9 @@ import {
   type CloudWeeklyPlan,
 } from '@/services/weeklyPlans'
 import {
-  loadWeeklyPlanSchedule,
+  createEmptyWeeklyPlanSchedule,
+  normalizeWeeklyPlanSchedule,
   reconcileWeeklyPlanSchedule,
-  saveWeeklyPlanSchedule,
 } from '@/services/weeklyPlanSchedule'
 
 const PLAN_PARTS = ['肩', '胸', '背', '手臂', '腿'] as const
@@ -48,8 +45,10 @@ const exerciseScope = ref<ExerciseScope>('related')
 const startDate = ref(getUpcomingMonday())
 const targets = ref<WeeklyPlanMuscleTarget[]>([])
 const plannedSets = ref<Partial<Record<ExerciseId, number>>>({})
+const activeSchedule = ref<WeeklyPlanSchedule>(createEmptyWeeklyPlanSchedule(startDate.value))
 const isLoading = ref(true)
 const isSaving = ref(false)
+const isDirty = ref(false)
 const isConfirmingClear = ref(false)
 const targetDialog = ref<HTMLDialogElement>()
 const editingMuscle = ref<MuscleName>()
@@ -62,7 +61,8 @@ const activeCloudPlanId = ref<string>()
 const isCloudListOpen = ref(false)
 const isLoadingCloudPlans = ref(false)
 const { initialize: initializeAuth, session } = useSupabaseAuth()
-let saveQueue: Promise<void> = Promise.resolve()
+const route = useRoute()
+const router = useRouter()
 let clearConfirmationTimer: number | undefined
 
 const canonicalMuscleOrder = new Map<MuscleName, number>(
@@ -317,27 +317,10 @@ function getCurrentPlanContent(): WeeklyPlanDraftContent {
   }
 }
 
-function persistDraft(): Promise<void> {
-  if (activeCloudPlanId.value) return Promise.resolve()
-
-  const content = getCurrentPlanContent()
-
-  saveQueue = saveQueue
-    .then(async () => {
-      await saveWeeklyPlanDraftLocally(content)
-      errorMessage.value = ''
-    })
-    .catch((error: unknown) => {
-      errorMessage.value = error instanceof Error ? error.message : '无法保存本地草稿'
-    })
-
-  return saveQueue
-}
-
 function markPlanChanged(): void {
   isConfirmingClear.value = false
-  statusMessage.value = activeCloudPlanId.value ? '云端计划有未保存修改' : '本地草稿'
-  if (!activeCloudPlanId.value) void persistDraft()
+  isDirty.value = true
+  statusMessage.value = '未保存'
 }
 
 function changeExerciseSets(exerciseId: ExerciseId, delta: number): void {
@@ -401,27 +384,25 @@ async function handleSave(): Promise<void> {
 
     const content = getCurrentPlanContent()
     const schedule = reconcileWeeklyPlanSchedule(
-      loadWeeklyPlanSchedule(content.startDate),
+      activeSchedule.value,
       Object.fromEntries(
         content.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
       ),
     )
-    saveWeeklyPlanSchedule(schedule)
+    activeSchedule.value = schedule
 
     if (activeCloudPlanId.value) {
       await updateWeeklyPlan(userId, activeCloudPlanId.value, content, schedule)
       await loadCloudPlans()
-      statusMessage.value = `已更新${activeCloudPlan.value?.name ?? '云端计划'}`
+      statusMessage.value = '已保存'
     } else {
-      await persistDraft()
-      if (errorMessage.value) return
-
       const createdPlanId = await createWeeklyPlan(userId, content, schedule)
       await loadCloudPlans()
-      const createdPlan = cloudPlans.value.find((plan) => plan.id === createdPlanId)
       activeCloudPlanId.value = createdPlanId
-      statusMessage.value = `已保存为${createdPlan?.name ?? '云端计划'}`
+      await setActivePlanRoute(createdPlanId)
+      statusMessage.value = '已保存'
     }
+    isDirty.value = false
   } catch (error: unknown) {
     cloudErrorMessage.value = error instanceof Error ? error.message : '无法保存云端计划'
   } finally {
@@ -452,7 +433,17 @@ async function toggleCloudPlanList(): Promise<void> {
 }
 
 async function openCloudPlan(plan: CloudWeeklyPlan): Promise<void> {
-  if (!activeCloudPlanId.value) await saveQueue
+  if (plan.id === activeCloudPlanId.value) {
+    isCloudListOpen.value = false
+    return
+  }
+
+  if (
+    isDirty.value &&
+    !window.confirm('当前修改尚未保存，切换计划会丢失这些修改。继续吗？')
+  ) {
+    return
+  }
 
   activeCloudPlanId.value = plan.id
   startDate.value = plan.startDate
@@ -460,30 +451,41 @@ async function openCloudPlan(plan: CloudWeeklyPlan): Promise<void> {
   plannedSets.value = Object.fromEntries(
     plan.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
   )
-  saveWeeklyPlanSchedule(
-    reconcileWeeklyPlanSchedule(
-      plan.schedule,
-      Object.fromEntries(
-        plan.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
-      ),
+  activeSchedule.value = reconcileWeeklyPlanSchedule(
+    normalizeWeeklyPlanSchedule(plan.schedule, plan.startDate),
+    Object.fromEntries(
+      plan.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
     ),
   )
   isConfirmingClear.value = false
+  isDirty.value = false
   isCloudListOpen.value = false
   errorMessage.value = ''
   cloudErrorMessage.value = ''
-  statusMessage.value = `正在修改${plan.name}`
+  statusMessage.value = '已保存'
+  await setActivePlanRoute(plan.id)
 }
 
-async function cancelCloudChanges(): Promise<void> {
+async function startNewPlan(): Promise<void> {
+  if (isDirty.value && !window.confirm('当前修改尚未保存，新建计划会丢失这些修改。继续吗？')) {
+    return
+  }
+
   activeCloudPlanId.value = undefined
+  startDate.value = getUpcomingMonday()
+  targets.value = []
+  plannedSets.value = {}
+  activeSchedule.value = createEmptyWeeklyPlanSchedule(startDate.value)
   isConfirmingClear.value = false
+  isDirty.value = true
+  isCloudListOpen.value = false
+  errorMessage.value = ''
   cloudErrorMessage.value = ''
-  await loadDraft()
-  if (!errorMessage.value) statusMessage.value = '已返回本地草稿'
+  statusMessage.value = '新计划未保存'
+  await setActivePlanRoute()
 }
 
-async function handleClear(): Promise<void> {
+function handleClear(): void {
   if (!isConfirmingClear.value) {
     isConfirmingClear.value = true
     window.clearTimeout(clearConfirmationTimer)
@@ -495,46 +497,50 @@ async function handleClear(): Promise<void> {
 
   window.clearTimeout(clearConfirmationTimer)
   isConfirmingClear.value = false
-  errorMessage.value = ''
-
-  try {
-    await saveQueue
-    await clearWeeklyPlanDraft()
-    plannedSets.value = {}
-    targets.value = []
-    startDate.value = getUpcomingMonday()
-    statusMessage.value = '草稿已清空'
-  } catch (error: unknown) {
-    errorMessage.value = error instanceof Error ? error.message : '无法清空本地草稿'
-  }
+  plannedSets.value = {}
+  targets.value = []
+  activeSchedule.value = createEmptyWeeklyPlanSchedule(startDate.value)
+  markPlanChanged()
 }
 
-async function loadDraft(): Promise<void> {
+async function setActivePlanRoute(planId?: string): Promise<void> {
+  const currentPlanId = typeof route.query.plan === 'string' ? route.query.plan : undefined
+  if (currentPlanId === planId) return
+
+  await router.replace({
+    name: 'weekly-plan',
+    query: planId ? { plan: planId } : {},
+  })
+}
+
+async function initializePlan(): Promise<void> {
   isLoading.value = true
   errorMessage.value = ''
+  cloudErrorMessage.value = ''
 
   try {
-    const draft = await getWeeklyPlanDraft()
+    await loadCloudPlans()
+    if (cloudErrorMessage.value) return
 
-    if (draft) {
-      startDate.value = draft.startDate
-      targets.value = draft.targets
-      plannedSets.value = Object.fromEntries(
-        draft.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
-      )
-    } else {
-      startDate.value = getUpcomingMonday()
-      targets.value = []
-      plannedSets.value = {}
-    }
+    const requestedPlanId = typeof route.query.plan === 'string' ? route.query.plan : undefined
+    const requestedPlan = cloudPlans.value.find((plan) => plan.id === requestedPlanId)
+    const latestPlan = cloudPlans.value.at(-1)
+
+    if (requestedPlan) await openCloudPlan(requestedPlan)
+    else if (latestPlan) await openCloudPlan(latestPlan)
+    else await startNewPlan()
   } catch (error: unknown) {
-    errorMessage.value = error instanceof Error ? error.message : '无法读取本地计划'
+    cloudErrorMessage.value = error instanceof Error ? error.message : '无法读取云端计划'
   } finally {
     isLoading.value = false
   }
 }
 
-onMounted(() => void loadDraft())
+onMounted(() => void initializePlan())
+
+onBeforeRouteLeave(() =>
+  !isDirty.value || window.confirm('当前计划还有未保存修改，离开后这些修改会丢失。继续吗？'),
+)
 </script>
 
 <template>
@@ -549,23 +555,20 @@ onMounted(() => void loadDraft())
         <h1>七天训练计划</h1>
         <div class="plan-header-actions">
           <button
-            v-if="activeCloudPlanId"
-            class="cancel-cloud-button"
-            type="button"
-            @click="cancelCloudChanges"
-          >
-            取消修改
-          </button>
-          <button
-            v-else
             class="clear-plan-button"
             :class="{ confirming: isConfirmingClear }"
             type="button"
+            :disabled="isLoading || Boolean(cloudErrorMessage)"
             @click="handleClear"
           >
             {{ isConfirmingClear ? '确认清空' : '清空' }}
           </button>
-          <button class="save-plan-button" type="button" :disabled="isSaving" @click="handleSave">
+          <button
+            class="save-plan-button"
+            type="button"
+            :disabled="isLoading || isSaving || !isDirty || Boolean(cloudErrorMessage)"
+            @click="handleSave"
+          >
             {{ isSaving ? '保存中…' : '保存' }}
           </button>
           <button
@@ -584,19 +587,15 @@ onMounted(() => void loadDraft())
       </header>
 
       <div
-        v-if="statusMessage || activeCloudPlanId || (cloudErrorMessage && !isCloudListOpen)"
+        v-if="!isLoading || cloudErrorMessage"
         class="plan-status-row"
       >
+        <span class="draft-state">{{ activeCloudPlan?.name ?? '新计划' }}</span>
         <span
-          class="draft-state"
-          :class="{ error: cloudErrorMessage && !isCloudListOpen }"
+          class="save-status"
+          :class="{ dirty: isDirty, error: cloudErrorMessage && !isCloudListOpen }"
         >
-          {{
-            (!isCloudListOpen && cloudErrorMessage) ||
-            statusMessage ||
-            activeCloudPlan?.name ||
-            '云端计划'
-          }}
+          {{ (!isCloudListOpen && cloudErrorMessage) || statusMessage || '已保存' }}
         </span>
       </div>
 
@@ -608,7 +607,7 @@ onMounted(() => void loadDraft())
       >
         <header>
           <strong>云端计划</strong>
-          <span>{{ cloudPlans.length }} 份</span>
+          <button type="button" class="cloud-plan-create" @click="startNewPlan">＋ 新建</button>
         </header>
         <p v-if="isLoadingCloudPlans" class="cloud-plan-state">正在读取…</p>
         <p v-else-if="cloudErrorMessage" class="cloud-plan-state error" role="alert">
@@ -636,7 +635,11 @@ onMounted(() => void loadDraft())
         </div>
       </section>
 
-      <section class="plan-muscle-board" aria-label="肌束目标看板">
+      <section
+        v-if="!isLoading && !cloudErrorMessage"
+        class="plan-muscle-board"
+        aria-label="肌束目标看板"
+      >
         <div class="plan-muscle-strip">
           <button
             v-for="muscle in selectedPartMuscles"
@@ -700,7 +703,11 @@ onMounted(() => void loadDraft())
       </section>
     </section>
 
-    <RouterLink class="schedule-entry" to="/plan/schedule">
+    <RouterLink
+      v-if="activeCloudPlanId && !isDirty"
+      class="schedule-entry"
+      :to="{ name: 'weekly-schedule', query: { plan: activeCloudPlanId } }"
+    >
       <span>
         <strong>安排到训练日</strong>
         <small>把计划组数装进训练日卡片，再分配到星期</small>
@@ -709,6 +716,12 @@ onMounted(() => void loadDraft())
         <path d="m9 5 7 7-7 7" />
       </svg>
     </RouterLink>
+    <button v-else-if="!isLoading && !cloudErrorMessage" class="schedule-entry disabled" disabled>
+      <span>
+        <strong>安排到训练日</strong>
+        <small>{{ activeCloudPlanId ? '请先保存当前修改' : '请先保存新计划' }}</small>
+      </span>
+    </button>
 
     <section class="plan-action-section" aria-labelledby="plan-actions-title">
       <header class="plan-action-heading">
@@ -731,10 +744,12 @@ onMounted(() => void loadDraft())
         </div>
       </header>
 
-      <p v-if="errorMessage" class="plan-error" role="alert">{{ errorMessage }}</p>
-      <p v-else-if="isLoading" class="plan-state" role="status">正在读取本地计划…</p>
+      <p v-if="cloudErrorMessage || errorMessage" class="plan-error" role="alert">
+        {{ cloudErrorMessage || errorMessage }}
+      </p>
+      <p v-else-if="isLoading" class="plan-state" role="status">正在读取云端计划…</p>
 
-      <div v-else class="plan-action-sections">
+      <div v-else-if="!cloudErrorMessage" class="plan-action-sections">
         <section
           v-for="section in exerciseSections"
           :key="section.key"
@@ -966,7 +981,9 @@ onMounted(() => void loadDraft())
 
 .plan-status-row {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 5px;
   padding: 0 3px 7px;
   color: #718078;
   font-size: var(--text-caption);
@@ -981,7 +998,20 @@ onMounted(() => void loadDraft())
   white-space: nowrap;
 }
 
-.draft-state.error {
+.save-status {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: #e3ecdf;
+  color: #52705a;
+  white-space: nowrap;
+}
+
+.save-status.dirty {
+  background: #f2ead9;
+  color: #8b7044;
+}
+
+.save-status.error {
   background: #f5e7e4;
   color: #a75a55;
 }
@@ -1004,9 +1034,14 @@ onMounted(() => void loadDraft())
   font-size: var(--text-caption);
 }
 
-.cloud-plan-panel > header span {
-  color: #809087;
+.cloud-plan-create {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: #e3ebe0;
   font-size: var(--text-caption);
+  font-weight: 800;
+  color: #46634d;
 }
 
 .cloud-plan-list {
@@ -1279,6 +1314,16 @@ onMounted(() => void loadDraft())
   color: #36513e;
   text-decoration: none;
   box-shadow: 0 4px 12px rgb(48 67 52 / 5%);
+}
+
+button.schedule-entry {
+  width: 100%;
+  border: 0;
+  text-align: left;
+}
+
+.schedule-entry.disabled {
+  opacity: 0.58;
 }
 
 .schedule-entry span {

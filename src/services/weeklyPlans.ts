@@ -173,3 +173,19 @@ export async function updateWeeklyPlan(
 
   if (error) throw error
 }
+
+export async function updateWeeklyPlanSchedule(
+  userId: string,
+  planId: string,
+  schedule: WeeklyPlanSchedule,
+): Promise<void> {
+  if (!supabase) throw new Error('尚未配置 Supabase')
+
+  const { error } = await supabase
+    .from('weekly_plans')
+    .update({ schedule })
+    .eq('user_id', userId)
+    .eq('id', planId)
+
+  if (error) throw error
+}
