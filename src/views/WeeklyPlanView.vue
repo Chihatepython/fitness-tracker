@@ -47,7 +47,8 @@ const MUSCLE_BOARD_GESTURE_THRESHOLD_PX = 7
 const MUSCLE_BOARD_SWIPE_DISTANCE_RATIO = 0.22
 const MUSCLE_BOARD_SWIPE_VELOCITY_PX_PER_MS = 0.5
 const MUSCLE_BOARD_PEEK_WIDTH = 16
-const MUSCLE_BOARD_PEEK_HEIGHT = 44
+// Table heading + two muscle rows + top and bottom borders.
+const MUSCLE_BOARD_PEEK_HEIGHT = 36 + 2 * 43 + 2
 
 const selectedPart = ref<PlanPart>('肩')
 const exerciseScope = ref<ExerciseScope>('related')
@@ -285,18 +286,18 @@ function getMuscleBoardSlideStyle(position: MuscleBoardSlidePosition): Record<st
   const viewportWidth = muscleBoardViewport.value?.clientWidth ?? 0
   const isIncoming = position !== 0 && position === getMuscleBoardTargetPosition(offset)
   const progress = isIncoming && viewportWidth ? Math.min(Math.abs(offset) / viewportWidth, 1) : 0
-  const peek = position === 0 ? 0 : 1 - progress
+  const remaining = position === 0 ? 0 : 1 - progress
   const slideHeight = muscleBoardSlideHeights.value[position] ?? 0
-  const maskY = Math.max(0, (slideHeight - MUSCLE_BOARD_PEEK_HEIGHT) / 2) * peek
-  const centerY = ((muscleBoardViewportHeight.value - slideHeight) / 2) * peek
-  // The card occupies 80% of its slide, with 10% on either side.
-  const maskX = Math.max(0, viewportWidth * 0.8 - MUSCLE_BOARD_PEEK_WIDTH * 2) * peek
-  const shiftX = position === 0 || !isIncoming ? offset : 0
+  const peekScale = slideHeight ? Math.min(MUSCLE_BOARD_PEEK_HEIGHT / slideHeight, 1) : 1
+  const scale = 1 - (1 - peekScale) * remaining
+  // Align the inner edge of the scaled 80%-wide card with the viewport's peek strip.
+  const peekX = viewportWidth * (0.5 + 0.4 * peekScale) - MUSCLE_BOARD_PEEK_WIDTH
+  const x = position * peekX * remaining + (isIncoming ? 0 : offset)
+  const y = ((muscleBoardViewportHeight.value - slideHeight) / 2) * remaining
 
   return {
-    transform: `translate3d(calc(${position * 90 * peek}% + ${shiftX - position * MUSCLE_BOARD_PEEK_WIDTH * peek}px), ${centerY}px, 0)`,
+    transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
     visibility: position !== 0 && (!viewportWidth || !slideHeight) ? 'hidden' : 'visible',
-    '--plan-card-mask': `inset(${maskY}px ${position === 1 ? maskX : 0}px ${maskY}px ${position === -1 ? maskX : 0}px round var(--radius-card))`,
     '--plan-card-content-opacity': position === 0 ? '1' : String(progress),
   }
 }
@@ -1439,6 +1440,7 @@ onBeforeRouteLeave(() =>
   left: 0;
   width: 100%;
   pointer-events: none;
+  transform-origin: center;
   will-change: transform;
 }
 
@@ -1455,7 +1457,6 @@ onBeforeRouteLeave(() =>
   --plan-soft: #f1f6d8;
   width: 80%;
   margin-inline: auto;
-  clip-path: var(--plan-card-mask);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--plan-accent) 18%, transparent);
   border-radius: var(--radius-card);
@@ -1467,10 +1468,6 @@ onBeforeRouteLeave(() =>
 
 .plan-muscle-table-card > * {
   opacity: var(--plan-card-content-opacity);
-}
-
-.plan-muscle-card-viewport.is-animating .plan-muscle-table-card {
-  transition: clip-path var(--plan-slide-motion);
 }
 
 .plan-muscle-card-viewport.is-animating .plan-muscle-table-card > * {
