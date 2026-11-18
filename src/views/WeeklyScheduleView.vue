@@ -206,7 +206,7 @@ function updateSwapHover(x: number, y: number): void {
   const sourceIndex = liftedSlot.value?.index
   if (sourceIndex === undefined) return
   const targetIndex = PLAN_DAYS.findIndex((_, index) =>
-    index !== sourceIndex && getCardForWeekday(index) && pointerInSlot(getSlotBounds(index), x, y),
+    index !== sourceIndex && pointerInSlot(getSlotBounds(index), x, y),
   )
   const nextHover = targetIndex < 0 ? undefined : targetIndex
   if (hoverIndex === nextHover) return
@@ -220,7 +220,7 @@ function updateSwapHover(x: number, y: number): void {
     const source = getSlotBounds(sourceIndex)
     const target = getSlotBounds(nextHover)
     if (!press || !source || !target || hoverIndex !== nextHover ||
-        !pointerInSlot(target, press.x, press.y) || !getCardForWeekday(nextHover)) return
+        !pointerInSlot(target, press.x, press.y)) return
 
     previewSlot.value = {
       index: nextHover,
@@ -266,10 +266,9 @@ function finishWeekdayPress(event: PointerEvent): void {
       pointerInSlot(getSlotBounds(targetIndex), event.clientX, event.clientY)) {
     const assignments = schedule.value?.weekdayCardIds
     const sourceId = assignments?.[sourceIndex]
-    const targetId = assignments?.[targetIndex]
-    if (assignments && sourceId && targetId) {
+    if (assignments && sourceId) {
       skipSwapMotion.value = true
-      assignments[sourceIndex] = targetId
+      assignments[sourceIndex] = assignments[targetIndex] ?? null
       assignments[targetIndex] = sourceId
       selectedCardId.value = sourceId
       markChanged('未保存')
