@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
+import WeeklyPlanSteps from '@/components/WeeklyPlanSteps.vue'
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { EXERCISES, type ExerciseId } from '@/database'
 import { MUSCLE_GROUPS, type MuscleName, type MuscleRegion } from '@/domain/trainingStats'
@@ -198,6 +199,13 @@ const exerciseSections = computed(() => {
 const activeCloudPlan = computed(() =>
   cloudPlans.value.find((plan) => plan.id === activeCloudPlanId.value),
 )
+
+const scheduleUnavailableReason = computed(() => {
+  if (!activeCloudPlanId.value) return '请先保存新计划'
+  if (isDirty.value) return '请先保存当前修改'
+  if (isSaving.value) return '正在保存计划…'
+  return undefined
+})
 
 function getMusclesForPart(part: PlanPart): MuscleName[] {
   const regions = new Set<MuscleRegion>(PART_REGIONS[part])
@@ -842,6 +850,12 @@ onBeforeRouteLeave(() =>
         class="plan-muscle-board"
         aria-label="肌束目标看板"
       >
+        <WeeklyPlanSteps
+          class="plan-step-switcher"
+          step="plan"
+          :plan-id="activeCloudPlanId"
+          :schedule-unavailable-reason="scheduleUnavailableReason"
+        />
         <nav class="plan-part-selector" aria-label="选择目标部位">
           <button
             v-for="{ part, reached, planned } in partProgress"
@@ -914,26 +928,6 @@ onBeforeRouteLeave(() =>
         </div>
       </section>
     </section>
-
-    <RouterLink
-      v-if="activeCloudPlanId && !isDirty"
-      class="schedule-entry"
-      :to="{ name: 'weekly-schedule', query: { plan: activeCloudPlanId } }"
-    >
-      <span>
-        <strong>安排到训练日</strong>
-        <small>把计划组数装进训练日卡片，再分配到星期</small>
-      </span>
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m9 5 7 7-7 7" />
-      </svg>
-    </RouterLink>
-    <button v-else-if="!isLoading && !cloudErrorMessage" class="schedule-entry disabled" disabled>
-      <span>
-        <strong>安排到训练日</strong>
-        <small>{{ activeCloudPlanId ? '请先保存当前修改' : '请先保存新计划' }}</small>
-      </span>
-    </button>
 
     <section class="plan-action-section" aria-labelledby="plan-actions-title">
       <header class="plan-action-heading">
@@ -1325,6 +1319,10 @@ onBeforeRouteLeave(() =>
   min-width: 0;
 }
 
+.plan-step-switcher {
+  margin-bottom: 8px;
+}
+
 .plan-part-selector {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1527,60 +1525,6 @@ onBeforeRouteLeave(() =>
 
 .plan-action-section {
   padding-top: 16px;
-}
-
-.schedule-entry {
-  display: flex;
-  min-height: 62px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
-  padding: 10px 12px 10px 14px;
-  border-radius: var(--radius-card);
-  background: #e3ecdf;
-  color: #36513e;
-  text-decoration: none;
-  box-shadow: 0 4px 12px rgb(48 67 52 / 5%);
-}
-
-button.schedule-entry {
-  width: 100%;
-  border: 0;
-  text-align: left;
-}
-
-.schedule-entry.disabled {
-  opacity: 0.58;
-}
-
-.schedule-entry span {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.schedule-entry strong {
-  font-size: var(--text-body);
-}
-
-.schedule-entry small {
-  overflow: hidden;
-  color: #718078;
-  font-size: var(--text-micro);
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.schedule-entry svg {
-  width: 21px;
-  flex: 0 0 auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
 }
 
 .plan-action-heading {

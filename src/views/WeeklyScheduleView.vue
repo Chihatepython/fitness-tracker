@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, RouterLink, useRoute } from 'vue-router'
 
+import WeeklyPlanSteps from '@/components/WeeklyPlanSteps.vue'
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { EXERCISES, type ExerciseId } from '@/database'
 import type { WeeklyPlanDayCard, WeeklyPlanSchedule } from '@/domain/weeklyPlan'
@@ -293,6 +294,8 @@ onBeforeRouteLeave(() =>
       </div>
     </header>
 
+    <WeeklyPlanSteps class="schedule-step-switcher" step="schedule" :plan-id="plan?.id" />
+
     <p v-if="errorMessage" class="page-state error" role="alert">{{ errorMessage }}</p>
     <p v-else-if="isLoading" class="page-state">正在读取云端计划…</p>
     <section v-else-if="!plan" class="empty-state">
@@ -303,7 +306,7 @@ onBeforeRouteLeave(() =>
     <section v-else-if="plan.exercises.length === 0" class="empty-state">
       <strong>计划中还没有动作</strong>
       <span>至少加入一个动作后，才能分配训练日。</span>
-      <RouterLink to="/plan">返回添加动作</RouterLink>
+      <RouterLink :to="{ name: 'weekly-plan', query: { plan: plan.id } }">返回添加动作</RouterLink>
     </section>
 
     <template v-else-if="schedule">
@@ -430,6 +433,11 @@ a {
   grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: center;
   gap: 5px;
+  width: 95%;
+  margin: 0 auto 12px;
+}
+
+.schedule-step-switcher {
   width: 95%;
   margin: 0 auto 12px;
 }
