@@ -46,6 +46,8 @@ const MUSCLE_BOARD_ANIMATION_MS = 220
 const MUSCLE_BOARD_GESTURE_THRESHOLD_PX = 7
 const MUSCLE_BOARD_SWIPE_DISTANCE_RATIO = 0.22
 const MUSCLE_BOARD_SWIPE_VELOCITY_PX_PER_MS = 0.5
+const MUSCLE_BOARD_PEEK_WIDTH = 16
+const MUSCLE_BOARD_PEEK_HEIGHT = 44
 
 const selectedPart = ref<PlanPart>('肩')
 const exerciseScope = ref<ExerciseScope>('related')
@@ -279,11 +281,23 @@ function selectPlanPart(part: PlanPart): void {
 }
 
 function getMuscleBoardSlideStyle(position: MuscleBoardSlidePosition): Record<string, string> {
+  const offset = muscleBoardDragOffset.value
+  const viewportWidth = muscleBoardViewport.value?.clientWidth ?? 0
+  const isIncoming = position !== 0 && position === getMuscleBoardTargetPosition(offset)
+  const progress = isIncoming && viewportWidth ? Math.min(Math.abs(offset) / viewportWidth, 1) : 0
+  const peek = position === 0 ? 0 : 1 - progress
+  const slideHeight = muscleBoardSlideHeights.value[position] ?? 0
+  const maskY = Math.max(0, (slideHeight - MUSCLE_BOARD_PEEK_HEIGHT) / 2) * peek
+  const centerY = ((muscleBoardViewportHeight.value - slideHeight) / 2) * peek
+  // The card occupies 80% of its slide, with 10% on either side.
+  const maskX = Math.max(0, viewportWidth * 0.8 - MUSCLE_BOARD_PEEK_WIDTH * 2) * peek
+  const shiftX = position === 0 || !isIncoming ? offset : 0
+
   return {
-    transform: `translate3d(calc(${position * 100}% + ${muscleBoardDragOffset.value}px), 0, 0)`,
-    transition: muscleBoardTransitionEnabled.value
-      ? `transform ${MUSCLE_BOARD_ANIMATION_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
-      : 'none',
+    transform: `translate3d(calc(${position * 90 * peek}% + ${shiftX - position * MUSCLE_BOARD_PEEK_WIDTH * peek}px), ${centerY}px, 0)`,
+    visibility: position !== 0 && (!viewportWidth || !slideHeight) ? 'hidden' : 'visible',
+    '--plan-card-mask': `inset(${maskY}px ${position === 1 ? maskX : 0}px ${maskY}px ${position === -1 ? maskX : 0}px round var(--radius-card))`,
+    '--plan-card-content-opacity': position === 0 ? '1' : String(progress),
   }
 }
 
@@ -333,10 +347,11 @@ function updateMuscleBoardHeightForOffset(offset: number): void {
     targetPosition === undefined ? undefined : muscleBoardSlideHeights.value[targetPosition]
   const viewportWidth = muscleBoardViewport.value?.clientWidth ?? 0
 
-  if (!currentHeight || !targetHeight || !viewportWidth) return
+  if (!currentHeight || !viewportWidth) return
 
   const progress = Math.min(Math.abs(offset) / viewportWidth, 1)
-  muscleBoardViewportHeight.value = currentHeight + (targetHeight - currentHeight) * progress
+  muscleBoardViewportHeight.value =
+    currentHeight + ((targetHeight ?? currentHeight) - currentHeight) * progress
 }
 
 function clearMuscleBoardAnimationTimer(): void {
@@ -379,11 +394,11 @@ function navigateMuscleBoard(position: Exclude<MuscleBoardSlidePosition, 0>): vo
 
   clearMuscleBoardAnimationTimer()
   muscleBoardAnimationTimer = window.setTimeout(() => {
+    muscleBoardTransitionEnabled.value = false
+    muscleBoardDragOffset.value = 0
     selectedPart.value = targetPart
 
     void nextTick().then(() => {
-      muscleBoardTransitionEnabled.value = false
-      muscleBoardDragOffset.value = 0
       isMuscleBoardAnimating.value = false
       muscleBoardAnimationTimer = undefined
       observeMuscleBoardSlides()
@@ -392,7 +407,7 @@ function navigateMuscleBoard(position: Exclude<MuscleBoardSlidePosition, 0>): vo
 }
 
 function handleMuscleBoardPointerDown(event: PointerEvent): void {
-  if (event.button !== 0 || isMuscleBoardAnimating.value) return
+  if (event.button !== 0 || !event.isPrimary || isMuscleBoardAnimating.value) return
 
   muscleBoardPointerId = event.pointerId
   muscleBoardGestureAxis = 'pending'
@@ -400,7 +415,6 @@ function handleMuscleBoardPointerDown(event: PointerEvent): void {
   muscleBoardStartY = event.clientY
   muscleBoardStartTime = performance.now()
   muscleBoardTransitionEnabled.value = false
-  muscleBoardViewport.value?.setPointerCapture(event.pointerId)
 }
 
 function handleMuscleBoardPointerMove(event: PointerEvent): void {
@@ -419,6 +433,9 @@ function handleMuscleBoardPointerMove(event: PointerEvent): void {
 
     muscleBoardGestureAxis =
       Math.abs(horizontalDistance) > Math.abs(verticalDistance) ? 'horizontal' : 'vertical'
+    if (muscleBoardGestureAxis === 'horizontal') {
+      muscleBoardViewport.value?.setPointerCapture(event.pointerId)
+    }
   }
 
   if (muscleBoardGestureAxis !== 'horizontal') return
@@ -427,7 +444,11 @@ function handleMuscleBoardPointerMove(event: PointerEvent): void {
   isMuscleBoardDragging.value = true
 
   const hasTarget = getMuscleBoardTargetPosition(horizontalDistance) !== undefined
-  const nextOffset = hasTarget ? horizontalDistance : horizontalDistance * 0.18
+  const width = muscleBoardViewport.value?.clientWidth ?? 0
+  const distance = Math.abs(horizontalDistance)
+  const nextOffset =
+    Math.sign(horizontalDistance) *
+    (hasTarget ? Math.min(distance, width) : Math.min(distance * 0.18, 24))
   muscleBoardDragOffset.value = nextOffset
   updateMuscleBoardHeightForOffset(nextOffset)
 }
@@ -474,6 +495,12 @@ function handleMuscleBoardPointerCancel(event: PointerEvent): void {
   isMuscleBoardDragging.value = false
 
   if (wasHorizontalGesture) finishMuscleBoardAtCurrentSlide()
+}
+
+function handleMuscleBoardPointerLeave(event: PointerEvent): void {
+  if (!muscleBoardViewport.value?.hasPointerCapture(event.pointerId)) {
+    handleMuscleBoardPointerCancel(event)
+  }
 }
 
 function handleMuscleRowClick(position: MuscleBoardSlidePosition, muscle: MuscleName): void {
@@ -884,6 +911,7 @@ onBeforeRouteLeave(() =>
           @pointermove="handleMuscleBoardPointerMove"
           @pointerup="handleMuscleBoardPointerUp"
           @pointercancel="handleMuscleBoardPointerCancel"
+          @pointerleave="handleMuscleBoardPointerLeave"
         >
           <div
             v-for="slide in muscleBoardSlides"
@@ -893,6 +921,7 @@ onBeforeRouteLeave(() =>
             :data-muscle-board-position="slide.position"
             :style="getMuscleBoardSlideStyle(slide.position)"
             :aria-hidden="slide.position === 0 ? undefined : true"
+            :inert="slide.position !== 0"
           >
             <section
               class="plan-muscle-table-card"
@@ -924,7 +953,6 @@ onBeforeRouteLeave(() =>
               </button>
             </section>
           </div>
-          <div class="plan-muscle-swipe-hint" aria-hidden="true"><span /></div>
         </div>
       </section>
     </section>
@@ -1386,6 +1414,7 @@ onBeforeRouteLeave(() =>
 }
 
 .plan-muscle-card-viewport {
+  --plan-slide-motion: 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
   position: relative;
   width: 100%;
   min-height: 1px;
@@ -1395,8 +1424,7 @@ onBeforeRouteLeave(() =>
 }
 
 .plan-muscle-card-viewport.is-animating {
-  transition-duration: 220ms;
-  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: height var(--plan-slide-motion);
 }
 
 .plan-muscle-card-viewport.is-dragging {
@@ -1418,11 +1446,16 @@ onBeforeRouteLeave(() =>
   pointer-events: auto;
 }
 
+.plan-muscle-card-viewport.is-animating .plan-muscle-card-slide {
+  transition: transform var(--plan-slide-motion);
+}
+
 .plan-muscle-table-card {
   --plan-accent: #7d8d3e;
   --plan-soft: #f1f6d8;
   width: 80%;
   margin-inline: auto;
+  clip-path: var(--plan-card-mask);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--plan-accent) 18%, transparent);
   border-radius: var(--radius-card);
@@ -1430,6 +1463,18 @@ onBeforeRouteLeave(() =>
   color: #263128;
   box-shadow: 0 5px 14px rgb(48 67 52 / 6%);
   user-select: none;
+}
+
+.plan-muscle-table-card > * {
+  opacity: var(--plan-card-content-opacity);
+}
+
+.plan-muscle-card-viewport.is-animating .plan-muscle-table-card {
+  transition: clip-path var(--plan-slide-motion);
+}
+
+.plan-muscle-card-viewport.is-animating .plan-muscle-table-card > * {
+  transition: opacity var(--plan-slide-motion);
 }
 
 .plan-muscle-table-card[data-part='胸'] {
@@ -1504,23 +1549,6 @@ onBeforeRouteLeave(() =>
 
 .plan-muscle-table-row span.unset {
   color: #8c978f;
-}
-
-.plan-muscle-swipe-hint {
-  position: absolute;
-  z-index: 2;
-  inset: 0 0 0 auto;
-  display: grid;
-  width: 10%;
-  place-items: center;
-  pointer-events: none;
-}
-
-.plan-muscle-swipe-hint span {
-  width: 18px;
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: #d7dfd4;
 }
 
 .plan-action-section {
