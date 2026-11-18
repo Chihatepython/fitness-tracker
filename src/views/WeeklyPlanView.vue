@@ -1266,7 +1266,7 @@ onBeforeRouteLeave(() =>
 .plan-muscle-row-grip {
   position: absolute;
   z-index: 1;
-  right: calc(var(--plan-card-inset) - 34px);
+  right: calc(var(--plan-card-inset) - 22px);
   bottom: -16px;
   display: grid;
   width: 44px;
