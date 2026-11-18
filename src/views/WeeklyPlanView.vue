@@ -135,6 +135,23 @@ const muscleTotals = computed(() => {
   return totals
 })
 
+const partProgress = computed(() =>
+  PLAN_PARTS.map((part) => {
+    let reached = 0
+    let planned = 0
+
+    for (const muscle of getMusclesForPart(part)) {
+      const target = getTargetSets(muscle)
+      if (target === undefined) continue
+
+      planned += 1
+      if (muscleTotals.value[muscle] >= target) reached += 1
+    }
+
+    return { part, reached, planned }
+  }),
+)
+
 const visibleExercises = computed(() => {
   if (exerciseScope.value === 'all') return EXERCISES
 
@@ -222,32 +239,6 @@ function getTargetSets(muscle: MuscleName): number | undefined {
 
 function hasTarget(muscle: MuscleName): boolean {
   return getTargetSets(muscle) !== undefined
-}
-
-function getPartProgress(part: PlanPart): { current: number; target: number } {
-  const muscles = getMusclesForPart(part).filter((muscle) => hasTarget(muscle))
-  const muscleSet = new Set<MuscleName>(muscles)
-  const current = EXERCISES.filter((exercise) => exercise.bodyPart === part).reduce(
-    (partTotal, exercise) => {
-      const setCount = getExerciseSetCount(exercise.id)
-      if (!setCount) return partTotal
-
-      return (
-        partTotal +
-        Object.entries(exercise.muscleWeights ?? {}).reduce(
-          (exerciseTotal, [muscle, weight]) =>
-            muscleSet.has(muscle as MuscleName) ? exerciseTotal + setCount * weight : exerciseTotal,
-          0,
-        )
-      )
-    },
-    0,
-  )
-
-  return {
-    current,
-    target: muscles.reduce((sum, muscle) => sum + (getTargetSets(muscle) ?? 0), 0),
-  }
 }
 
 function getEffectLabel(exercise: (typeof EXERCISES)[number]): string {
@@ -853,7 +844,7 @@ onBeforeRouteLeave(() =>
       >
         <nav class="plan-part-selector" aria-label="选择目标部位">
           <button
-            v-for="part in PLAN_PARTS"
+            v-for="{ part, reached, planned } in partProgress"
             :key="part"
             type="button"
             :data-part="part"
@@ -861,9 +852,7 @@ onBeforeRouteLeave(() =>
             @click="selectPlanPart(part)"
           >
             <span>{{ part }}</span>
-            <span v-if="getPartProgress(part).target">
-              {{ formatSetCount(getPartProgress(part).current) }}/{{ getPartProgress(part).target }}
-            </span>
+            <span v-if="planned">{{ reached }}/{{ planned }}</span>
             <span v-else>未设置</span>
           </button>
         </nav>
