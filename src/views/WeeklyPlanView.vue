@@ -1151,6 +1151,7 @@ onBeforeRouteLeave(() =>
   --plan-accent: #7d8d3e;
   --plan-soft: #f1f6d8;
   width: 80%;
+  margin-inline: auto;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--plan-accent) 18%, transparent);
   border-radius: var(--radius-card);
@@ -1239,13 +1240,13 @@ onBeforeRouteLeave(() =>
   position: absolute;
   inset: 0 0 0 auto;
   display: grid;
-  width: calc(20% - 8px);
+  width: 10%;
   place-items: center;
   pointer-events: none;
 }
 
 .plan-muscle-swipe-hint span {
-  width: 22px;
+  width: 18px;
   height: 4px;
   border-radius: var(--radius-pill);
   background: #d7dfd4;
