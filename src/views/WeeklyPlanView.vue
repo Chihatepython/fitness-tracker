@@ -26,6 +26,7 @@ import {
 } from '@/services/weeklyPlanSchedule'
 
 const PLAN_PARTS = ['肩', '胸', '背', '手臂', '腿'] as const
+const BOARD_PARTS = [...PLAN_PARTS, '全部'] as const
 const PART_REGIONS: Record<PlanPart, readonly MuscleRegion[]> = {
   肩: ['肩'],
   胸: ['胸'],
@@ -34,13 +35,14 @@ const PART_REGIONS: Record<PlanPart, readonly MuscleRegion[]> = {
   腿: ['腿'],
 }
 type PlanPart = (typeof PLAN_PARTS)[number]
+type BoardPart = (typeof BOARD_PARTS)[number]
 type ExerciseScope = 'related' | 'all'
 type MuscleBoardSlidePosition = -1 | 0 | 1
 type MuscleBoardGestureAxis = 'pending' | 'horizontal' | 'vertical'
 
 interface MuscleBoardSlide {
   position: MuscleBoardSlidePosition
-  part: PlanPart
+  part: BoardPart
   muscles: MuscleName[]
 }
 
@@ -54,7 +56,8 @@ const MUSCLE_BOARD_MIN_VISIBLE_ROWS = 2
 // Table heading + two muscle rows + top and bottom borders.
 const MUSCLE_BOARD_PEEK_HEIGHT = 36 + MUSCLE_BOARD_MIN_VISIBLE_ROWS * MUSCLE_BOARD_ROW_STEP + 2
 
-const selectedPart = ref<PlanPart>('肩')
+const selectedPart = ref<BoardPart>('肩')
+const selectedExercisePart = ref<PlanPart>('肩')
 const exerciseScope = ref<ExerciseScope>('related')
 const startDate = ref(getUpcomingMonday())
 const targets = ref<WeeklyPlanMuscleTarget[]>([])
@@ -97,15 +100,19 @@ let suppressMuscleClickUntil = 0
 const canonicalMuscleOrder = new Map<MuscleName, number>(
   MUSCLE_GROUPS.flatMap((group) => [...group.muscles]).map((muscle, index) => [muscle, index]),
 )
+const muscleToPlanPart = new Map<MuscleName, PlanPart>(
+  PLAN_PARTS.flatMap((part) => getMusclesForPart(part).map((muscle) => [muscle, part] as const)),
+)
 
 const selectedPartMuscles = computed(() => getMusclesForPart(selectedPart.value))
-const muscleRowLimits = ref<Partial<Record<PlanPart, number>>>({})
+const selectedExerciseMuscles = computed(() => new Set<string>(getMusclesForPart(selectedExercisePart.value)))
+const muscleRowLimits = ref<Partial<Record<BoardPart, number>>>({})
 const visibleMuscleRows = computed(
   () => muscleRowLimits.value[selectedPart.value] ?? selectedPartMuscles.value.length,
 )
-let rowResize: { pointerId: number; startY: number; startRows: number; part: PlanPart } | undefined
+let rowResize: { pointerId: number; startY: number; startRows: number; part: BoardPart } | undefined
 
-function setVisibleMuscleRows(part: PlanPart, count: number): void {
+function setVisibleMuscleRows(part: BoardPart, count: number): void {
   const total = getMusclesForPart(part).length
   const limit = Math.max(Math.min(MUSCLE_BOARD_MIN_VISIBLE_ROWS, total), Math.min(count, total))
   if (limit !== muscleRowLimits.value[part]) muscleRowLimits.value[part] = limit
@@ -147,10 +154,10 @@ function handleMuscleRowResizeKey(event: KeyboardEvent): void {
 }
 
 const muscleBoardSlides = computed<MuscleBoardSlide[]>(() => {
-  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
+  const currentIndex = BOARD_PARTS.indexOf(selectedPart.value)
   const slides: MuscleBoardSlide[] = []
-  const previousPart = PLAN_PARTS[currentIndex - 1]
-  const nextPart = PLAN_PARTS[currentIndex + 1]
+  const previousPart = BOARD_PARTS[currentIndex - 1]
+  const nextPart = BOARD_PARTS[currentIndex + 1]
 
   if (previousPart) slides.push({ position: -1, part: previousPart, muscles: getMusclesForPart(previousPart) })
   slides.push({ position: 0, part: selectedPart.value, muscles: selectedPartMuscles.value })
@@ -190,7 +197,7 @@ const muscleTotals = computed(() => {
 })
 
 const partProgress = computed(() =>
-  PLAN_PARTS.map((part) => {
+  BOARD_PARTS.map((part) => {
     let reached = 0
     let planned = 0
 
@@ -209,7 +216,7 @@ const partProgress = computed(() =>
 const visibleExercises = computed(() => {
   if (exerciseScope.value === 'all') return EXERCISES
 
-  return EXERCISES.filter((exercise) => exercise.bodyPart === selectedPart.value)
+  return EXERCISES.filter((exercise) => exercise.bodyPart === selectedExercisePart.value)
 })
 
 function groupExercisesByPart(exercises: readonly (typeof EXERCISES)[number][]) {
@@ -261,7 +268,9 @@ const scheduleUnavailableReason = computed(() => {
   return undefined
 })
 
-function getMusclesForPart(part: PlanPart): MuscleName[] {
+function getMusclesForPart(part: BoardPart): MuscleName[] {
+  if (part === '全部') return MUSCLE_GROUPS.flatMap((group) => [...group.muscles])
+
   const regions = new Set<MuscleRegion>(PART_REGIONS[part])
 
   return MUSCLE_GROUPS.filter((group) => regions.has(group.region)).flatMap((group) => [
@@ -304,7 +313,7 @@ function hasTarget(muscle: MuscleName): boolean {
 }
 
 function getEffectLabel(exercise: (typeof EXERCISES)[number]): string {
-  const selectedMuscleSet = new Set<string>(selectedPartMuscles.value)
+  const selectedMuscleSet = selectedExerciseMuscles.value
   const effects = Object.entries(exercise.muscleWeights ?? {}).sort(
     ([leftMuscle, leftWeight], [rightMuscle, rightWeight]) =>
       Number(selectedMuscleSet.has(rightMuscle)) - Number(selectedMuscleSet.has(leftMuscle)) ||
@@ -317,11 +326,16 @@ function getEffectLabel(exercise: (typeof EXERCISES)[number]): string {
     .join(' · ')
 }
 
-function selectPlanPart(part: PlanPart): void {
+function applyBoardPart(part: BoardPart): void {
+  selectedPart.value = part
+  if (part !== '全部') selectedExercisePart.value = part
+}
+
+function selectPlanPart(part: BoardPart): void {
   if (rowResize || part === selectedPart.value || isMuscleBoardAnimating.value) return
 
-  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
-  const targetIndex = PLAN_PARTS.indexOf(part)
+  const currentIndex = BOARD_PARTS.indexOf(selectedPart.value)
+  const targetIndex = BOARD_PARTS.indexOf(part)
   const distance = targetIndex - currentIndex
 
   if (Math.abs(distance) === 1) {
@@ -329,7 +343,7 @@ function selectPlanPart(part: PlanPart): void {
     return
   }
 
-  selectedPart.value = part
+  applyBoardPart(part)
 }
 
 function getMuscleBoardSlideStyle(position: MuscleBoardSlidePosition): Record<string, string> {
@@ -385,10 +399,10 @@ function observeMuscleBoardSlides(): void {
 function getMuscleBoardTargetPosition(
   offset: number,
 ): Exclude<MuscleBoardSlidePosition, 0> | undefined {
-  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
+  const currentIndex = BOARD_PARTS.indexOf(selectedPart.value)
 
   if (offset > 0 && currentIndex > 0) return -1
-  if (offset < 0 && currentIndex < PLAN_PARTS.length - 1) return 1
+  if (offset < 0 && currentIndex < BOARD_PARTS.length - 1) return 1
   return undefined
 }
 
@@ -431,8 +445,8 @@ function finishMuscleBoardAtCurrentSlide(): void {
 function navigateMuscleBoard(position: Exclude<MuscleBoardSlidePosition, 0>): void {
   if (isMuscleBoardAnimating.value) return
 
-  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
-  const targetPart = PLAN_PARTS[currentIndex + position]
+  const currentIndex = BOARD_PARTS.indexOf(selectedPart.value)
+  const targetPart = BOARD_PARTS[currentIndex + position]
   const viewportWidth = muscleBoardViewport.value?.clientWidth ?? 0
 
   if (!targetPart || !viewportWidth) return
@@ -448,7 +462,7 @@ function navigateMuscleBoard(position: Exclude<MuscleBoardSlidePosition, 0>): vo
   muscleBoardAnimationTimer = window.setTimeout(() => {
     muscleBoardTransitionEnabled.value = false
     muscleBoardDragOffset.value = 0
-    selectedPart.value = targetPart
+    applyBoardPart(targetPart)
 
     void nextTick().then(() => {
       isMuscleBoardAnimating.value = false
@@ -931,27 +945,30 @@ onBeforeRouteLeave(() =>
                   <span>已安排</span>
                   <span>计划</span>
                 </header>
-                <button
-                  v-for="muscle in slide.muscles.slice(0, muscleRowLimits[slide.part])"
-                  :key="muscle"
-                  class="plan-muscle-table-row"
-                  type="button"
-                  :aria-label="
-                    hasTarget(muscle)
-                      ? `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，计划${getTargetSets(muscle)}组，点击修改计划`
-                      : `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，尚未设置计划，点击设置`
-                  "
-                  @click="handleMuscleRowClick(slide.position, muscle)"
-                >
-                  <strong>{{ muscle }}</strong>
-                  <span>{{ formatSetCount(muscleTotals[muscle]) }}</span>
-                  <span :class="{ unset: !hasTarget(muscle) }">
-                    {{ getTargetSets(muscle) ?? '—' }}
-                  </span>
-                </button>
+                <div class="plan-muscle-table-rows">
+                  <button
+                    v-for="muscle in slide.muscles.slice(0, muscleRowLimits[slide.part])"
+                    :key="muscle"
+                    class="plan-muscle-table-row"
+                    :data-part="slide.part === '全部' ? muscleToPlanPart.get(muscle) : undefined"
+                    type="button"
+                    :aria-label="
+                      hasTarget(muscle)
+                        ? `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，计划${getTargetSets(muscle)}组，点击修改计划`
+                        : `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，尚未设置计划，点击设置`
+                    "
+                    @click="handleMuscleRowClick(slide.position, muscle)"
+                  >
+                    <strong>{{ muscle }}</strong>
+                    <span>{{ formatSetCount(muscleTotals[muscle]) }}</span>
+                    <span :class="{ unset: !hasTarget(muscle) }">
+                      {{ getTargetSets(muscle) ?? '—' }}
+                    </span>
+                  </button>
+                </div>
               </section>
               <div
-                v-if="slide.muscles.length > MUSCLE_BOARD_MIN_VISIBLE_ROWS"
+                v-if="slide.part !== '全部' && slide.muscles.length > MUSCLE_BOARD_MIN_VISIBLE_ROWS"
                 class="plan-muscle-row-grip"
                 :data-part="slide.part"
                 role="slider"
@@ -989,7 +1006,7 @@ onBeforeRouteLeave(() =>
             :aria-pressed="exerciseScope === 'related'"
             @click="exerciseScope = 'related'"
           >
-            当前部位
+            {{ selectedPart === '全部' ? selectedExercisePart : '当前部位' }}
           </button>
           <button
             type="button"
@@ -1198,7 +1215,7 @@ onBeforeRouteLeave(() =>
 
 .plan-part-selector {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   margin-bottom: 9px;
   padding: 3px;
   border-radius: var(--radius-control);
@@ -1250,6 +1267,11 @@ onBeforeRouteLeave(() =>
 .plan-part-selector button[data-part='腿'] {
   --part-accent: #8b754d;
   --part-soft: #f0eadb;
+}
+
+.plan-part-selector button[data-part='全部'] {
+  --part-accent: #46634d;
+  --part-soft: #e3ecdf;
 }
 
 .plan-part-selector button[aria-pressed='true'] {
@@ -1350,7 +1372,8 @@ onBeforeRouteLeave(() =>
 }
 
 .plan-muscle-table-card,
-.plan-muscle-row-grip {
+.plan-muscle-row-grip,
+.plan-muscle-table-row[data-part] {
   --plan-accent: #7d8d3e;
   --plan-soft: #f1f6d8;
 }
@@ -1375,24 +1398,38 @@ onBeforeRouteLeave(() =>
   transition: opacity var(--plan-slide-motion);
 }
 
-:is(.plan-muscle-table-card, .plan-muscle-row-grip)[data-part='胸'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row)[data-part='胸'] {
   --plan-accent: #a86e63;
   --plan-soft: #f6ebe8;
 }
 
-:is(.plan-muscle-table-card, .plan-muscle-row-grip)[data-part='背'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row)[data-part='背'] {
   --plan-accent: #507f73;
   --plan-soft: #e8f1ed;
 }
 
-:is(.plan-muscle-table-card, .plan-muscle-row-grip)[data-part='手臂'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row)[data-part='手臂'] {
   --plan-accent: #7d6b90;
   --plan-soft: #f1eef5;
 }
 
-:is(.plan-muscle-table-card, .plan-muscle-row-grip)[data-part='腿'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row)[data-part='腿'] {
   --plan-accent: #8b754d;
   --plan-soft: #f0eadb;
+}
+
+.plan-muscle-table-card[data-part='全部'] {
+  --plan-accent: #46634d;
+  --plan-soft: #eef3ed;
+}
+
+.plan-muscle-table-card[data-part='全部'] .plan-muscle-table-rows {
+  max-height: min(43svh, 370px);
+  overflow-y: auto;
+}
+
+.plan-muscle-table-card[data-part='全部'] .plan-muscle-table-row {
+  background: var(--plan-soft);
 }
 
 .plan-muscle-table-heading,
