@@ -20,6 +20,9 @@ import {
 } from '@/services/weeklyPlanSchedule'
 
 const PLAN_DAYS = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'] as const
+const HOLD_TO_LIFT_MS = 450
+const HOVER_TO_SWAP_MS = 500
+const HOLD_MOVE_TOLERANCE_PX = 10
 
 const route = useRoute()
 const router = useRouter()
@@ -36,6 +39,23 @@ const savedMessage = ref('')
 const { initialize: initializeAuth, session } = useSupabaseAuth()
 let clearConfirmationTimer: number | undefined
 let scheduleLoadVersion = 0
+const weekdaySlots = ref<HTMLElement>()
+const liftedSlot = ref<{ index: number; x: number; y: number; origin: string }>()
+const previewSlot = ref<{ index: number; x: number; y: number }>()
+const skipSwapMotion = ref(false)
+let press: {
+  pointerId: number
+  index: number
+  startX: number
+  startY: number
+  x: number
+  y: number
+  cancelled: boolean
+} | undefined
+let hoverIndex: number | undefined
+let liftTimer: number | undefined
+let swapTimer: number | undefined
+let suppressSlotClick = false
 
 const exerciseById = new Map(EXERCISES.map((exercise) => [exercise.id, exercise]))
 
@@ -126,7 +146,11 @@ function createCard(weekdayIndex?: number): void {
   markChanged('未保存')
 }
 
-function handleWeekdaySlotClick(targetIndex: number): void {
+function handleWeekdaySlotClick(targetIndex: number, event: MouseEvent): void {
+  if (event.detail > 0 && suppressSlotClick) {
+    suppressSlotClick = false
+    return
+  }
   if (!schedule.value) return
 
   const targetId = schedule.value.weekdayCardIds[targetIndex] ?? null
@@ -136,6 +160,136 @@ function handleWeekdaySlotClick(targetIndex: number): void {
   }
 
   createCard(targetIndex)
+}
+
+function getSlotBounds(index: number): DOMRect | undefined {
+  return weekdaySlots.value?.querySelector(`[data-weekday-index="${index}"]`)?.getBoundingClientRect()
+}
+
+function pointerInSlot(bounds: DOMRect | undefined, x: number, y: number): boolean {
+  return !!bounds && x >= bounds.left && x < bounds.right && y >= bounds.top && y < bounds.bottom
+}
+
+function startWeekdayPress(index: number, event: PointerEvent): void {
+  if (!event.isPrimary || event.button !== 0 || press) return
+  suppressSlotClick = false
+  if (isSaving.value || !getCardForWeekday(index)) return
+
+  const button = event.currentTarget as HTMLButtonElement
+  button.setPointerCapture(event.pointerId)
+  skipSwapMotion.value = false
+  press = {
+    pointerId: event.pointerId,
+    index,
+    startX: event.clientX,
+    startY: event.clientY,
+    x: event.clientX,
+    y: event.clientY,
+    cancelled: false,
+  }
+  liftTimer = window.setTimeout(() => {
+    const current = press
+    const bounds = getSlotBounds(index)
+    if (!current || current.cancelled || !bounds || !pointerInSlot(bounds, current.x, current.y)) return
+
+    suppressSlotClick = true
+    liftedSlot.value = {
+      index,
+      x: current.x - current.startX,
+      y: current.y - current.startY,
+      origin: `${current.startX - bounds.left}px ${current.startY - bounds.top}px`,
+    }
+  }, HOLD_TO_LIFT_MS)
+}
+
+function updateSwapHover(x: number, y: number): void {
+  const sourceIndex = liftedSlot.value?.index
+  if (sourceIndex === undefined) return
+  const targetIndex = PLAN_DAYS.findIndex((_, index) =>
+    index !== sourceIndex && getCardForWeekday(index) && pointerInSlot(getSlotBounds(index), x, y),
+  )
+  const nextHover = targetIndex < 0 ? undefined : targetIndex
+  if (hoverIndex === nextHover) return
+
+  hoverIndex = nextHover
+  window.clearTimeout(swapTimer)
+  previewSlot.value = undefined
+  if (nextHover === undefined) return
+
+  swapTimer = window.setTimeout(() => {
+    const source = getSlotBounds(sourceIndex)
+    const target = getSlotBounds(nextHover)
+    if (!press || !source || !target || hoverIndex !== nextHover ||
+        !pointerInSlot(target, press.x, press.y) || !getCardForWeekday(nextHover)) return
+
+    previewSlot.value = {
+      index: nextHover,
+      x: source.left - target.left,
+      y: source.top - target.top,
+    }
+  }, HOVER_TO_SWAP_MS)
+}
+
+function moveWeekdayPress(event: PointerEvent): void {
+  if (!press || press.pointerId !== event.pointerId) return
+  press.x = event.clientX
+  press.y = event.clientY
+  if (!liftedSlot.value) {
+    if (Math.hypot(press.x - press.startX, press.y - press.startY) > HOLD_MOVE_TOLERANCE_PX ||
+        !pointerInSlot(getSlotBounds(press.index), press.x, press.y)) {
+      press.cancelled = true
+      window.clearTimeout(liftTimer)
+    }
+    return
+  }
+
+  liftedSlot.value.x = press.x - press.startX
+  liftedSlot.value.y = press.y - press.startY
+  updateSwapHover(press.x, press.y)
+}
+
+function resetWeekdayDrag(): void {
+  window.clearTimeout(liftTimer)
+  window.clearTimeout(swapTimer)
+  press = undefined
+  hoverIndex = undefined
+  liftedSlot.value = undefined
+  previewSlot.value = undefined
+}
+
+function finishWeekdayPress(event: PointerEvent): void {
+  if (!press || press.pointerId !== event.pointerId) return
+  const targetIndex = previewSlot.value?.index
+  const sourceIndex = press.index
+  suppressSlotClick ||= press.cancelled || !pointerInSlot(getSlotBounds(sourceIndex), event.clientX, event.clientY)
+  if (event.type === 'pointerup' && targetIndex !== undefined &&
+      pointerInSlot(getSlotBounds(targetIndex), event.clientX, event.clientY)) {
+    const assignments = schedule.value?.weekdayCardIds
+    const sourceId = assignments?.[sourceIndex]
+    const targetId = assignments?.[targetIndex]
+    if (assignments && sourceId && targetId) {
+      skipSwapMotion.value = true
+      assignments[sourceIndex] = targetId
+      assignments[targetIndex] = sourceId
+      selectedCardId.value = sourceId
+      markChanged('未保存')
+    }
+  }
+  resetWeekdayDrag()
+}
+
+function getWeekdaySlotStyle(index: number): Record<string, string> | undefined {
+  const lifted = liftedSlot.value
+  if (lifted?.index === index) {
+    return {
+      transform: `translate3d(${lifted.x}px, ${lifted.y}px, 0) scale(1.13)`,
+      transformOrigin: lifted.origin,
+    }
+  }
+  const preview = previewSlot.value
+  if (preview?.index === index) {
+    return { transform: `translate3d(${preview.x}px, ${preview.y}px, 0)` }
+  }
 }
 
 function addExerciseSet(exerciseId: ExerciseId): void {
@@ -171,6 +325,7 @@ function removeExerciseSet(exerciseId: ExerciseId): void {
 
 function handleClear(): void {
   if (!plan.value) return
+  resetWeekdayDrag()
 
   if (!isConfirmingClear.value) {
     isConfirmingClear.value = true
@@ -215,6 +370,7 @@ async function handleSave(): Promise<void> {
 
 async function loadSchedule(planId: unknown): Promise<void> {
   const version = ++scheduleLoadVersion
+  resetWeekdayDrag()
   isLoading.value = true
   errorMessage.value = ''
   savedMessage.value = ''
@@ -290,6 +446,7 @@ onBeforeRouteUpdate((to, from) => to.query.plan === from.query.plan || canLeaveS
 onBeforeRouteLeave(canLeaveSchedule)
 onBeforeUnmount(() => {
   scheduleLoadVersion += 1
+  resetWeekdayDrag()
   window.clearTimeout(clearConfirmationTimer)
 })
 </script>
@@ -361,35 +518,53 @@ onBeforeUnmount(() => {
         <div class="weekday-labels" aria-hidden="true">
           <span v-for="day in PLAN_DAYS" :key="day">{{ day }}</span>
         </div>
-        <div class="weekday-slots">
-          <button
+        <div
+          ref="weekdaySlots"
+          class="weekday-slots"
+          :class="{ 'swap-settled': skipSwapMotion }"
+          @pointermove="moveWeekdayPress"
+          @pointerup="finishWeekdayPress"
+          @pointercancel="finishWeekdayPress"
+          @lostpointercapture="finishWeekdayPress"
+        >
+          <div
             v-for="(day, index) in PLAN_DAYS"
             :key="day"
-            type="button"
-            class="weekday-slot"
-            :class="{
-              occupied: getCardForWeekday(index),
-              selected: getCardForWeekday(index)?.id === selectedCardId,
-            }"
-            :aria-label="`${day}${getCardForWeekday(index)?.name ?? '未安排'}`"
-            @click="handleWeekdaySlotClick(index)"
+            class="weekday-cell"
+            :data-weekday-index="index"
           >
-            <template v-if="getCardForWeekday(index)">
-              <div class="slot-set-count">
-                <span>{{ getCardSetCount(getCardForWeekday(index)!) }}组</span>
-              </div>
-              <div class="slot-exercise-list">
-                <small
-                  v-for="exercise in getCardForWeekday(index)?.exercises"
-                  :key="exercise.exerciseId"
-                >
-                  {{ getExercise(exercise.exerciseId)?.name }}
-                </small>
-                <small v-if="!getCardForWeekday(index)?.exercises.length">暂无动作</small>
-              </div>
-            </template>
-            <span v-else class="slot-plus">＋</span>
-          </button>
+            <button
+              type="button"
+              class="weekday-slot"
+              :class="{
+                occupied: getCardForWeekday(index),
+                selected: getCardForWeekday(index)?.id === selectedCardId,
+                lifted: liftedSlot?.index === index,
+                'swap-preview': previewSlot?.index === index,
+              }"
+              :style="getWeekdaySlotStyle(index)"
+              :aria-label="`${day}${getCardForWeekday(index)?.name ?? '未安排'}`"
+              @pointerdown="startWeekdayPress(index, $event)"
+              @contextmenu.prevent
+              @click="handleWeekdaySlotClick(index, $event)"
+            >
+              <template v-if="getCardForWeekday(index)">
+                <div class="slot-set-count">
+                  <span>{{ getCardSetCount(getCardForWeekday(index)!) }}组</span>
+                </div>
+                <div class="slot-exercise-list">
+                  <small
+                    v-for="exercise in getCardForWeekday(index)?.exercises"
+                    :key="exercise.exerciseId"
+                  >
+                    {{ getExercise(exercise.exerciseId)?.name }}
+                  </small>
+                  <small v-if="!getCardForWeekday(index)?.exercises.length">暂无动作</small>
+                </div>
+              </template>
+              <span v-else class="slot-plus">＋</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -603,9 +778,16 @@ a {
   text-align: center;
 }
 
-.weekday-slot {
+.weekday-cell {
   min-width: 0;
   height: clamp(90px, 21svh, 128px);
+}
+
+.weekday-slot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -618,6 +800,7 @@ a {
   background: #f5f7f2;
   color: #a0aaa3;
   cursor: pointer;
+  transition: transform 210ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .weekday-slot.occupied {
@@ -625,6 +808,29 @@ a {
   border-color: #d9e2d6;
   background: #eef4ea;
   color: #46634d;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.weekday-slot.swap-preview {
+  z-index: 1;
+}
+
+.weekday-slot.lifted {
+  z-index: 2;
+  border-color: #63816a;
+  box-shadow: 0 8px 18px rgb(45 62 48 / 24%);
+  cursor: grabbing;
+  transition: none;
+}
+
+.weekday-slots.swap-settled .weekday-slot {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weekday-slot { transition: none; }
 }
 
 .weekday-slot.selected {
