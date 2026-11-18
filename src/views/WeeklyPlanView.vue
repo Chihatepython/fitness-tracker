@@ -254,11 +254,12 @@ function handleMuscleBoardPointerUp(event: PointerEvent): void {
     0,
     Math.min(PLAN_PARTS.length - 1, currentIndex + (horizontalDistance < 0 ? 1 : -1)),
   )
+  const nextPart = PLAN_PARTS[nextIndex]
 
-  if (nextIndex === currentIndex) return
+  if (nextIndex === currentIndex || !nextPart) return
 
   suppressMuscleClickUntil = Date.now() + 350
-  selectedPart.value = PLAN_PARTS[nextIndex]
+  selectedPart.value = nextPart
 }
 
 function handleMuscleBoardPointerCancel(): void {
