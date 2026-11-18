@@ -724,7 +724,7 @@ a {
   padding: 0 9px;
   border: 0;
   border-radius: var(--radius-pill);
-  font-size: var(--text-micro);
+  font-size: var(--text-caption);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -795,7 +795,7 @@ a {
 .weekday-labels {
   margin: 0 0 5px;
   color: #7b8980;
-  font-size: clamp(0.5rem, 2.1vw, var(--text-micro));
+  font-size: var(--text-micro);
   font-weight: 800;
   text-align: center;
 }
@@ -917,7 +917,7 @@ a {
 .schedule-workspace {
   width: 95%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 8px;
   margin: 10px auto 18px;
 }
