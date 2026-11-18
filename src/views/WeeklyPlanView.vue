@@ -34,12 +34,6 @@ const PART_REGIONS: Record<PlanPart, readonly MuscleRegion[]> = {
 type PlanPart = (typeof PLAN_PARTS)[number]
 type ExerciseScope = 'related' | 'all'
 
-interface RingSegment {
-  trackPath: string
-  fillPath?: string
-  dense: boolean
-}
-
 const selectedPart = ref<PlanPart>('肩')
 const exerciseScope = ref<ExerciseScope>('related')
 const startDate = ref(getUpcomingMonday())
@@ -64,20 +58,16 @@ const { initialize: initializeAuth, session } = useSupabaseAuth()
 const route = useRoute()
 const router = useRouter()
 let clearConfirmationTimer: number | undefined
+let muscleBoardPointerId: number | undefined
+let muscleBoardStartX = 0
+let muscleBoardStartY = 0
+let suppressMuscleClickUntil = 0
 
 const canonicalMuscleOrder = new Map<MuscleName, number>(
   MUSCLE_GROUPS.flatMap((group) => [...group.muscles]).map((muscle, index) => [muscle, index]),
 )
 
-const selectedPartMuscles = computed(() => {
-  const targetedMuscles = new Set(targets.value.map((target) => target.muscle))
-
-  return getMusclesForPart(selectedPart.value).sort(
-    (left, right) =>
-      Number(targetedMuscles.has(right)) - Number(targetedMuscles.has(left)) ||
-      (canonicalMuscleOrder.get(left) ?? 0) - (canonicalMuscleOrder.get(right) ?? 0),
-  )
-})
+const selectedPartMuscles = computed(() => getMusclesForPart(selectedPart.value))
 
 const targetByMuscle = computed(
   () =>
@@ -181,16 +171,6 @@ function formatSetCount(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '')
 }
 
-function formatPlanProgressValue(value: number): string {
-  const rounded = Math.round(value * 10) / 10
-
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
-}
-
-function getMuscleProgressLabel(muscle: MuscleName): string {
-  return `${formatPlanProgressValue(muscleTotals.value[muscle])}/${getTargetSets(muscle)}`
-}
-
 function getExerciseSetCount(exerciseId: ExerciseId): number {
   return plannedSets.value[exerciseId] ?? 0
 }
@@ -201,14 +181,6 @@ function getTargetSets(muscle: MuscleName): number | undefined {
 
 function hasTarget(muscle: MuscleName): boolean {
   return getTargetSets(muscle) !== undefined
-}
-
-function getShortMuscleName(muscle: MuscleName): string {
-  return muscle
-    .replace('三角肌', '')
-    .replace('肱二头肌', '二头')
-    .replace('肱三头肌', '三头')
-    .replace('肌群', '')
 }
 
 function getPartProgress(part: PlanPart): { current: number; target: number } {
@@ -251,50 +223,51 @@ function getEffectLabel(exercise: (typeof EXERCISES)[number]): string {
     .join(' · ')
 }
 
-function polarPoint(radius: number, angle: number): { x: number; y: number } {
-  const radians = ((angle - 90) * Math.PI) / 180
+function selectPlanPart(part: PlanPart): void {
+  selectedPart.value = part
+}
 
-  return {
-    x: 50 + radius * Math.cos(radians),
-    y: 50 + radius * Math.sin(radians),
+function handleMuscleBoardPointerDown(event: PointerEvent): void {
+  if (event.button !== 0) return
+
+  muscleBoardPointerId = event.pointerId
+  muscleBoardStartX = event.clientX
+  muscleBoardStartY = event.clientY
+}
+
+function handleMuscleBoardPointerUp(event: PointerEvent): void {
+  if (event.pointerId !== muscleBoardPointerId) return
+
+  muscleBoardPointerId = undefined
+  const horizontalDistance = event.clientX - muscleBoardStartX
+  const verticalDistance = event.clientY - muscleBoardStartY
+
+  if (
+    Math.abs(horizontalDistance) < 42 ||
+    Math.abs(horizontalDistance) <= Math.abs(verticalDistance) * 1.15
+  ) {
+    return
   }
+
+  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
+  const nextIndex = Math.max(
+    0,
+    Math.min(PLAN_PARTS.length - 1, currentIndex + (horizontalDistance < 0 ? 1 : -1)),
+  )
+
+  if (nextIndex === currentIndex) return
+
+  suppressMuscleClickUntil = Date.now() + 350
+  selectedPart.value = PLAN_PARTS[nextIndex]
 }
 
-function getArcPath(radius: number, startAngle: number, endAngle: number): string {
-  const start = polarPoint(radius, endAngle)
-  const end = polarPoint(radius, startAngle)
-  const largeArc = endAngle - startAngle <= 180 ? 0 : 1
-
-  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius} ${radius} 0 ${largeArc} 0 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`
+function handleMuscleBoardPointerCancel(): void {
+  muscleBoardPointerId = undefined
 }
 
-function getRingSegments(muscle: MuscleName): RingSegment[] {
-  const target = getTargetSets(muscle) ?? 0
-  const current = muscleTotals.value[muscle]
-  if (!target) return []
-
-  const radius = 42
-  const strokeWidth = 8
-  // Keep the same rounded segment shape for the common 4/8/16/24 targets.
-  // Only extremely dense rings switch to flat caps so their arcs stay valid.
-  const dense = target > 24
-  const visibleGapPixels = 2
-  const geometricGapPixels = dense ? visibleGapPixels : strokeWidth + visibleGapPixels
-  const gap = (geometricGapPixels / (2 * Math.PI * radius)) * 360
-  const span = (360 - target * gap) / target
-
-  return Array.from({ length: target }, (_, index) => {
-    // Keep the gaps centered on the ring's natural axes. Starting directly at
-    // 12 o'clock makes every divider look rotated by half of the gap angle.
-    const start = gap / 2 + index * (span + gap)
-    const completion = Math.max(0, Math.min(1, current - index))
-
-    return {
-      trackPath: getArcPath(radius, start, start + span),
-      ...(completion > 0 ? { fillPath: getArcPath(radius, start, start + span * completion) } : {}),
-      dense,
-    }
-  })
+function handleMuscleRowClick(muscle: MuscleName): void {
+  if (Date.now() < suppressMuscleClickUntil) return
+  openTargetEditor(muscle)
 }
 
 function getDraftExercises(): WeeklyPlanExercise[] {
@@ -640,50 +613,6 @@ onBeforeRouteLeave(() =>
         class="plan-muscle-board"
         aria-label="肌束目标看板"
       >
-        <div class="plan-muscle-strip">
-          <button
-            v-for="muscle in selectedPartMuscles"
-            :key="muscle"
-            class="plan-muscle-card"
-            :class="{ targeted: hasTarget(muscle) }"
-            :data-part="selectedPart"
-            type="button"
-            :aria-label="
-              hasTarget(muscle)
-                ? `${muscle}，${formatSetCount(muscleTotals[muscle])}组，目标${getTargetSets(muscle)}组，点击修改目标`
-                : `${muscle}尚未设置目标，点击设置`
-            "
-            @click="openTargetEditor(muscle)"
-          >
-            <svg
-              v-if="hasTarget(muscle)"
-              class="plan-muscle-ring"
-              aria-hidden="true"
-              viewBox="0 0 100 100"
-            >
-              <g v-for="(segment, index) in getRingSegments(muscle)" :key="index">
-                <path class="ring-track" :class="{ dense: segment.dense }" :d="segment.trackPath" />
-                <path
-                  v-if="segment.fillPath"
-                  class="ring-fill"
-                  :class="{ dense: segment.dense }"
-                  :d="segment.fillPath"
-                />
-              </g>
-            </svg>
-            <div class="plan-muscle-center">
-              <strong>{{ getShortMuscleName(muscle) }}</strong>
-              <span
-                v-if="hasTarget(muscle)"
-                :class="{ compact: getMuscleProgressLabel(muscle).length >= 7 }"
-              >
-                {{ getMuscleProgressLabel(muscle) }}
-              </span>
-              <em v-else>设置目标</em>
-            </div>
-          </button>
-        </div>
-
         <nav class="plan-part-selector" aria-label="选择目标部位">
           <button
             v-for="part in PLAN_PARTS"
@@ -691,7 +620,7 @@ onBeforeRouteLeave(() =>
             type="button"
             :data-part="part"
             :aria-pressed="selectedPart === part"
-            @click="selectedPart = part"
+            @click="selectPlanPart(part)"
           >
             <span>{{ part }}</span>
             <span v-if="getPartProgress(part).target">
@@ -700,6 +629,42 @@ onBeforeRouteLeave(() =>
             <span v-else>未设置</span>
           </button>
         </nav>
+
+        <div class="plan-muscle-card-viewport" aria-live="polite">
+          <section
+            class="plan-muscle-table-card"
+            :data-part="selectedPart"
+            :aria-label="`${selectedPart}肌束计划`"
+            @pointerdown="handleMuscleBoardPointerDown"
+            @pointerup="handleMuscleBoardPointerUp"
+            @pointercancel="handleMuscleBoardPointerCancel"
+          >
+            <header class="plan-muscle-table-heading">
+              <span>肌束</span>
+              <span>已安排</span>
+              <span>计划</span>
+            </header>
+            <button
+              v-for="muscle in selectedPartMuscles"
+              :key="muscle"
+              class="plan-muscle-table-row"
+              type="button"
+              :aria-label="
+                hasTarget(muscle)
+                  ? `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，计划${getTargetSets(muscle)}组，点击修改计划`
+                  : `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，尚未设置计划，点击设置`
+              "
+              @click="handleMuscleRowClick(muscle)"
+            >
+              <strong>{{ muscle }}</strong>
+              <span>{{ formatSetCount(muscleTotals[muscle]) }}</span>
+              <span :class="{ unset: !hasTarget(muscle) }">
+                {{ getTargetSets(muscle) ?? '—' }}
+              </span>
+            </button>
+          </section>
+          <div class="plan-muscle-swipe-hint" aria-hidden="true"><span /></div>
+        </div>
       </section>
     </section>
 
@@ -1113,162 +1078,40 @@ onBeforeRouteLeave(() =>
   min-width: 0;
 }
 
-.plan-muscle-strip {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 96px;
-  justify-content: start;
-  gap: 7px;
-  overflow-x: auto;
-  padding: 1px 1px 6px;
-  scrollbar-width: none;
-  scroll-snap-type: x proximity;
-}
-
-.plan-muscle-strip::-webkit-scrollbar,
-.plan-part-selector::-webkit-scrollbar {
-  display: none;
-}
-
-.plan-muscle-card {
-  --plan-accent: #7d8d3e;
-  position: relative;
-  width: 96px;
-  height: 96px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-circle);
-  background: transparent;
-  color: #17211a;
-  box-shadow: none;
-  scroll-snap-align: start;
-  cursor: pointer;
-}
-
-.plan-muscle-card::before {
-  position: absolute;
-  z-index: 0;
-  inset: 12px;
-  border-radius: var(--radius-circle);
-  background: #fff;
-  box-shadow: 0 5px 12px rgb(48 67 52 / 9%);
-  content: '';
-}
-
-.plan-muscle-card:not(.targeted)::before {
-  background: #f8faf6;
-  box-shadow: inset 0 0 0 1px #e0e7dd;
-}
-
-.plan-muscle-card[data-part='胸'] {
-  --plan-accent: #a86e63;
-}
-
-.plan-muscle-card[data-part='背'] {
-  --plan-accent: #507f73;
-}
-
-.plan-muscle-card[data-part='手臂'] {
-  --plan-accent: #7d6b90;
-}
-
-.plan-muscle-card[data-part='腿'] {
-  --plan-accent: #8b754d;
-}
-
-.plan-muscle-ring {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  width: 96px;
-  height: 96px;
-}
-
-.ring-track,
-.ring-fill {
-  fill: none;
-  stroke-linecap: round;
-  stroke-width: 8;
-}
-
-.ring-track {
-  stroke: #ccd6ca;
-}
-
-.ring-fill {
-  stroke: var(--plan-accent);
-}
-
-.ring-track.dense,
-.ring-fill.dense {
-  stroke-linecap: butt;
-}
-
-.plan-muscle-center {
-  position: absolute;
-  z-index: 2;
-  inset: 0;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 4px;
-  text-align: center;
-}
-
-.plan-muscle-center strong {
-  max-width: 74px;
-  overflow: hidden;
-  font-size: var(--text-body);
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.plan-muscle-center span {
-  max-width: 72px;
-  overflow: hidden;
-  color: var(--plan-accent);
-  font-size: var(--text-control);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.plan-muscle-center span.compact {
-  font-size: var(--text-body);
-}
-
-.plan-muscle-center em {
-  color: #8a968e;
-  font-size: var(--text-caption);
-  font-style: normal;
-  font-weight: 700;
-}
-
 .plan-part-selector {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 9px;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e1e8df;
 }
 
 .plan-part-selector button {
   --part-accent: #7d8d3e;
   --part-soft: #f0f4d3;
-  display: inline-flex;
-  min-width: max-content;
-  min-height: 34px;
+  display: grid;
+  min-width: 0;
+  min-height: 38px;
   align-items: center;
-  gap: 5px;
-  padding: 0 10px;
+  gap: 1px;
+  padding: 4px 2px;
   border: 0;
   border-radius: var(--radius-pill);
   background: #fff;
   color: #718078;
   font-size: var(--text-caption);
+  line-height: 1.05;
   cursor: pointer;
+}
+
+.plan-part-selector button span:last-child {
+  overflow: hidden;
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .plan-part-selector button[data-part='胸'] {
@@ -1295,6 +1138,116 @@ onBeforeRouteLeave(() =>
   background: var(--part-soft);
   color: var(--part-accent);
   font-weight: 800;
+}
+
+.plan-muscle-card-viewport {
+  position: relative;
+  min-height: 1px;
+  overflow: hidden;
+}
+
+.plan-muscle-table-card {
+  --plan-accent: #7d8d3e;
+  --plan-soft: #f1f6d8;
+  width: 80%;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--plan-accent) 18%, transparent);
+  border-radius: var(--radius-card);
+  background: var(--plan-soft);
+  color: #263128;
+  box-shadow: 0 5px 14px rgb(48 67 52 / 6%);
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.plan-muscle-table-card[data-part='胸'] {
+  --plan-accent: #a86e63;
+  --plan-soft: #f6ebe8;
+}
+
+.plan-muscle-table-card[data-part='背'] {
+  --plan-accent: #507f73;
+  --plan-soft: #e8f1ed;
+}
+
+.plan-muscle-table-card[data-part='手臂'] {
+  --plan-accent: #7d6b90;
+  --plan-soft: #f1eef5;
+}
+
+.plan-muscle-table-card[data-part='腿'] {
+  --plan-accent: #8b754d;
+  --plan-soft: #f0eadb;
+}
+
+.plan-muscle-table-heading,
+.plan-muscle-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px 48px;
+  align-items: center;
+  column-gap: 5px;
+  padding: 0 11px;
+}
+
+.plan-muscle-table-heading {
+  min-height: 36px;
+  color: #68766d;
+  font-size: var(--text-caption);
+  font-weight: 800;
+}
+
+.plan-muscle-table-heading span:not(:first-child) {
+  text-align: right;
+}
+
+.plan-muscle-table-row {
+  width: 100%;
+  min-height: 43px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--plan-accent) 14%, transparent);
+  background: transparent;
+  color: inherit;
+  font-size: var(--text-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.plan-muscle-table-row strong {
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-muscle-table-row span {
+  color: #294733;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.plan-muscle-table-row span:last-child {
+  color: var(--plan-accent);
+}
+
+.plan-muscle-table-row span.unset {
+  color: #8c978f;
+}
+
+.plan-muscle-swipe-hint {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: grid;
+  width: calc(20% - 8px);
+  place-items: center;
+  pointer-events: none;
+}
+
+.plan-muscle-swipe-hint span {
+  width: 22px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: #d7dfd4;
 }
 
 .plan-action-section {
@@ -1674,7 +1627,7 @@ button.schedule-entry {
 .cancel-cloud-button:focus-visible,
 .cloud-plans-button:focus-visible,
 .cloud-plan-list button:focus-visible,
-.plan-muscle-card:focus-visible,
+.plan-muscle-table-row:focus-visible,
 .plan-part-selector button:focus-visible,
 .exercise-scope-selector button:focus-visible,
 .plan-set-stepper button:focus-visible,
@@ -1688,8 +1641,8 @@ button.schedule-entry {
     padding-top: 18px;
   }
 
-  .plan-muscle-strip {
-    justify-content: center;
+  .plan-muscle-table-card {
+    width: min(80%, 440px);
   }
 }
 
