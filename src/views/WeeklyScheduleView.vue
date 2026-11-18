@@ -5,7 +5,7 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRoute
 import WeeklyPlanMenu from '@/components/WeeklyPlanMenu.vue'
 import WeeklyPlanSteps from '@/components/WeeklyPlanSteps.vue'
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
-import { EXERCISES, type ExerciseId } from '@/database'
+import { EXERCISES, type BodyPart, type ExerciseId, type MuscleWeights } from '@/database'
 import type { WeeklyPlanDayCard, WeeklyPlanSchedule } from '@/domain/weeklyPlan'
 import {
   listWeeklyPlans,
@@ -23,6 +23,8 @@ const PLAN_DAYS = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'
 const HOLD_TO_LIFT_MS = 450
 const HOVER_TO_SWAP_MS = 500
 const HOLD_MOVE_TOLERANCE_PX = 10
+type SchedulePart = BodyPart | '前臂' | '其他'
+const SCHEDULE_PART_ORDER: readonly SchedulePart[] = ['肩', '胸', '背', '手臂', '前臂', '腿', '其他']
 
 const route = useRoute()
 const router = useRouter()
@@ -110,7 +112,18 @@ function getExercise(exerciseId: ExerciseId) {
 }
 
 function getPartLabel(bodyPart: string): string {
+  if (bodyPart === '前臂') return '前'
+  if (bodyPart === '其他') return '其'
   return bodyPart === '手臂' ? '臂' : bodyPart
+}
+
+function getSchedulePart(exerciseId: ExerciseId): SchedulePart {
+  const exercise = getExercise(exerciseId)
+  const weights: MuscleWeights | undefined = exercise?.muscleWeights
+  if (exercise?.bodyPart === '手臂' && (weights?.肱桡肌 === 1 || weights?.前臂伸肌群 === 1)) {
+    return '前臂'
+  }
+  return exercise?.bodyPart ?? '其他'
 }
 
 function getCardSetCount(card: WeeklyPlanDayCard): number {
@@ -121,6 +134,18 @@ function getCardForWeekday(index: number): WeeklyPlanDayCard | undefined {
   const cardId = schedule.value?.weekdayCardIds[index]
   return cardId ? schedule.value?.cards.find((card) => card.id === cardId) : undefined
 }
+
+const slotPartTotals = computed(() => PLAN_DAYS.map((_, index) => {
+  const totals = new Map<SchedulePart, number>()
+  for (const { exerciseId, sets } of getCardForWeekday(index)?.exercises ?? []) {
+    const part = getSchedulePart(exerciseId)
+    totals.set(part, (totals.get(part) ?? 0) + sets)
+  }
+  return SCHEDULE_PART_ORDER.flatMap((part) => {
+    const sets = totals.get(part)
+    return sets ? [{ part, sets }] : []
+  })
+}))
 
 function markChanged(message: string): void {
   if (!schedule.value) return
@@ -551,14 +576,13 @@ onBeforeUnmount(() => {
                 <div class="slot-set-count">
                   <span>{{ getCardSetCount(getCardForWeekday(index)!) }}组</span>
                 </div>
-                <div class="slot-exercise-list">
-                  <small
-                    v-for="exercise in getCardForWeekday(index)?.exercises"
-                    :key="exercise.exerciseId"
-                  >
-                    {{ getExercise(exercise.exerciseId)?.name }}
-                  </small>
-                  <small v-if="!getCardForWeekday(index)?.exercises.length">暂无动作</small>
+                <div class="slot-part-list">
+                  <span
+                    v-for="{ part, sets } in slotPartTotals[index]"
+                    :key="part"
+                    class="slot-part"
+                    :data-part="part"
+                  >{{ getPartLabel(part) }}·{{ sets }}</span>
                 </div>
               </template>
               <span v-else class="slot-plus">＋</span>
@@ -570,10 +594,7 @@ onBeforeUnmount(() => {
       <section class="schedule-workspace">
         <article class="day-detail">
           <header>
-            <div>
-              <span>训练日详情</span>
-              <h2>{{ selectedCard?.name }}</h2>
-            </div>
+            <h2>训练日详情</h2>
             <strong>{{ selectedCard ? getCardSetCount(selectedCard) : 0 }}组</strong>
           </header>
 
@@ -583,7 +604,9 @@ onBeforeUnmount(() => {
               :key="exercise.exerciseId"
               class="day-exercise-row"
             >
-              <span class="part-badge">{{ getPartLabel(getExercise(exercise.exerciseId)?.bodyPart ?? '') }}</span>
+              <span class="part-badge" :data-part="getSchedulePart(exercise.exerciseId)">
+                {{ getPartLabel(getSchedulePart(exercise.exerciseId)) }}
+              </span>
               <strong>{{ getExercise(exercise.exerciseId)?.name }}</strong>
               <span>{{ exercise.sets }}组</span>
               <button
@@ -611,7 +634,7 @@ onBeforeUnmount(() => {
         <header class="section-heading">
           <div>
             <h2 id="action-pool-title">待分配动作</h2>
-            <p>点击动作，为“{{ selectedCard?.name }}”加入一组</p>
+            <p>点击动作，为当前选中的训练日加入一组</p>
           </div>
           <strong>{{ totalPlannedSets - totalAllocatedSets }}组</strong>
         </header>
@@ -779,7 +802,7 @@ a {
 
 .weekday-cell {
   min-width: 0;
-  height: clamp(90px, 21svh, 128px);
+  height: clamp(116px, 21svh, 128px);
 }
 
 .weekday-slot {
@@ -792,7 +815,7 @@ a {
   align-items: center;
   justify-content: flex-start;
   gap: 2px;
-  padding: 7px 3px;
+  padding: 4px 1px;
   overflow: hidden;
   border: 1px dashed #ced8ce;
   border-radius: var(--radius-control);
@@ -838,44 +861,52 @@ a {
 }
 
 .weekday-slot span,
-.weekday-slot small,
-.slot-exercise-list {
+.slot-part-list {
   max-width: 100%;
 }
 
 .slot-set-count {
   width: 100%;
-  height: 25px;
-  flex: 0 0 25px;
+  height: 20px;
+  flex: 0 0 20px;
   display: grid;
   place-items: center;
 }
 
 .slot-set-count span {
-  font-size: clamp(var(--text-micro), 2.25vw, var(--text-caption));
-  font-weight: 850;
+  font-size: var(--text-caption);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.slot-exercise-list {
+.slot-part-list {
   width: 100%;
   display: grid;
   align-content: start;
-  gap: 1px;
-  overflow: hidden;
+  justify-items: center;
 }
 
-.weekday-slot small {
+.slot-part {
   display: block;
-  width: 100%;
-  overflow: hidden;
-  color: #75847a;
-  font-size: clamp(0.5rem, 1.75vw, var(--text-micro));
-  line-height: 1.35;
+  padding-inline: 1px;
+  border-radius: var(--radius-sm);
+  background: var(--schedule-part-bg, #edf3e9);
+  color: var(--schedule-part-ink, #46634d);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
   text-align: center;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+:is(.slot-part, .part-badge)[data-part='肩'] { --schedule-part-bg: #edf3c9; --schedule-part-ink: #475524; }
+:is(.slot-part, .part-badge)[data-part='背'] { --schedule-part-bg: #d1e3dd; --schedule-part-ink: #24463c; }
+:is(.slot-part, .part-badge)[data-part='胸'] { --schedule-part-bg: #ead9d2; --schedule-part-ink: #5e3b31; }
+:is(.slot-part, .part-badge)[data-part='腿'] { --schedule-part-bg: #e9dfbd; --schedule-part-ink: #564a25; }
+:is(.slot-part, .part-badge)[data-part='手臂'],
+:is(.slot-part, .part-badge)[data-part='前臂'] { --schedule-part-bg: #ded8e9; --schedule-part-ink: #4b3e60; }
 
 .slot-plus {
   margin: auto;
@@ -903,13 +934,13 @@ a {
 
 .day-detail > header {
   display: flex;
-  align-items: end;
+  min-height: 34px;
+  align-items: center;
   justify-content: space-between;
   gap: 6px;
   margin-bottom: 9px;
 }
 
-.day-detail header span,
 .analysis-placeholder > span {
   color: #89958e;
   font-size: var(--text-micro);
@@ -917,13 +948,14 @@ a {
 }
 
 .day-detail h2 {
-  margin: 1px 0 0;
+  margin: 0;
   font-size: var(--text-body);
 }
 
 .day-detail header > strong {
   color: #55705c;
-  font-size: var(--text-micro);
+  font-size: var(--text-caption);
+  white-space: nowrap;
 }
 
 .day-exercise-list {
@@ -946,22 +978,22 @@ a {
   height: 20px;
   place-items: center;
   border-radius: var(--radius-sm);
-  background: #edf3e9;
-  color: #55705c;
-  font-size: var(--text-micro);
+  background: var(--schedule-part-bg, #edf3e9);
+  color: var(--schedule-part-ink, #55705c);
+  font-size: var(--text-caption);
   font-weight: 800;
 }
 
 .day-exercise-row > strong {
   overflow: hidden;
-  font-size: clamp(var(--text-caption), 2.3vw, var(--text-body));
+  font-size: var(--text-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .day-exercise-row > span:not(.part-badge) {
   color: #5d6e62;
-  font-size: var(--text-micro);
+  font-size: var(--text-caption);
   font-weight: 800;
   white-space: nowrap;
 }
