@@ -48,8 +48,10 @@ const MUSCLE_BOARD_GESTURE_THRESHOLD_PX = 7
 const MUSCLE_BOARD_SWIPE_DISTANCE_RATIO = 0.22
 const MUSCLE_BOARD_SWIPE_VELOCITY_PX_PER_MS = 0.5
 const MUSCLE_BOARD_PEEK_WIDTH = 16
+const MUSCLE_BOARD_ROW_STEP = 43
+const MUSCLE_BOARD_MIN_VISIBLE_ROWS = 2
 // Table heading + two muscle rows + top and bottom borders.
-const MUSCLE_BOARD_PEEK_HEIGHT = 36 + 2 * 43 + 2
+const MUSCLE_BOARD_PEEK_HEIGHT = 36 + MUSCLE_BOARD_MIN_VISIBLE_ROWS * MUSCLE_BOARD_ROW_STEP + 2
 
 const selectedPart = ref<PlanPart>('肩')
 const exerciseScope = ref<ExerciseScope>('related')
@@ -96,6 +98,53 @@ const canonicalMuscleOrder = new Map<MuscleName, number>(
 )
 
 const selectedPartMuscles = computed(() => getMusclesForPart(selectedPart.value))
+const muscleRowLimits = ref<Partial<Record<PlanPart, number>>>({})
+const visibleMuscleRows = computed(
+  () => muscleRowLimits.value[selectedPart.value] ?? selectedPartMuscles.value.length,
+)
+let rowResize: { pointerId: number; startY: number; startRows: number; part: PlanPart } | undefined
+
+function setVisibleMuscleRows(part: PlanPart, count: number): void {
+  const total = getMusclesForPart(part).length
+  const limit = Math.max(Math.min(MUSCLE_BOARD_MIN_VISIBLE_ROWS, total), Math.min(count, total))
+  if (limit !== muscleRowLimits.value[part]) muscleRowLimits.value[part] = limit
+}
+
+function startMuscleRowResize(event: PointerEvent): void {
+  if (!event.isPrimary || event.button !== 0 || rowResize || isMuscleBoardAnimating.value) return
+  const grip = event.currentTarget as HTMLElement
+  grip.setPointerCapture(event.pointerId)
+  rowResize = {
+    pointerId: event.pointerId,
+    startY: event.clientY,
+    startRows: visibleMuscleRows.value,
+    part: selectedPart.value,
+  }
+}
+
+function moveMuscleRowResize(event: PointerEvent): void {
+  if (rowResize?.pointerId !== event.pointerId) return
+  const rowDelta = Math.round((event.clientY - rowResize.startY) / MUSCLE_BOARD_ROW_STEP)
+  setVisibleMuscleRows(rowResize.part, rowResize.startRows + rowDelta)
+}
+
+function endMuscleRowResize(event: PointerEvent): void {
+  if (rowResize?.pointerId === event.pointerId) rowResize = undefined
+}
+
+function handleMuscleRowResizeKey(event: KeyboardEvent): void {
+  if (rowResize || isMuscleBoardAnimating.value) return
+  const total = selectedPartMuscles.value.length
+  let count = visibleMuscleRows.value
+  if (event.key === 'Home') count = MUSCLE_BOARD_MIN_VISIBLE_ROWS
+  else if (event.key === 'End') count = total
+  else if (event.key === 'ArrowUp' || event.key === 'ArrowRight') count += 1
+  else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') count -= 1
+  else return
+  event.preventDefault()
+  setVisibleMuscleRows(selectedPart.value, count)
+}
+
 const muscleBoardSlides = computed<MuscleBoardSlide[]>(() => {
   const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
   const slides: MuscleBoardSlide[] = []
@@ -268,7 +317,7 @@ function getEffectLabel(exercise: (typeof EXERCISES)[number]): string {
 }
 
 function selectPlanPart(part: PlanPart): void {
-  if (part === selectedPart.value || isMuscleBoardAnimating.value) return
+  if (rowResize || part === selectedPart.value || isMuscleBoardAnimating.value) return
 
   const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
   const targetIndex = PLAN_PARTS.indexOf(part)
@@ -409,7 +458,7 @@ function navigateMuscleBoard(position: Exclude<MuscleBoardSlidePosition, 0>): vo
 }
 
 function handleMuscleBoardPointerDown(event: PointerEvent): void {
-  if (event.button !== 0 || !event.isPrimary || isMuscleBoardAnimating.value) return
+  if (rowResize || event.button !== 0 || !event.isPrimary || isMuscleBoardAnimating.value) return
 
   muscleBoardPointerId = event.pointerId
   muscleBoardGestureAxis = 'pending'
@@ -803,32 +852,27 @@ onBeforeRouteLeave(() =>
         step="plan"
         :plan-id="!isLoading && !cloudErrorMessage ? activeCloudPlanId : undefined"
         :schedule-unavailable-reason="scheduleUnavailableReason"
-      />
-
-      <div class="plan-step-toolbar" aria-label="目标与动作操作">
-        <span class="save-status" :class="{ dirty: isDirty, error: cloudErrorMessage }" aria-live="polite">
-          {{ isLoading ? '读取中…' : cloudErrorMessage || (isSaving ? '保存中…' : statusMessage || '已保存') }}
-        </span>
-        <div class="plan-header-actions">
-          <button
-            class="clear-plan-button"
-            :class="{ confirming: isConfirmingClear }"
-            type="button"
-            :disabled="isLoading || isSaving || Boolean(cloudErrorMessage)"
-            @click="handleClear"
-          >
-            {{ isConfirmingClear ? '确认清空' : '清空' }}
-          </button>
-          <button
-            class="save-plan-button"
-            type="button"
-            :disabled="isLoading || isSaving || !isDirty || Boolean(cloudErrorMessage)"
-            @click="handleSave"
-          >
-            {{ isSaving ? '保存中…' : '保存' }}
-          </button>
-        </div>
-      </div>
+        :status="isLoading ? '读取中…' : cloudErrorMessage ? '出错' : isSaving ? '保存中…' : isDirty ? '未保存' : statusMessage || '已保存'"
+        :status-tone="cloudErrorMessage ? 'error' : isLoading || isSaving ? undefined : isDirty ? 'dirty' : 'saved'"
+      >
+        <button
+          class="clear-plan-button"
+          :class="{ confirming: isConfirmingClear }"
+          type="button"
+          :disabled="isLoading || isSaving || Boolean(cloudErrorMessage)"
+          @click="handleClear"
+        >
+          {{ isConfirmingClear ? '确认清空' : '清空' }}
+        </button>
+        <button
+          class="save-plan-button"
+          type="button"
+          :disabled="isLoading || isSaving || !isDirty || Boolean(cloudErrorMessage)"
+          @click="handleSave"
+        >
+          {{ isSaving ? '保存中…' : '保存' }}
+        </button>
+      </WeeklyPlanSteps>
 
       <section
         v-if="!isLoading && !cloudErrorMessage"
@@ -850,60 +894,86 @@ onBeforeRouteLeave(() =>
           </button>
         </nav>
 
-        <div
-          ref="muscleBoardViewport"
-          class="plan-muscle-card-viewport"
-          :class="{
-            'is-dragging': isMuscleBoardDragging,
-            'is-animating': muscleBoardTransitionEnabled,
-          }"
-          :style="muscleBoardViewportStyle"
-          aria-live="polite"
-          @pointerdown="handleMuscleBoardPointerDown"
-          @pointermove="handleMuscleBoardPointerMove"
-          @pointerup="handleMuscleBoardPointerUp"
-          @pointercancel="handleMuscleBoardPointerCancel"
-          @pointerleave="handleMuscleBoardPointerLeave"
-        >
+        <div class="plan-muscle-board-frame">
           <div
-            v-for="slide in muscleBoardSlides"
-            :key="`${slide.position}:${slide.part}`"
-            class="plan-muscle-card-slide"
-            :class="{ 'is-current': slide.position === 0 }"
-            :data-muscle-board-position="slide.position"
-            :style="getMuscleBoardSlideStyle(slide.position)"
-            :aria-hidden="slide.position === 0 ? undefined : true"
-            :inert="slide.position !== 0"
+            ref="muscleBoardViewport"
+            class="plan-muscle-card-viewport"
+            :class="{
+              'is-dragging': isMuscleBoardDragging,
+              'is-animating': muscleBoardTransitionEnabled,
+            }"
+            :style="muscleBoardViewportStyle"
+            aria-live="polite"
+            @pointerdown="handleMuscleBoardPointerDown"
+            @pointermove="handleMuscleBoardPointerMove"
+            @pointerup="handleMuscleBoardPointerUp"
+            @pointercancel="handleMuscleBoardPointerCancel"
+            @pointerleave="handleMuscleBoardPointerLeave"
           >
-            <section
-              class="plan-muscle-table-card"
-              :data-part="slide.part"
-              :aria-label="`${slide.part}肌束计划`"
+            <div
+              v-for="slide in muscleBoardSlides"
+              :key="`${slide.position}:${slide.part}`"
+              class="plan-muscle-card-slide"
+              :class="{ 'is-current': slide.position === 0 }"
+              :data-muscle-board-position="slide.position"
+              :style="getMuscleBoardSlideStyle(slide.position)"
+              :aria-hidden="slide.position === 0 ? undefined : true"
+              :inert="slide.position !== 0"
             >
-              <header class="plan-muscle-table-heading">
-                <span>肌束</span>
-                <span>已安排</span>
-                <span>计划</span>
-              </header>
-              <button
-                v-for="muscle in getMusclesForPart(slide.part)"
-                :key="muscle"
-                class="plan-muscle-table-row"
-                type="button"
-                :aria-label="
-                  hasTarget(muscle)
-                    ? `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，计划${getTargetSets(muscle)}组，点击修改计划`
-                    : `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，尚未设置计划，点击设置`
-                "
-                @click="handleMuscleRowClick(slide.position, muscle)"
+              <section
+                class="plan-muscle-table-card"
+                :data-part="slide.part"
+                :aria-label="`${slide.part}肌束计划`"
               >
-                <strong>{{ muscle }}</strong>
-                <span>{{ formatSetCount(muscleTotals[muscle]) }}</span>
-                <span :class="{ unset: !hasTarget(muscle) }">
-                  {{ getTargetSets(muscle) ?? '—' }}
-                </span>
-              </button>
-            </section>
+                <header class="plan-muscle-table-heading">
+                  <span>肌束</span>
+                  <span>已安排</span>
+                  <span>计划</span>
+                </header>
+                <button
+                  v-for="muscle in getMusclesForPart(slide.part).slice(0, muscleRowLimits[slide.part])"
+                  :key="muscle"
+                  class="plan-muscle-table-row"
+                  type="button"
+                  :aria-label="
+                    hasTarget(muscle)
+                      ? `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，计划${getTargetSets(muscle)}组，点击修改计划`
+                      : `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，尚未设置计划，点击设置`
+                  "
+                  @click="handleMuscleRowClick(slide.position, muscle)"
+                >
+                  <strong>{{ muscle }}</strong>
+                  <span>{{ formatSetCount(muscleTotals[muscle]) }}</span>
+                  <span :class="{ unset: !hasTarget(muscle) }">
+                    {{ getTargetSets(muscle) ?? '—' }}
+                  </span>
+                </button>
+              </section>
+            </div>
+          </div>
+          <div
+            v-if="selectedPartMuscles.length > MUSCLE_BOARD_MIN_VISIBLE_ROWS"
+            class="plan-muscle-row-grip"
+            :data-part="selectedPart"
+            role="slider"
+            tabindex="0"
+            aria-label="调整肌束看板显示行数"
+            aria-orientation="vertical"
+            :aria-valuemin="MUSCLE_BOARD_MIN_VISIBLE_ROWS"
+            :aria-valuemax="selectedPartMuscles.length"
+            :aria-valuenow="visibleMuscleRows"
+            :aria-valuetext="`显示 ${visibleMuscleRows} / ${selectedPartMuscles.length} 条肌束`"
+            title="上下拖动调整显示行数"
+            @pointerdown="startMuscleRowResize"
+            @pointermove="moveMuscleRowResize"
+            @pointerup="endMuscleRowResize"
+            @pointercancel="endMuscleRowResize"
+            @lostpointercapture="endMuscleRowResize"
+            @keydown="handleMuscleRowResizeKey"
+          >
+            <span class="plan-muscle-row-grip-icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16"><path d="m5 6 3-3 3 3M5 10l3 3 3-3" /></svg>
+            </span>
           </div>
         </div>
       </section>
@@ -1099,11 +1169,6 @@ onBeforeRouteLeave(() =>
   stroke-width: 2;
 }
 
-.plan-header-actions {
-  display: flex;
-  gap: 6px;
-}
-
 .clear-plan-button,
 .save-plan-button {
   min-height: 34px;
@@ -1121,34 +1186,6 @@ onBeforeRouteLeave(() =>
 .save-plan-button { background: #52765b; color: #fff; }
 .clear-plan-button:disabled,
 .save-plan-button:disabled { opacity: 0.6; cursor: default; }
-
-.plan-step-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: var(--text-caption);
-  font-weight: 700;
-}
-
-.save-status {
-  min-width: 0;
-  padding: 3px 8px;
-  border-radius: var(--radius-pill);
-  background: #e3ecdf;
-  color: #52705a;
-}
-
-.save-status.dirty {
-  background: #f2ead9;
-  color: #8b7044;
-}
-
-.save-status.error {
-  background: #f5e7e4;
-  color: #a75a55;
-}
 
 .plan-muscle-board {
   min-width: 0;
@@ -1220,6 +1257,53 @@ onBeforeRouteLeave(() =>
   font-weight: 800;
 }
 
+.plan-muscle-board-frame {
+  --plan-card-inset: 10%;
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.plan-muscle-row-grip {
+  position: absolute;
+  z-index: 1;
+  right: calc(var(--plan-card-inset) - 9px);
+  bottom: -16px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.plan-muscle-row-grip-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--plan-accent) 42%, transparent);
+  border-radius: 50%;
+  background: var(--plan-soft);
+  color: color-mix(in srgb, var(--plan-accent) 70%, #263128);
+  box-shadow: 0 2px 5px rgb(48 67 52 / 15%);
+}
+
+.plan-muscle-row-grip-icon svg {
+  width: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.plan-muscle-row-grip:focus-visible .plan-muscle-row-grip-icon {
+  outline: 2px solid #46634d;
+  outline-offset: 2px;
+}
+
 .plan-muscle-card-viewport {
   --plan-slide-motion: 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
   position: relative;
@@ -1258,9 +1342,13 @@ onBeforeRouteLeave(() =>
   transition: transform var(--plan-slide-motion);
 }
 
-.plan-muscle-table-card {
+.plan-muscle-table-card,
+.plan-muscle-row-grip {
   --plan-accent: #7d8d3e;
   --plan-soft: #f1f6d8;
+}
+
+.plan-muscle-table-card {
   width: 80%;
   margin-inline: auto;
   overflow: hidden;
@@ -1280,22 +1368,22 @@ onBeforeRouteLeave(() =>
   transition: opacity var(--plan-slide-motion);
 }
 
-.plan-muscle-table-card[data-part='胸'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip)[data-part='胸'] {
   --plan-accent: #a86e63;
   --plan-soft: #f6ebe8;
 }
 
-.plan-muscle-table-card[data-part='背'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip)[data-part='背'] {
   --plan-accent: #507f73;
   --plan-soft: #e8f1ed;
 }
 
-.plan-muscle-table-card[data-part='手臂'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip)[data-part='手臂'] {
   --plan-accent: #7d6b90;
   --plan-soft: #f1eef5;
 }
 
-.plan-muscle-table-card[data-part='腿'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip)[data-part='腿'] {
   --plan-accent: #8b754d;
   --plan-soft: #f0eadb;
 }
@@ -1684,6 +1772,10 @@ onBeforeRouteLeave(() =>
 }
 
 @media (min-width: 600px) {
+  .plan-muscle-board-frame {
+    --plan-card-inset: max(10%, calc((100% - 440px) / 2));
+  }
+
   .plan-fixed-panel {
     padding-top: 18px;
   }

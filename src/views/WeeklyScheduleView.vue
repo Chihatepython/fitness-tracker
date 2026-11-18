@@ -306,7 +306,10 @@ onBeforeUnmount(() => {
           <path d="m15 5-7 7 7 7" />
         </svg>
       </RouterLink>
-      <h1>七天训练计划</h1>
+      <div class="schedule-title-copy">
+        <h1>七天训练计划</h1>
+        <span v-if="plan" class="schedule-set-count">{{ totalAllocatedSets }}/{{ totalPlannedSets }} 组</span>
+      </div>
       <WeeklyPlanMenu
         :name="plan?.name ?? '云端计划'"
         :active-id="plan?.id"
@@ -317,35 +320,31 @@ onBeforeUnmount(() => {
       />
     </header>
 
-    <WeeklyPlanSteps class="schedule-step-switcher" step="schedule" :plan-id="plan?.id" />
-
-    <div class="schedule-step-toolbar" aria-label="训练日安排操作">
-      <div class="schedule-step-status">
-        <span class="save-state" :class="{ dirty: isDirty }" aria-live="polite">
-          {{ isLoading ? '读取中…' : isSaving ? '保存中…' : savedMessage || '—' }}
-        </span>
-        <span v-if="plan" class="schedule-set-count">{{ totalAllocatedSets }}/{{ totalPlannedSets }} 组</span>
-      </div>
-      <div class="schedule-header-actions">
-        <button
-          class="clear-schedule-button"
-          :class="{ confirming: isConfirmingClear }"
-          type="button"
-          :disabled="isLoading || isSaving || !plan"
-          @click="handleClear"
-        >
-          {{ isConfirmingClear ? '确认清空' : '清空安排' }}
-        </button>
-        <button
-          class="save-schedule-button"
-          type="button"
-          :disabled="isLoading || isSaving || !isDirty"
-          @click="handleSave"
-        >
-          {{ isSaving ? '保存中' : '保存' }}
-        </button>
-      </div>
-    </div>
+    <WeeklyPlanSteps
+      class="schedule-step-switcher"
+      step="schedule"
+      :plan-id="plan?.id"
+      :status="isLoading ? '读取中…' : isSaving ? '保存中…' : errorMessage ? '出错' : savedMessage || '—'"
+      :status-tone="errorMessage ? 'error' : isLoading || isSaving ? undefined : isDirty ? 'dirty' : savedMessage === '已保存' ? 'saved' : undefined"
+    >
+      <button
+        class="clear-schedule-button"
+        :class="{ confirming: isConfirmingClear }"
+        type="button"
+        :disabled="isLoading || isSaving || !plan"
+        @click="handleClear"
+      >
+        {{ isConfirmingClear ? '确认清空' : '清空安排' }}
+      </button>
+      <button
+        class="save-schedule-button"
+        type="button"
+        :disabled="isLoading || isSaving || !isDirty"
+        @click="handleSave"
+      >
+        {{ isSaving ? '保存中' : '保存' }}
+      </button>
+    </WeeklyPlanSteps>
 
     <p v-if="errorMessage" class="page-state error" role="alert">{{ errorMessage }}</p>
     <p v-else-if="isLoading" class="page-state">正在读取云端计划…</p>
@@ -493,19 +492,6 @@ a {
   margin: 0 auto 8px;
 }
 
-.schedule-step-toolbar,
-.schedule-step-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.schedule-step-toolbar {
-  width: 95%;
-  justify-content: space-between;
-  margin: 0 auto 12px;
-}
-
 .back-link {
   display: grid;
   width: 38px;
@@ -538,30 +524,10 @@ a {
   white-space: nowrap;
 }
 
-.schedule-set-count,
-.save-state {
+.schedule-set-count {
   color: #7a887f;
   font-size: var(--text-micro);
   font-weight: 700;
-}
-
-.save-state {
-  padding: 4px 7px;
-  border-radius: var(--radius-pill);
-  background: #e2ece0;
-  color: #54705b;
-  white-space: nowrap;
-}
-
-.save-state.dirty {
-  background: #f2ead9;
-  color: #8b7044;
-}
-
-.schedule-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .clear-schedule-button,
@@ -572,6 +538,7 @@ a {
   border-radius: var(--radius-pill);
   font-size: var(--text-micro);
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .clear-schedule-button {
