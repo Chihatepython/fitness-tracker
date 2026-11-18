@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { onBeforeRouteLeave, RouterLink, useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter } from 'vue-router'
 
+import WeeklyPlanMenu from '@/components/WeeklyPlanMenu.vue'
 import WeeklyPlanSteps from '@/components/WeeklyPlanSteps.vue'
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { EXERCISES, type ExerciseId } from '@/database'
@@ -21,7 +22,9 @@ import {
 const PLAN_DAYS = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'] as const
 
 const route = useRoute()
+const router = useRouter()
 const plan = ref<CloudWeeklyPlan>()
+const cloudPlans = ref<CloudWeeklyPlan[]>([])
 const schedule = ref<WeeklyPlanSchedule>()
 const selectedCardId = ref<string>()
 const isLoading = ref(true)
@@ -32,6 +35,7 @@ const errorMessage = ref('')
 const savedMessage = ref('')
 const { initialize: initializeAuth, session } = useSupabaseAuth()
 let clearConfirmationTimer: number | undefined
+let scheduleLoadVersion = 0
 
 const exerciseById = new Map(EXERCISES.map((exercise) => [exercise.id, exercise]))
 
@@ -209,16 +213,28 @@ async function handleSave(): Promise<void> {
   }
 }
 
-onMounted(async () => {
+async function loadSchedule(planId: unknown): Promise<void> {
+  const version = ++scheduleLoadVersion
+  isLoading.value = true
+  errorMessage.value = ''
+  savedMessage.value = ''
+  isDirty.value = false
+  isConfirmingClear.value = false
+  window.clearTimeout(clearConfirmationTimer)
+  plan.value = undefined
+  schedule.value = undefined
+  selectedCardId.value = undefined
+
   try {
-    const planId = typeof route.query.plan === 'string' ? route.query.plan : undefined
-    if (!planId) throw new Error('没有指定要安排的云端计划')
+    if (typeof planId !== 'string' || !planId) throw new Error('没有指定要安排的云端计划')
 
     await initializeAuth()
     const userId = session.value?.user.id
     if (!userId) throw new Error('请先在主页登录云同步账户')
 
     const plans = await listWeeklyPlans(userId)
+    if (version !== scheduleLoadVersion) return
+    cloudPlans.value = plans
     const selectedPlan = plans.find((item) => item.id === planId)
     if (!selectedPlan) throw new Error('找不到这个云端计划')
 
@@ -243,15 +259,39 @@ onMounted(async () => {
       savedMessage.value = '已保存'
     }
   } catch (error: unknown) {
-    errorMessage.value = error instanceof Error ? error.message : '读取云端安排失败'
+    if (version === scheduleLoadVersion) {
+      errorMessage.value = error instanceof Error ? error.message : '读取云端安排失败'
+    }
   } finally {
-    isLoading.value = false
+    if (version === scheduleLoadVersion) isLoading.value = false
   }
-})
+}
 
-onBeforeRouteLeave(() =>
-  !isDirty.value || window.confirm('当前训练日安排尚未保存，离开后这些修改会丢失。继续吗？'),
-)
+function selectCloudPlan(id: string): void {
+  if (id !== route.query.plan) {
+    void router.push({ name: 'weekly-schedule', query: { plan: id } })
+  }
+}
+
+function startNewPlan(): void {
+  void router.push({ name: 'weekly-plan', query: { new: '1' } })
+}
+
+function canLeaveSchedule(): boolean {
+  return !isSaving.value &&
+    (!isDirty.value || window.confirm('当前训练日安排尚未保存，离开后这些修改会丢失。继续吗？'))
+}
+
+watch(() => route.query.plan, (id) => {
+  if (route.name === 'weekly-schedule') void loadSchedule(id)
+}, { immediate: true })
+
+onBeforeRouteUpdate((to, from) => to.query.plan === from.query.plan || canLeaveSchedule())
+onBeforeRouteLeave(canLeaveSchedule)
+onBeforeUnmount(() => {
+  scheduleLoadVersion += 1
+  window.clearTimeout(clearConfirmationTimer)
+})
 </script>
 
 <template>
@@ -266,22 +306,35 @@ onBeforeRouteLeave(() =>
           <path d="m15 5-7 7 7 7" />
         </svg>
       </RouterLink>
-      <div class="schedule-title-copy">
-        <h1>安排训练日</h1>
-        <p>{{ plan?.name ?? '云端计划' }} · {{ totalAllocatedSets }}/{{ totalPlannedSets }}组</p>
+      <h1>七天训练计划</h1>
+      <WeeklyPlanMenu
+        :name="plan?.name ?? '云端计划'"
+        :active-id="plan?.id"
+        :plans="cloudPlans"
+        :disabled="isLoading || isSaving"
+        @select="selectCloudPlan"
+        @create="startNewPlan"
+      />
+    </header>
+
+    <WeeklyPlanSteps class="schedule-step-switcher" step="schedule" :plan-id="plan?.id" />
+
+    <div class="schedule-step-toolbar" aria-label="训练日安排操作">
+      <div class="schedule-step-status">
+        <span class="save-state" :class="{ dirty: isDirty }" aria-live="polite">
+          {{ isLoading ? '读取中…' : isSaving ? '保存中…' : savedMessage || '—' }}
+        </span>
+        <span v-if="plan" class="schedule-set-count">{{ totalAllocatedSets }}/{{ totalPlannedSets }} 组</span>
       </div>
       <div class="schedule-header-actions">
-        <span class="save-state" :class="{ dirty: isDirty }" aria-live="polite">
-          {{ savedMessage || (isDirty ? '未保存' : '已保存') }}
-        </span>
         <button
           class="clear-schedule-button"
           :class="{ confirming: isConfirmingClear }"
           type="button"
-          :disabled="isLoading"
+          :disabled="isLoading || isSaving || !plan"
           @click="handleClear"
         >
-          {{ isConfirmingClear ? '确认' : '清空' }}
+          {{ isConfirmingClear ? '确认清空' : '清空安排' }}
         </button>
         <button
           class="save-schedule-button"
@@ -292,9 +345,7 @@ onBeforeRouteLeave(() =>
           {{ isSaving ? '保存中' : '保存' }}
         </button>
       </div>
-    </header>
-
-    <WeeklyPlanSteps class="schedule-step-switcher" step="schedule" :plan-id="plan?.id" />
+    </div>
 
     <p v-if="errorMessage" class="page-state error" role="alert">{{ errorMessage }}</p>
     <p v-else-if="isLoading" class="page-state">正在读取云端计划…</p>
@@ -439,6 +490,19 @@ a {
 
 .schedule-step-switcher {
   width: 95%;
+  margin: 0 auto 8px;
+}
+
+.schedule-step-toolbar,
+.schedule-step-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schedule-step-toolbar {
+  width: 95%;
+  justify-content: space-between;
   margin: 0 auto 12px;
 }
 
@@ -461,22 +525,20 @@ a {
 }
 
 .schedule-header h1,
-.schedule-header p,
 .section-heading h2,
 .section-heading p {
   margin: 0;
 }
 
-.schedule-title-copy {
-  min-width: 0;
-}
-
 .schedule-header h1 {
+  overflow: hidden;
   font-size: var(--text-title);
   letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.schedule-header p,
+.schedule-set-count,
 .save-state {
   color: #7a887f;
   font-size: var(--text-micro);

@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
+import WeeklyPlanMenu from '@/components/WeeklyPlanMenu.vue'
 import WeeklyPlanSteps from '@/components/WeeklyPlanSteps.vue'
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { EXERCISES, type ExerciseId } from '@/database'
@@ -68,7 +69,6 @@ const errorMessage = ref('')
 const cloudErrorMessage = ref('')
 const cloudPlans = ref<CloudWeeklyPlan[]>([])
 const activeCloudPlanId = ref<string>()
-const isCloudListOpen = ref(false)
 const isLoadingCloudPlans = ref(false)
 const { initialize: initializeAuth, session } = useSupabaseAuth()
 const route = useRoute()
@@ -204,6 +204,7 @@ const activeCloudPlan = computed(() =>
 )
 
 const scheduleUnavailableReason = computed(() => {
+  if (isLoading.value || cloudErrorMessage.value) return undefined
   if (!activeCloudPlanId.value) return '请先保存新计划'
   if (isDirty.value) return '请先保存当前修改'
   if (isSaving.value) return '正在保存计划…'
@@ -524,10 +525,6 @@ function getDraftExercises(): WeeklyPlanExercise[] {
   })
 }
 
-function getCloudPlanSetCount(plan: CloudWeeklyPlan): number {
-  return plan.exercises.reduce((total, exercise) => total + exercise.plannedSets, 0)
-}
-
 function getCurrentPlanContent(): WeeklyPlanDraftContent {
   return {
     startDate: startDate.value,
@@ -646,16 +643,13 @@ async function loadCloudPlans(): Promise<void> {
   }
 }
 
-async function toggleCloudPlanList(): Promise<void> {
-  isCloudListOpen.value = !isCloudListOpen.value
-  if (isCloudListOpen.value) await loadCloudPlans()
+function selectCloudPlan(id: string): void {
+  const plan = cloudPlans.value.find((item) => item.id === id)
+  if (plan) void openCloudPlan(plan)
 }
 
 async function openCloudPlan(plan: CloudWeeklyPlan): Promise<void> {
-  if (plan.id === activeCloudPlanId.value) {
-    isCloudListOpen.value = false
-    return
-  }
+  if (plan.id === activeCloudPlanId.value) return
 
   if (
     isDirty.value &&
@@ -678,7 +672,6 @@ async function openCloudPlan(plan: CloudWeeklyPlan): Promise<void> {
   )
   isConfirmingClear.value = false
   isDirty.value = false
-  isCloudListOpen.value = false
   errorMessage.value = ''
   cloudErrorMessage.value = ''
   statusMessage.value = '已保存'
@@ -697,7 +690,6 @@ async function startNewPlan(): Promise<void> {
   activeSchedule.value = createEmptyWeeklyPlanSchedule(startDate.value)
   isConfirmingClear.value = false
   isDirty.value = true
-  isCloudListOpen.value = false
   errorMessage.value = ''
   cloudErrorMessage.value = ''
   statusMessage.value = '新计划未保存'
@@ -724,7 +716,7 @@ function handleClear(): void {
 
 async function setActivePlanRoute(planId?: string): Promise<void> {
   const currentPlanId = typeof route.query.plan === 'string' ? route.query.plan : undefined
-  if (currentPlanId === planId) return
+  if (currentPlanId === planId && route.query.new === undefined) return
 
   await router.replace({
     name: 'weekly-plan',
@@ -745,7 +737,8 @@ async function initializePlan(): Promise<void> {
     const requestedPlan = cloudPlans.value.find((plan) => plan.id === requestedPlanId)
     const latestPlan = cloudPlans.value.at(-1)
 
-    if (requestedPlan) await openCloudPlan(requestedPlan)
+    if (route.query.new === '1') await startNewPlan()
+    else if (requestedPlan) await openCloudPlan(requestedPlan)
     else if (latestPlan) await openCloudPlan(latestPlan)
     else await startNewPlan()
   } catch (error: unknown) {
@@ -772,6 +765,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  window.clearTimeout(clearConfirmationTimer)
   clearMuscleBoardAnimationTimer()
   muscleBoardResizeObserver?.disconnect()
 })
@@ -791,12 +785,36 @@ onBeforeRouteLeave(() =>
           </svg>
         </RouterLink>
         <h1>七天训练计划</h1>
+        <WeeklyPlanMenu
+          :name="activeCloudPlan?.name ?? '新计划'"
+          :active-id="activeCloudPlanId"
+          :plans="cloudPlans"
+          :loading="isLoadingCloudPlans"
+          :error="cloudErrorMessage"
+          :disabled="isLoading || isSaving"
+          @open="loadCloudPlans"
+          @select="selectCloudPlan"
+          @create="startNewPlan"
+        />
+      </header>
+
+      <WeeklyPlanSteps
+        class="plan-step-switcher"
+        step="plan"
+        :plan-id="!isLoading && !cloudErrorMessage ? activeCloudPlanId : undefined"
+        :schedule-unavailable-reason="scheduleUnavailableReason"
+      />
+
+      <div class="plan-step-toolbar" aria-label="目标与动作操作">
+        <span class="save-status" :class="{ dirty: isDirty, error: cloudErrorMessage }" aria-live="polite">
+          {{ isLoading ? '读取中…' : cloudErrorMessage || (isSaving ? '保存中…' : statusMessage || '已保存') }}
+        </span>
         <div class="plan-header-actions">
           <button
             class="clear-plan-button"
             :class="{ confirming: isConfirmingClear }"
             type="button"
-            :disabled="isLoading || Boolean(cloudErrorMessage)"
+            :disabled="isLoading || isSaving || Boolean(cloudErrorMessage)"
             @click="handleClear"
           >
             {{ isConfirmingClear ? '确认清空' : '清空' }}
@@ -809,81 +827,14 @@ onBeforeRouteLeave(() =>
           >
             {{ isSaving ? '保存中…' : '保存' }}
           </button>
-          <button
-            class="cloud-plans-button"
-            type="button"
-            :aria-expanded="isCloudListOpen"
-            aria-controls="cloud-plan-list"
-            @click="toggleCloudPlanList"
-          >
-            计划
-            <svg aria-hidden="true" viewBox="0 0 16 16">
-              <path d="m4 6 4 4 4-4" />
-            </svg>
-          </button>
         </div>
-      </header>
-
-      <div
-        v-if="!isLoading || cloudErrorMessage"
-        class="plan-status-row"
-      >
-        <span class="draft-state">{{ activeCloudPlan?.name ?? '新计划' }}</span>
-        <span
-          class="save-status"
-          :class="{ dirty: isDirty, error: cloudErrorMessage && !isCloudListOpen }"
-        >
-          {{ (!isCloudListOpen && cloudErrorMessage) || statusMessage || '已保存' }}
-        </span>
       </div>
-
-      <section
-        v-if="isCloudListOpen"
-        id="cloud-plan-list"
-        class="cloud-plan-panel"
-        aria-label="云端训练计划"
-      >
-        <header>
-          <strong>云端计划</strong>
-          <button type="button" class="cloud-plan-create" @click="startNewPlan">＋ 新建</button>
-        </header>
-        <p v-if="isLoadingCloudPlans" class="cloud-plan-state">正在读取…</p>
-        <p v-else-if="cloudErrorMessage" class="cloud-plan-state error" role="alert">
-          {{ cloudErrorMessage }}
-        </p>
-        <p v-else-if="cloudPlans.length === 0" class="cloud-plan-state">
-          还没有保存到云端的训练计划
-        </p>
-        <div v-else class="cloud-plan-list">
-          <button
-            v-for="plan in cloudPlans"
-            :key="plan.id"
-            type="button"
-            :class="{ active: plan.id === activeCloudPlanId }"
-            @click="openCloudPlan(plan)"
-          >
-            <span>
-              <strong>{{ plan.name }}</strong>
-              <small>{{ plan.targets.length }} 个目标 · {{ getCloudPlanSetCount(plan) }} 组</small>
-            </span>
-            <svg aria-hidden="true" viewBox="0 0 20 20">
-              <path d="m8 5 5 5-5 5" />
-            </svg>
-          </button>
-        </div>
-      </section>
 
       <section
         v-if="!isLoading && !cloudErrorMessage"
         class="plan-muscle-board"
         aria-label="肌束目标看板"
       >
-        <WeeklyPlanSteps
-          class="plan-step-switcher"
-          step="plan"
-          :plan-id="activeCloudPlanId"
-          :schedule-unavailable-reason="scheduleUnavailableReason"
-        />
         <nav class="plan-part-selector" aria-label="选择目标部位">
           <button
             v-for="{ part, reached, planned } in partProgress"
@@ -1154,91 +1105,39 @@ onBeforeRouteLeave(() =>
 }
 
 .clear-plan-button,
-.save-plan-button,
-.cancel-cloud-button,
-.cloud-plans-button {
-  min-height: 38px;
+.save-plan-button {
+  min-height: 34px;
   padding: 0 12px;
   border: 0;
   border-radius: var(--radius-pill);
   font-size: var(--text-caption);
   font-weight: 800;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.clear-plan-button {
-  background: #f5e7e4;
-  color: #a75a55;
-}
+.clear-plan-button { background: #f5e7e4; color: #a75a55; }
+.clear-plan-button.confirming { background: #a75a55; color: #fff; }
+.save-plan-button { background: #52765b; color: #fff; }
+.clear-plan-button:disabled,
+.save-plan-button:disabled { opacity: 0.6; cursor: default; }
 
-.cancel-cloud-button {
-  background: #f1ece2;
-  color: #7b6748;
-}
-
-.clear-plan-button.confirming {
-  background: #a75a55;
-  color: #fff;
-}
-
-.save-plan-button {
-  background: #52765b;
-  color: #fff;
-}
-
-.save-plan-button:disabled {
-  cursor: wait;
-  opacity: 0.6;
-}
-
-.cloud-plans-button {
+.plan-step-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
-  background: #e3ebe0;
-  color: #46634d;
-}
-
-.cloud-plans-button svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentcolor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-  transition: transform 160ms ease;
-}
-
-.cloud-plans-button[aria-expanded='true'] svg {
-  transform: rotate(180deg);
-}
-
-.plan-status-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 5px;
-  padding: 0 3px 7px;
-  color: #718078;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
   font-size: var(--text-caption);
   font-weight: 700;
 }
 
-.draft-state {
-  padding: 3px 8px;
-  border-radius: var(--radius-pill);
-  background: #e3ecdf;
-  color: #52705a;
-  white-space: nowrap;
-}
-
 .save-status {
+  min-width: 0;
   padding: 3px 8px;
   border-radius: var(--radius-pill);
   background: #e3ecdf;
   color: #52705a;
-  white-space: nowrap;
 }
 
 .save-status.dirty {
@@ -1251,105 +1150,12 @@ onBeforeRouteLeave(() =>
   color: #a75a55;
 }
 
-.cloud-plan-panel {
-  margin: 0 0 8px;
-  padding: 10px;
-  border: 1px solid #d7e0d4;
-  border-radius: var(--radius-card);
-  background: rgb(255 255 255 / 84%);
-  box-shadow: 0 7px 20px rgb(48 67 52 / 8%);
-}
-
-.cloud-plan-panel > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2px 7px;
-  color: #43564a;
-  font-size: var(--text-caption);
-}
-
-.cloud-plan-create {
-  padding: 4px 8px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: #e3ebe0;
-  font-size: var(--text-caption);
-  font-weight: 800;
-  color: #46634d;
-}
-
-.cloud-plan-list {
-  display: grid;
-  max-height: 178px;
-  gap: 6px;
-  overflow-y: auto;
-}
-
-.cloud-plan-list button {
-  display: flex;
-  min-height: 48px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 11px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: #eef3eb;
-  color: #2d4334;
-  text-align: left;
-  cursor: pointer;
-}
-
-.cloud-plan-list button.active {
-  box-shadow: inset 0 0 0 2px #6c9275;
-}
-
-.cloud-plan-list button > span {
-  display: grid;
-  gap: 2px;
-}
-
-.cloud-plan-list button strong {
-  color: #2d4334;
-  font-size: var(--text-body);
-}
-
-.cloud-plan-list button small {
-  color: #728179;
-  font-size: var(--text-caption);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.cloud-plan-list button > svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  fill: none;
-  stroke: #728179;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.cloud-plan-state {
-  margin: 4px 0 2px;
-  color: #718078;
-  font-size: var(--text-caption);
-  text-align: center;
-}
-
-.cloud-plan-state.error {
-  color: #a75a55;
-}
-
 .plan-muscle-board {
   min-width: 0;
 }
 
 .plan-step-switcher {
-  margin-bottom: 8px;
+  margin: 5px 0 8px;
 }
 
 .plan-part-selector {
@@ -1868,9 +1674,6 @@ onBeforeRouteLeave(() =>
 .plan-back-link:focus-visible,
 .clear-plan-button:focus-visible,
 .save-plan-button:focus-visible,
-.cancel-cloud-button:focus-visible,
-.cloud-plans-button:focus-visible,
-.cloud-plan-list button:focus-visible,
 .plan-muscle-table-row:focus-visible,
 .plan-part-selector button:focus-visible,
 .exercise-scope-selector button:focus-visible,
@@ -1910,9 +1713,7 @@ onBeforeRouteLeave(() =>
   }
 
   .clear-plan-button,
-  .save-plan-button,
-  .cancel-cloud-button,
-  .cloud-plans-button {
+  .save-plan-button {
     padding-inline: 9px;
   }
 
