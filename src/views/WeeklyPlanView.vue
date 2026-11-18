@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
@@ -33,6 +33,18 @@ const PART_REGIONS: Record<PlanPart, readonly MuscleRegion[]> = {
 }
 type PlanPart = (typeof PLAN_PARTS)[number]
 type ExerciseScope = 'related' | 'all'
+type MuscleBoardSlidePosition = -1 | 0 | 1
+type MuscleBoardGestureAxis = 'pending' | 'horizontal' | 'vertical'
+
+interface MuscleBoardSlide {
+  position: MuscleBoardSlidePosition
+  part: PlanPart
+}
+
+const MUSCLE_BOARD_ANIMATION_MS = 220
+const MUSCLE_BOARD_GESTURE_THRESHOLD_PX = 7
+const MUSCLE_BOARD_SWIPE_DISTANCE_RATIO = 0.22
+const MUSCLE_BOARD_SWIPE_VELOCITY_PX_PER_MS = 0.5
 
 const selectedPart = ref<PlanPart>('肩')
 const exerciseScope = ref<ExerciseScope>('related')
@@ -58,9 +70,21 @@ const { initialize: initializeAuth, session } = useSupabaseAuth()
 const route = useRoute()
 const router = useRouter()
 let clearConfirmationTimer: number | undefined
+const muscleBoardViewport = ref<HTMLElement>()
+const muscleBoardViewportHeight = ref(0)
+const muscleBoardDragOffset = ref(0)
+const muscleBoardTransitionEnabled = ref(false)
+const isMuscleBoardDragging = ref(false)
+const isMuscleBoardAnimating = ref(false)
+const muscleBoardSlideHeights = ref<Partial<Record<MuscleBoardSlidePosition, number>>>({})
+
+let muscleBoardResizeObserver: ResizeObserver | undefined
 let muscleBoardPointerId: number | undefined
+let muscleBoardGestureAxis: MuscleBoardGestureAxis = 'pending'
 let muscleBoardStartX = 0
 let muscleBoardStartY = 0
+let muscleBoardStartTime = 0
+let muscleBoardAnimationTimer: number | undefined
 let suppressMuscleClickUntil = 0
 
 const canonicalMuscleOrder = new Map<MuscleName, number>(
@@ -68,6 +92,23 @@ const canonicalMuscleOrder = new Map<MuscleName, number>(
 )
 
 const selectedPartMuscles = computed(() => getMusclesForPart(selectedPart.value))
+const muscleBoardSlides = computed<MuscleBoardSlide[]>(() => {
+  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
+  const slides: MuscleBoardSlide[] = []
+  const previousPart = PLAN_PARTS[currentIndex - 1]
+  const nextPart = PLAN_PARTS[currentIndex + 1]
+
+  if (previousPart) slides.push({ position: -1, part: previousPart })
+  slides.push({ position: 0, part: selectedPart.value })
+  if (nextPart) slides.push({ position: 1, part: nextPart })
+
+  return slides
+})
+const muscleBoardViewportStyle = computed(() =>
+  muscleBoardViewportHeight.value > 0
+    ? { height: `${muscleBoardViewportHeight.value}px` }
+    : undefined,
+)
 
 const targetByMuscle = computed(
   () =>
@@ -224,50 +265,227 @@ function getEffectLabel(exercise: (typeof EXERCISES)[number]): string {
 }
 
 function selectPlanPart(part: PlanPart): void {
+  if (part === selectedPart.value || isMuscleBoardAnimating.value) return
+
+  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
+  const targetIndex = PLAN_PARTS.indexOf(part)
+  const distance = targetIndex - currentIndex
+
+  if (Math.abs(distance) === 1) {
+    navigateMuscleBoard(distance < 0 ? -1 : 1)
+    return
+  }
+
   selectedPart.value = part
 }
 
+function getMuscleBoardSlideStyle(position: MuscleBoardSlidePosition): Record<string, string> {
+  return {
+    transform: `translate3d(calc(${position * 100}% + ${muscleBoardDragOffset.value}px), 0, 0)`,
+    transition: muscleBoardTransitionEnabled.value
+      ? `transform ${MUSCLE_BOARD_ANIMATION_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
+      : 'none',
+  }
+}
+
+function measureMuscleBoardSlides(): void {
+  const viewport = muscleBoardViewport.value
+  if (!viewport) return
+
+  const nextHeights: Partial<Record<MuscleBoardSlidePosition, number>> = {}
+
+  for (const slide of viewport.querySelectorAll<HTMLElement>('[data-muscle-board-position]')) {
+    const position = Number(slide.dataset.muscleBoardPosition) as MuscleBoardSlidePosition
+    nextHeights[position] = slide.offsetHeight
+  }
+
+  muscleBoardSlideHeights.value = nextHeights
+
+  if (!isMuscleBoardDragging.value && !isMuscleBoardAnimating.value && nextHeights[0]) {
+    muscleBoardViewportHeight.value = nextHeights[0]
+  }
+}
+
+function observeMuscleBoardSlides(): void {
+  const viewport = muscleBoardViewport.value
+  if (!viewport || !muscleBoardResizeObserver) return
+
+  muscleBoardResizeObserver.disconnect()
+  for (const slide of viewport.querySelectorAll<HTMLElement>('[data-muscle-board-position]')) {
+    muscleBoardResizeObserver.observe(slide)
+  }
+  measureMuscleBoardSlides()
+}
+
+function getMuscleBoardTargetPosition(
+  offset: number,
+): Exclude<MuscleBoardSlidePosition, 0> | undefined {
+  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
+
+  if (offset > 0 && currentIndex > 0) return -1
+  if (offset < 0 && currentIndex < PLAN_PARTS.length - 1) return 1
+  return undefined
+}
+
+function updateMuscleBoardHeightForOffset(offset: number): void {
+  const currentHeight = muscleBoardSlideHeights.value[0]
+  const targetPosition = getMuscleBoardTargetPosition(offset)
+  const targetHeight =
+    targetPosition === undefined ? undefined : muscleBoardSlideHeights.value[targetPosition]
+  const viewportWidth = muscleBoardViewport.value?.clientWidth ?? 0
+
+  if (!currentHeight || !targetHeight || !viewportWidth) return
+
+  const progress = Math.min(Math.abs(offset) / viewportWidth, 1)
+  muscleBoardViewportHeight.value = currentHeight + (targetHeight - currentHeight) * progress
+}
+
+function clearMuscleBoardAnimationTimer(): void {
+  if (muscleBoardAnimationTimer === undefined) return
+  window.clearTimeout(muscleBoardAnimationTimer)
+  muscleBoardAnimationTimer = undefined
+}
+
+function finishMuscleBoardAtCurrentSlide(): void {
+  muscleBoardTransitionEnabled.value = true
+  isMuscleBoardAnimating.value = true
+  muscleBoardDragOffset.value = 0
+
+  const currentHeight = muscleBoardSlideHeights.value[0]
+  if (currentHeight) muscleBoardViewportHeight.value = currentHeight
+
+  clearMuscleBoardAnimationTimer()
+  muscleBoardAnimationTimer = window.setTimeout(() => {
+    muscleBoardTransitionEnabled.value = false
+    isMuscleBoardAnimating.value = false
+    muscleBoardAnimationTimer = undefined
+  }, MUSCLE_BOARD_ANIMATION_MS)
+}
+
+function navigateMuscleBoard(position: Exclude<MuscleBoardSlidePosition, 0>): void {
+  if (isMuscleBoardAnimating.value) return
+
+  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
+  const targetPart = PLAN_PARTS[currentIndex + position]
+  const viewportWidth = muscleBoardViewport.value?.clientWidth ?? 0
+
+  if (!targetPart || !viewportWidth) return
+
+  muscleBoardTransitionEnabled.value = true
+  isMuscleBoardAnimating.value = true
+  muscleBoardDragOffset.value = position === -1 ? viewportWidth : -viewportWidth
+
+  const targetHeight = muscleBoardSlideHeights.value[position]
+  if (targetHeight) muscleBoardViewportHeight.value = targetHeight
+
+  clearMuscleBoardAnimationTimer()
+  muscleBoardAnimationTimer = window.setTimeout(() => {
+    selectedPart.value = targetPart
+
+    void nextTick().then(() => {
+      muscleBoardTransitionEnabled.value = false
+      muscleBoardDragOffset.value = 0
+      isMuscleBoardAnimating.value = false
+      muscleBoardAnimationTimer = undefined
+      observeMuscleBoardSlides()
+    })
+  }, MUSCLE_BOARD_ANIMATION_MS)
+}
+
 function handleMuscleBoardPointerDown(event: PointerEvent): void {
-  if (event.button !== 0) return
+  if (event.button !== 0 || isMuscleBoardAnimating.value) return
 
   muscleBoardPointerId = event.pointerId
+  muscleBoardGestureAxis = 'pending'
   muscleBoardStartX = event.clientX
   muscleBoardStartY = event.clientY
+  muscleBoardStartTime = performance.now()
+  muscleBoardTransitionEnabled.value = false
+  muscleBoardViewport.value?.setPointerCapture(event.pointerId)
+}
+
+function handleMuscleBoardPointerMove(event: PointerEvent): void {
+  if (event.pointerId !== muscleBoardPointerId) return
+
+  const horizontalDistance = event.clientX - muscleBoardStartX
+  const verticalDistance = event.clientY - muscleBoardStartY
+
+  if (muscleBoardGestureAxis === 'pending') {
+    if (
+      Math.abs(horizontalDistance) < MUSCLE_BOARD_GESTURE_THRESHOLD_PX &&
+      Math.abs(verticalDistance) < MUSCLE_BOARD_GESTURE_THRESHOLD_PX
+    ) {
+      return
+    }
+
+    muscleBoardGestureAxis =
+      Math.abs(horizontalDistance) > Math.abs(verticalDistance) ? 'horizontal' : 'vertical'
+  }
+
+  if (muscleBoardGestureAxis !== 'horizontal') return
+
+  event.preventDefault()
+  isMuscleBoardDragging.value = true
+
+  const hasTarget = getMuscleBoardTargetPosition(horizontalDistance) !== undefined
+  const nextOffset = hasTarget ? horizontalDistance : horizontalDistance * 0.18
+  muscleBoardDragOffset.value = nextOffset
+  updateMuscleBoardHeightForOffset(nextOffset)
+}
+
+function releaseMuscleBoardPointer(event: PointerEvent): void {
+  if (muscleBoardViewport.value?.hasPointerCapture(event.pointerId)) {
+    muscleBoardViewport.value.releasePointerCapture(event.pointerId)
+  }
+  muscleBoardPointerId = undefined
 }
 
 function handleMuscleBoardPointerUp(event: PointerEvent): void {
   if (event.pointerId !== muscleBoardPointerId) return
 
-  muscleBoardPointerId = undefined
-  const horizontalDistance = event.clientX - muscleBoardStartX
-  const verticalDistance = event.clientY - muscleBoardStartY
+  const wasHorizontalGesture = muscleBoardGestureAxis === 'horizontal'
+  const offset = muscleBoardDragOffset.value
+  const elapsedTime = Math.max(performance.now() - muscleBoardStartTime, 1)
+  const velocity = Math.abs(offset) / elapsedTime
+  const viewportWidth = muscleBoardViewport.value?.clientWidth ?? 0
+  const targetPosition = getMuscleBoardTargetPosition(offset)
+  const shouldNavigate =
+    targetPosition !== undefined &&
+    (Math.abs(offset) >= viewportWidth * MUSCLE_BOARD_SWIPE_DISTANCE_RATIO ||
+      velocity >= MUSCLE_BOARD_SWIPE_VELOCITY_PX_PER_MS)
 
+  releaseMuscleBoardPointer(event)
+  muscleBoardGestureAxis = 'pending'
+
+  if (!wasHorizontalGesture) return
+
+  suppressMuscleClickUntil = Date.now() + 350
+  isMuscleBoardDragging.value = false
+
+  if (shouldNavigate && targetPosition !== undefined) navigateMuscleBoard(targetPosition)
+  else finishMuscleBoardAtCurrentSlide()
+}
+
+function handleMuscleBoardPointerCancel(event: PointerEvent): void {
+  if (event.pointerId !== muscleBoardPointerId) return
+
+  const wasHorizontalGesture = muscleBoardGestureAxis === 'horizontal'
+  releaseMuscleBoardPointer(event)
+  muscleBoardGestureAxis = 'pending'
+  isMuscleBoardDragging.value = false
+
+  if (wasHorizontalGesture) finishMuscleBoardAtCurrentSlide()
+}
+
+function handleMuscleRowClick(position: MuscleBoardSlidePosition, muscle: MuscleName): void {
   if (
-    Math.abs(horizontalDistance) < 42 ||
-    Math.abs(horizontalDistance) <= Math.abs(verticalDistance) * 1.15
+    position !== 0 ||
+    isMuscleBoardDragging.value ||
+    isMuscleBoardAnimating.value ||
+    Date.now() < suppressMuscleClickUntil
   ) {
     return
   }
-
-  const currentIndex = PLAN_PARTS.indexOf(selectedPart.value)
-  const nextIndex = Math.max(
-    0,
-    Math.min(PLAN_PARTS.length - 1, currentIndex + (horizontalDistance < 0 ? 1 : -1)),
-  )
-  const nextPart = PLAN_PARTS[nextIndex]
-
-  if (nextIndex === currentIndex || !nextPart) return
-
-  suppressMuscleClickUntil = Date.now() + 350
-  selectedPart.value = nextPart
-}
-
-function handleMuscleBoardPointerCancel(): void {
-  muscleBoardPointerId = undefined
-}
-
-function handleMuscleRowClick(muscle: MuscleName): void {
-  if (Date.now() < suppressMuscleClickUntil) return
   openTargetEditor(muscle)
 }
 
@@ -510,7 +728,26 @@ async function initializePlan(): Promise<void> {
   }
 }
 
-onMounted(() => void initializePlan())
+onMounted(async () => {
+  muscleBoardResizeObserver = new ResizeObserver(measureMuscleBoardSlides)
+  await initializePlan()
+  await nextTick()
+  observeMuscleBoardSlides()
+})
+
+watch(
+  muscleBoardSlides,
+  async () => {
+    await nextTick()
+    observeMuscleBoardSlides()
+  },
+  { flush: 'post' },
+)
+
+onBeforeUnmount(() => {
+  clearMuscleBoardAnimationTimer()
+  muscleBoardResizeObserver?.disconnect()
+})
 
 onBeforeRouteLeave(() =>
   !isDirty.value || window.confirm('当前计划还有未保存修改，离开后这些修改会丢失。继续吗？'),
@@ -631,39 +868,59 @@ onBeforeRouteLeave(() =>
           </button>
         </nav>
 
-        <div class="plan-muscle-card-viewport" aria-live="polite">
-          <section
-            class="plan-muscle-table-card"
-            :data-part="selectedPart"
-            :aria-label="`${selectedPart}肌束计划`"
-            @pointerdown="handleMuscleBoardPointerDown"
-            @pointerup="handleMuscleBoardPointerUp"
-            @pointercancel="handleMuscleBoardPointerCancel"
+        <div
+          ref="muscleBoardViewport"
+          class="plan-muscle-card-viewport"
+          :class="{
+            'is-dragging': isMuscleBoardDragging,
+            'is-animating': muscleBoardTransitionEnabled,
+          }"
+          :style="muscleBoardViewportStyle"
+          aria-live="polite"
+          @pointerdown="handleMuscleBoardPointerDown"
+          @pointermove="handleMuscleBoardPointerMove"
+          @pointerup="handleMuscleBoardPointerUp"
+          @pointercancel="handleMuscleBoardPointerCancel"
+        >
+          <div
+            v-for="slide in muscleBoardSlides"
+            :key="`${slide.position}:${slide.part}`"
+            class="plan-muscle-card-slide"
+            :class="{ 'is-current': slide.position === 0 }"
+            :data-muscle-board-position="slide.position"
+            :style="getMuscleBoardSlideStyle(slide.position)"
+            :aria-hidden="slide.position === 0 ? undefined : true"
           >
-            <header class="plan-muscle-table-heading">
-              <span>肌束</span>
-              <span>已安排</span>
-              <span>计划</span>
-            </header>
-            <button
-              v-for="muscle in selectedPartMuscles"
-              :key="muscle"
-              class="plan-muscle-table-row"
-              type="button"
-              :aria-label="
-                hasTarget(muscle)
-                  ? `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，计划${getTargetSets(muscle)}组，点击修改计划`
-                  : `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，尚未设置计划，点击设置`
-              "
-              @click="handleMuscleRowClick(muscle)"
+            <section
+              class="plan-muscle-table-card"
+              :data-part="slide.part"
+              :aria-label="`${slide.part}肌束计划`"
             >
-              <strong>{{ muscle }}</strong>
-              <span>{{ formatSetCount(muscleTotals[muscle]) }}</span>
-              <span :class="{ unset: !hasTarget(muscle) }">
-                {{ getTargetSets(muscle) ?? '—' }}
-              </span>
-            </button>
-          </section>
+              <header class="plan-muscle-table-heading">
+                <span>肌束</span>
+                <span>已安排</span>
+                <span>计划</span>
+              </header>
+              <button
+                v-for="muscle in getMusclesForPart(slide.part)"
+                :key="muscle"
+                class="plan-muscle-table-row"
+                type="button"
+                :aria-label="
+                  hasTarget(muscle)
+                    ? `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，计划${getTargetSets(muscle)}组，点击修改计划`
+                    : `${muscle}，已安排${formatSetCount(muscleTotals[muscle])}组，尚未设置计划，点击设置`
+                "
+                @click="handleMuscleRowClick(slide.position, muscle)"
+              >
+                <strong>{{ muscle }}</strong>
+                <span>{{ formatSetCount(muscleTotals[muscle]) }}</span>
+                <span :class="{ unset: !hasTarget(muscle) }">
+                  {{ getTargetSets(muscle) ?? '—' }}
+                </span>
+              </button>
+            </section>
+          </div>
           <div class="plan-muscle-swipe-hint" aria-hidden="true"><span /></div>
         </div>
       </section>
@@ -1143,8 +1400,35 @@ onBeforeRouteLeave(() =>
 
 .plan-muscle-card-viewport {
   position: relative;
+  width: 100%;
   min-height: 1px;
   overflow: hidden;
+  touch-action: pan-y;
+  transition: height 0ms;
+}
+
+.plan-muscle-card-viewport.is-animating {
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.plan-muscle-card-viewport.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.plan-muscle-card-slide {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.plan-muscle-card-slide.is-current {
+  pointer-events: auto;
 }
 
 .plan-muscle-table-card {
@@ -1158,7 +1442,6 @@ onBeforeRouteLeave(() =>
   background: var(--plan-soft);
   color: #263128;
   box-shadow: 0 5px 14px rgb(48 67 52 / 6%);
-  touch-action: pan-y;
   user-select: none;
 }
 
@@ -1238,6 +1521,7 @@ onBeforeRouteLeave(() =>
 
 .plan-muscle-swipe-hint {
   position: absolute;
+  z-index: 2;
   inset: 0 0 0 auto;
   display: grid;
   width: 10%;
