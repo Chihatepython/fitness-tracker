@@ -306,10 +306,7 @@ onBeforeUnmount(() => {
           <path d="m15 5-7 7 7 7" />
         </svg>
       </RouterLink>
-      <div class="schedule-title-copy">
-        <h1>七天训练计划</h1>
-        <span v-if="plan" class="schedule-set-count">{{ totalAllocatedSets }}/{{ totalPlannedSets }} 组</span>
-      </div>
+      <h1>七天训练计划</h1>
       <WeeklyPlanMenu
         :name="plan?.name ?? '云端计划'"
         :active-id="plan?.id"
@@ -522,12 +519,6 @@ a {
   letter-spacing: -0.035em;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.schedule-set-count {
-  color: #7a887f;
-  font-size: var(--text-micro);
-  font-weight: 700;
 }
 
 .clear-schedule-button,

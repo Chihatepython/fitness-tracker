@@ -41,6 +41,7 @@ type MuscleBoardGestureAxis = 'pending' | 'horizontal' | 'vertical'
 interface MuscleBoardSlide {
   position: MuscleBoardSlidePosition
   part: PlanPart
+  muscles: MuscleName[]
 }
 
 const MUSCLE_BOARD_ANIMATION_MS = 220
@@ -151,9 +152,9 @@ const muscleBoardSlides = computed<MuscleBoardSlide[]>(() => {
   const previousPart = PLAN_PARTS[currentIndex - 1]
   const nextPart = PLAN_PARTS[currentIndex + 1]
 
-  if (previousPart) slides.push({ position: -1, part: previousPart })
-  slides.push({ position: 0, part: selectedPart.value })
-  if (nextPart) slides.push({ position: 1, part: nextPart })
+  if (previousPart) slides.push({ position: -1, part: previousPart, muscles: getMusclesForPart(previousPart) })
+  slides.push({ position: 0, part: selectedPart.value, muscles: selectedPartMuscles.value })
+  if (nextPart) slides.push({ position: 1, part: nextPart, muscles: getMusclesForPart(nextPart) })
 
   return slides
 })
@@ -931,7 +932,7 @@ onBeforeRouteLeave(() =>
                   <span>计划</span>
                 </header>
                 <button
-                  v-for="muscle in getMusclesForPart(slide.part).slice(0, muscleRowLimits[slide.part])"
+                  v-for="muscle in slide.muscles.slice(0, muscleRowLimits[slide.part])"
                   :key="muscle"
                   class="plan-muscle-table-row"
                   type="button"
@@ -949,31 +950,31 @@ onBeforeRouteLeave(() =>
                   </span>
                 </button>
               </section>
+              <div
+                v-if="slide.muscles.length > MUSCLE_BOARD_MIN_VISIBLE_ROWS"
+                class="plan-muscle-row-grip"
+                :data-part="slide.part"
+                role="slider"
+                :tabindex="slide.position === 0 ? 0 : -1"
+                aria-label="调整肌束看板显示行数"
+                aria-orientation="vertical"
+                :aria-valuemin="MUSCLE_BOARD_MIN_VISIBLE_ROWS"
+                :aria-valuemax="slide.muscles.length"
+                :aria-valuenow="muscleRowLimits[slide.part] ?? slide.muscles.length"
+                :aria-valuetext="`显示 ${muscleRowLimits[slide.part] ?? slide.muscles.length} / ${slide.muscles.length} 条肌束`"
+                title="上下拖动调整显示行数"
+                @pointerdown.stop="startMuscleRowResize"
+                @pointermove.stop="moveMuscleRowResize"
+                @pointerup.stop="endMuscleRowResize"
+                @pointercancel.stop="endMuscleRowResize"
+                @lostpointercapture="endMuscleRowResize"
+                @keydown="handleMuscleRowResizeKey"
+              >
+                <span class="plan-muscle-row-grip-icon" aria-hidden="true">
+                  <svg viewBox="0 0 16 16"><path d="m5 6 3-3 3 3M5 10l3 3 3-3" /></svg>
+                </span>
+              </div>
             </div>
-          </div>
-          <div
-            v-if="selectedPartMuscles.length > MUSCLE_BOARD_MIN_VISIBLE_ROWS"
-            class="plan-muscle-row-grip"
-            :data-part="selectedPart"
-            role="slider"
-            tabindex="0"
-            aria-label="调整肌束看板显示行数"
-            aria-orientation="vertical"
-            :aria-valuemin="MUSCLE_BOARD_MIN_VISIBLE_ROWS"
-            :aria-valuemax="selectedPartMuscles.length"
-            :aria-valuenow="visibleMuscleRows"
-            :aria-valuetext="`显示 ${visibleMuscleRows} / ${selectedPartMuscles.length} 条肌束`"
-            title="上下拖动调整显示行数"
-            @pointerdown="startMuscleRowResize"
-            @pointermove="moveMuscleRowResize"
-            @pointerup="endMuscleRowResize"
-            @pointercancel="endMuscleRowResize"
-            @lostpointercapture="endMuscleRowResize"
-            @keydown="handleMuscleRowResizeKey"
-          >
-            <span class="plan-muscle-row-grip-icon" aria-hidden="true">
-              <svg viewBox="0 0 16 16"><path d="m5 6 3-3 3 3M5 10l3 3 3-3" /></svg>
-            </span>
           </div>
         </div>
       </section>
@@ -1260,13 +1261,12 @@ onBeforeRouteLeave(() =>
 .plan-muscle-board-frame {
   --plan-card-inset: 10%;
   position: relative;
-  margin-bottom: 12px;
 }
 
 .plan-muscle-row-grip {
   position: absolute;
   z-index: 1;
-  right: calc(var(--plan-card-inset) - 9px);
+  right: calc(var(--plan-card-inset) - 34px);
   bottom: -16px;
   display: grid;
   width: 44px;
@@ -1276,6 +1276,11 @@ onBeforeRouteLeave(() =>
   cursor: ns-resize;
   touch-action: none;
   user-select: none;
+  opacity: var(--plan-card-content-opacity);
+}
+
+.plan-muscle-card-viewport.is-animating .plan-muscle-row-grip {
+  transition: opacity var(--plan-slide-motion);
 }
 
 .plan-muscle-row-grip-icon {
@@ -1309,6 +1314,8 @@ onBeforeRouteLeave(() =>
   position: relative;
   width: 100%;
   min-height: 1px;
+  box-sizing: content-box;
+  padding-bottom: 14px;
   overflow: hidden;
   touch-action: pan-y;
   transition: height 0ms;
