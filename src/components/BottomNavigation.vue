@@ -47,6 +47,9 @@ const tabs = [
 
 <style scoped>
 .bottom-navigation {
+  --tab-bar-padding: 4px;
+  --tab-bar-border-width: 1px;
+  --tab-bar-radius: calc(var(--app-tab-bar-height) / 2);
   position: fixed;
   z-index: 20;
   right: max(14px, env(safe-area-inset-right, 0px));
@@ -58,9 +61,9 @@ const tabs = [
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 3px;
   margin: 0 auto;
-  padding: 4px;
-  border: 1px solid rgb(255 255 255 / 94%);
-  border-radius: var(--radius-pill);
+  padding: var(--tab-bar-padding);
+  border: var(--tab-bar-border-width) solid rgb(255 255 255 / 94%);
+  border-radius: var(--tab-bar-radius);
   background: #fafcf9;
   box-shadow:
     0 4px 16px rgb(31 62 40 / 12%),
@@ -85,11 +88,11 @@ const tabs = [
 
 .bottom-navigation a {
   display: grid;
-  min-height: 46px;
+  min-height: 0;
   place-content: center;
   justify-items: center;
   gap: 2px;
-  border-radius: var(--radius-pill);
+  border-radius: calc(var(--tab-bar-radius) - var(--tab-bar-padding) - var(--tab-bar-border-width));
   color: #58685e;
   font-size: var(--text-caption);
   font-weight: 700;
@@ -100,6 +103,11 @@ const tabs = [
 .bottom-navigation a[aria-current='page'] {
   background: #e1eddf;
   color: #35533e;
+}
+
+.bottom-navigation a[aria-current='page'] span {
+  color: #203f29;
+  font-weight: 800;
 }
 
 .bottom-navigation a:focus-visible {
