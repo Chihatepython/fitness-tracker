@@ -379,7 +379,7 @@ async function handleSave(): Promise<void> {
   try {
     await initializeAuth()
     const userId = session.value?.user.id
-    if (!userId) throw new Error('请先在主页登录云同步账户')
+    if (!userId) throw new Error('请先在「我的」登录云同步账户')
 
     await updateWeeklyPlanSchedule(userId, plan.value.id, schedule.value)
     plan.value.schedule = normalizeWeeklyPlanSchedule(schedule.value, plan.value.startDate)
@@ -410,7 +410,7 @@ async function loadSchedule(planId: unknown): Promise<void> {
 
     await initializeAuth()
     const userId = session.value?.user.id
-    if (!userId) throw new Error('请先在主页登录云同步账户')
+    if (!userId) throw new Error('请先在「我的」登录云同步账户')
 
     const plans = await listWeeklyPlans(userId)
     if (version !== scheduleLoadVersion) return
@@ -661,7 +661,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .schedule-page {
   min-height: 100svh;
-  padding: max(14px, env(safe-area-inset-top)) 2.5% max(28px, env(safe-area-inset-bottom));
+  padding: max(14px, env(safe-area-inset-top)) 2.5% calc(84px + env(safe-area-inset-bottom));
   background: #f0f3ec;
   color: #18251d;
 }

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { useTrainingSync } from '@/composables/useTrainingSync'
-import { TRAINING_DATA_CHANGED_EVENT } from '@/database'
 
 const email = ref('')
 const otp = ref('')
@@ -11,7 +10,6 @@ const isAwaitingOtp = ref(false)
 
 const {
   error,
-  initialize,
   isConfigured,
   isInitializing,
   isSendingOtp,
@@ -29,8 +27,6 @@ const {
   isSyncing,
   lastSyncedAt,
   pendingCount,
-  scheduleSync,
-  setAccount,
   status: syncStatus,
   syncNow,
 } = useTrainingSync()
@@ -66,34 +62,6 @@ async function submitOtp(): Promise<void> {
   }
 }
 
-function handleLocalDataChanged(): void {
-  scheduleSync()
-}
-
-function handleOnline(): void {
-  scheduleSync(0)
-}
-
-watch(
-  session,
-  (nextSession) => {
-    void setAccount(nextSession?.user.id).then(() => {
-      if (nextSession) return syncNow()
-    })
-  },
-  { immediate: true },
-)
-
-onMounted(() => {
-  window.addEventListener(TRAINING_DATA_CHANGED_EVENT, handleLocalDataChanged)
-  window.addEventListener('online', handleOnline)
-  void initialize()
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener(TRAINING_DATA_CHANGED_EVENT, handleLocalDataChanged)
-  window.removeEventListener('online', handleOnline)
-})
 </script>
 
 <template>

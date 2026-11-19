@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 import AddSetDialog from '@/components/AddSetDialog.vue'
 import CloudSyncCard from '@/components/CloudSyncCard.vue'
@@ -12,6 +13,8 @@ import { type TrainingSet } from '@/database'
 
 const DELETE_MODE_KEY = 'fitness-tracker:delete-mode'
 
+const route = useRoute()
+const activeTab = computed(() => route.meta.tab)
 const addSetDialog = ref<InstanceType<typeof AddSetDialog>>()
 const importFileInput = ref<HTMLInputElement>()
 const deleteMode = ref(localStorage.getItem(DELETE_MODE_KEY) === 'true')
@@ -172,105 +175,110 @@ async function confirmDelete(): Promise<void> {
 
 <template>
   <main class="home-shell">
-    <TrainingCalendarCard
-      :days="trainingCalendarDays"
-      :is-loading="isLoadingTrainingCalendar"
-      :error="trainingCalendarError"
-    />
-
-    <MuscleVolumeCard
-      :totals="muscleTrainingTotals"
-      :sources="muscleTrainingSources"
-      :today-totals="todayMuscleTrainingTotals"
-      :today-sources="todayMuscleTrainingSources"
-      :last-trained-hours="muscleLastTrainedHours"
-      :training-set-count="muscleTrainingSetCount"
-      :period-index="selectedMuscleTrainingPeriodIndex"
-      :week-offset="muscleTrainingPeriodWeekOffset"
-      :date-range="muscleTrainingPeriodRangeLabel"
-      :older-snapshot="olderMuscleTrainingSnapshot"
-      :newer-snapshot="newerMuscleTrainingSnapshot"
-      :is-loading="isLoadingMuscleTrainingTotals"
-      :is-loading-today="isLoadingTodaySets"
-      :error="muscleTrainingTotalsError"
-      @change-period="changeMuscleTrainingPeriod"
-      @change-week="changeMuscleTrainingPeriodWeek"
-    />
-
-    <TodayRecordsCard
-      :training-sets="todaySets"
-      :is-loading="isLoadingTodaySets"
-      :error="todaySetsError"
-      :delete-mode="deleteMode"
-      @toggle-delete-mode="toggleDeleteMode"
-      @request-delete="requestDelete"
-    />
-
-    <section class="export-section" aria-label="数据导入与导出">
-      <button
-        class="export-button"
-        type="button"
-        :disabled="isExporting || isImporting"
-        @click="exportTrainingRecords"
-      >
-        {{ isExporting ? '导出中…' : '导出 JSON' }}
-      </button>
-      <p v-if="exportStatus" class="export-status" role="status">{{ exportStatus }}</p>
-      <p v-if="exportError" class="export-error" role="alert">{{ exportError }}</p>
-
-      <button
-        class="export-button import-button"
-        type="button"
-        :disabled="isImporting || isExporting"
-        @click="openImportFilePicker"
-      >
-        {{ isImporting ? '导入中…' : '导入 JSON' }}
-      </button>
-      <input
-        ref="importFileInput"
-        class="import-file-input"
-        type="file"
-        accept=".json,application/json"
-        @change="handleImportFileChange"
+    <template v-if="activeTab === 'data'">
+      <TrainingCalendarCard
+        :days="trainingCalendarDays"
+        :is-loading="isLoadingTrainingCalendar"
+        :error="trainingCalendarError"
       />
-      <p v-if="importStatus" class="export-status" role="status">{{ importStatus }}</p>
-      <p v-if="importError" class="export-error" role="alert">{{ importError }}</p>
+
+      <MuscleVolumeCard
+        :totals="muscleTrainingTotals"
+        :sources="muscleTrainingSources"
+        :today-totals="todayMuscleTrainingTotals"
+        :today-sources="todayMuscleTrainingSources"
+        :last-trained-hours="muscleLastTrainedHours"
+        :training-set-count="muscleTrainingSetCount"
+        :period-index="selectedMuscleTrainingPeriodIndex"
+        :week-offset="muscleTrainingPeriodWeekOffset"
+        :date-range="muscleTrainingPeriodRangeLabel"
+        :older-snapshot="olderMuscleTrainingSnapshot"
+        :newer-snapshot="newerMuscleTrainingSnapshot"
+        :is-loading="isLoadingMuscleTrainingTotals"
+        :is-loading-today="isLoadingTodaySets"
+        :error="muscleTrainingTotalsError"
+        @change-period="changeMuscleTrainingPeriod"
+        @change-week="changeMuscleTrainingPeriodWeek"
+      />
+    </template>
+
+    <template v-if="activeTab === 'today'">
+      <TodayRecordsCard
+        :training-sets="todaySets"
+        :is-loading="isLoadingTodaySets"
+        :error="todaySetsError"
+        :delete-mode="deleteMode"
+        @toggle-delete-mode="toggleDeleteMode"
+        @request-delete="requestDelete"
+      />
 
       <button
-        class="export-button update-button"
+        class="add-set-button"
         type="button"
-        :disabled="isCheckingUpdate || isImporting || isExporting"
-        @click="checkForUpdate"
+        aria-label="添加一组"
+        @click="addSetDialog?.open()"
       >
-        {{ updateButtonLabel }}
+        +
       </button>
-      <p v-if="updateStatus" class="export-status" role="status">{{ updateStatus }}</p>
-      <p v-if="updateError" class="export-error" role="alert">{{ updateError }}</p>
-    </section>
 
-    <RouterLink class="performance-link" to="/performance">训练表现</RouterLink>
-    <RouterLink class="performance-link" to="/plan">七天训练计划</RouterLink>
+      <AddSetDialog ref="addSetDialog" @saved="refreshAfterSetAdded" />
 
-    <CloudSyncCard />
+      <DeleteSetDialog
+        :training-set="pendingDeleteSet"
+        :is-deleting="isDeleting"
+        :error="deleteError"
+        @cancel="closeDeleteDialog"
+        @confirm="confirmDelete"
+      />
+    </template>
 
-    <button
-      class="add-set-button"
-      type="button"
-      aria-label="添加一组"
-      @click="addSetDialog?.open()"
-    >
-      +
-    </button>
+    <template v-if="activeTab === 'me'">
+      <CloudSyncCard />
 
-    <AddSetDialog ref="addSetDialog" @saved="refreshAfterSetAdded" />
+      <section class="export-section" aria-label="数据导入与导出">
+        <button
+          class="export-button"
+          type="button"
+          :disabled="isExporting || isImporting"
+          @click="exportTrainingRecords"
+        >
+          {{ isExporting ? '导出中…' : '导出 JSON' }}
+        </button>
+        <p v-if="exportStatus" class="export-status" role="status">{{ exportStatus }}</p>
+        <p v-if="exportError" class="export-error" role="alert">{{ exportError }}</p>
 
-    <DeleteSetDialog
-      :training-set="pendingDeleteSet"
-      :is-deleting="isDeleting"
-      :error="deleteError"
-      @cancel="closeDeleteDialog"
-      @confirm="confirmDelete"
-    />
+        <button
+          class="export-button import-button"
+          type="button"
+          :disabled="isImporting || isExporting"
+          @click="openImportFilePicker"
+        >
+          {{ isImporting ? '导入中…' : '导入 JSON' }}
+        </button>
+        <input
+          ref="importFileInput"
+          class="import-file-input"
+          type="file"
+          accept=".json,application/json"
+          @change="handleImportFileChange"
+        />
+        <p v-if="importStatus" class="export-status" role="status">{{ importStatus }}</p>
+        <p v-if="importError" class="export-error" role="alert">{{ importError }}</p>
+
+        <button
+          class="export-button update-button"
+          type="button"
+          :disabled="isCheckingUpdate || isImporting || isExporting"
+          @click="checkForUpdate"
+        >
+          {{ updateButtonLabel }}
+        </button>
+        <p v-if="updateStatus" class="export-status" role="status">{{ updateStatus }}</p>
+        <p v-if="updateError" class="export-error" role="alert">{{ updateError }}</p>
+      </section>
+
+      <RouterLink class="performance-link" to="/performance">训练表现</RouterLink>
+    </template>
   </main>
 </template>
 
@@ -279,7 +287,11 @@ async function confirmDelete(): Promise<void> {
   width: min(100%, 680px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 28px 14px calc(120px + env(safe-area-inset-bottom));
+  padding: 28px 14px calc(156px + env(safe-area-inset-bottom));
+}
+
+.home-shell > :first-child {
+  margin-top: 0;
 }
 
 .export-section {
@@ -356,7 +368,7 @@ async function confirmDelete(): Promise<void> {
 .add-set-button {
   position: fixed;
   right: max(22px, calc((100vw - 680px) / 2 + 22px));
-  bottom: calc(24px + env(safe-area-inset-bottom));
+  bottom: calc(80px + env(safe-area-inset-bottom));
   display: grid;
   width: 58px;
   height: 58px;

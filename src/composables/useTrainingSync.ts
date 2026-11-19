@@ -1,7 +1,13 @@
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { getAllTrainingSetOutboxEntries, getSyncState, setActiveSyncAccountId } from '@/database'
+import {
+  getAllTrainingSetOutboxEntries,
+  getSyncState,
+  setActiveSyncAccountId,
+  TRAINING_DATA_CHANGED_EVENT,
+} from '@/database'
 import { synchronizeTrainingSets } from '@/services/trainingSync'
+import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 
 const isSyncing = ref(false)
 const pendingCount = ref(0)
@@ -109,4 +115,32 @@ export function useTrainingSync() {
     status,
     syncNow,
   }
+}
+
+// Keep automatic sync active independently of whether the account tab is open.
+export function useTrainingSyncLifecycle(): void {
+  const { initialize, session } = useSupabaseAuth()
+  const handleDataChanged = () => scheduleSync()
+  const handleOnline = () => scheduleSync(0)
+
+  watch(
+    session,
+    (nextSession) => {
+      void setAccount(nextSession?.user.id).then(() => {
+        if (nextSession) return syncNow()
+      })
+    },
+    { immediate: true },
+  )
+
+  onMounted(() => {
+    window.addEventListener(TRAINING_DATA_CHANGED_EVENT, handleDataChanged)
+    window.addEventListener('online', handleOnline)
+    void initialize()
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener(TRAINING_DATA_CHANGED_EVENT, handleDataChanged)
+    window.removeEventListener('online', handleOnline)
+  })
 }

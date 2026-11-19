@@ -225,7 +225,7 @@ onMounted(() => void loadTrainingSets())
 <template>
   <main class="performance-shell">
     <header class="performance-page-header">
-      <RouterLink class="back-link" to="/" aria-label="返回主页">
+      <RouterLink class="back-link" :to="{ name: 'profile' }" aria-label="返回我的">
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="m15 18-6-6 6-6" />
         </svg>
@@ -337,7 +337,7 @@ onMounted(() => void loadTrainingSets())
   width: min(100%, 680px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 20px 14px calc(48px + env(safe-area-inset-bottom));
+  padding: 20px 14px calc(84px + env(safe-area-inset-bottom));
 }
 
 .performance-page-header {

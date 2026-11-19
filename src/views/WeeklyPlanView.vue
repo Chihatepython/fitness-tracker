@@ -79,6 +79,7 @@ const isLoadingCloudPlans = ref(false)
 const { initialize: initializeAuth, session } = useSupabaseAuth()
 const route = useRoute()
 const router = useRouter()
+let isUnmounting = false
 let clearConfirmationTimer: number | undefined
 const muscleBoardViewport = ref<HTMLElement>()
 const muscleBoardViewportHeight = ref(0)
@@ -660,7 +661,7 @@ async function handleSave(): Promise<void> {
   try {
     await initializeAuth()
     const userId = session.value?.user.id
-    if (!userId) throw new Error('请先在主页登录云同步账户')
+    if (!userId) throw new Error('请先在「我的」登录云同步账户')
 
     const content = getCurrentPlanContent()
     const schedule = reconcileWeeklyPlanSchedule(
@@ -697,7 +698,7 @@ async function loadCloudPlans(): Promise<void> {
   try {
     await initializeAuth()
     const userId = session.value?.user.id
-    if (!userId) throw new Error('请先在主页登录云同步账户')
+    if (!userId) throw new Error('请先在「我的」登录云同步账户')
 
     cloudPlans.value = await listWeeklyPlans(userId)
   } catch (error: unknown) {
@@ -789,22 +790,46 @@ async function setActivePlanRoute(planId?: string): Promise<void> {
 }
 
 async function initializePlan(): Promise<void> {
+  const entryPath = route.fullPath
   isLoading.value = true
   errorMessage.value = ''
   cloudErrorMessage.value = ''
 
   try {
     await loadCloudPlans()
-    if (cloudErrorMessage.value) return
+    if (cloudErrorMessage.value || isUnmounting || route.fullPath !== entryPath) return
 
     const requestedPlanId = typeof route.query.plan === 'string' ? route.query.plan : undefined
     const requestedPlan = cloudPlans.value.find((plan) => plan.id === requestedPlanId)
     const latestPlan = cloudPlans.value.at(-1)
 
-    if (route.query.new === '1') await startNewPlan()
-    else if (requestedPlan) await openCloudPlan(requestedPlan)
-    else if (latestPlan) await openCloudPlan(latestPlan)
-    else await startNewPlan()
+    if (route.query.new === '1') {
+      await startNewPlan()
+    } else if (requestedPlan) {
+      await openCloudPlan(requestedPlan)
+    } else if (latestPlan) {
+      // A bare /plan is the tab entry. Explicit Step ① links include the plan ID.
+      if (route.query.plan === undefined) {
+        const planned = Object.fromEntries(
+          latestPlan.exercises.map((exercise) => [exercise.exerciseId, exercise.plannedSets]),
+        )
+        const schedule = reconcileWeeklyPlanSchedule(latestPlan.schedule, planned)
+        const hasAssignedSets = schedule.cards.some(
+          (card) => schedule.weekdayCardIds.includes(card.id) && card.exercises.length > 0,
+        )
+
+        if (hasAssignedSets) {
+          await router.replace({ name: 'weekly-schedule', query: { plan: latestPlan.id } })
+          return
+        }
+      }
+
+      await openCloudPlan(latestPlan)
+    } else {
+      await startNewPlan()
+      // An untouched empty form is not an unsaved edit.
+      isDirty.value = false
+    }
   } catch (error: unknown) {
     cloudErrorMessage.value = error instanceof Error ? error.message : '无法读取云端计划'
   } finally {
@@ -815,6 +840,7 @@ async function initializePlan(): Promise<void> {
 onMounted(async () => {
   muscleBoardResizeObserver = new ResizeObserver(measureMuscleBoardSlides)
   await initializePlan()
+  if (isUnmounting) return
   await nextTick()
   observeMuscleBoardSlides()
 })
@@ -829,6 +855,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  isUnmounting = true
   window.clearTimeout(clearConfirmationTimer)
   clearMuscleBoardAnimationTimer()
   muscleBoardResizeObserver?.disconnect()
@@ -1138,7 +1165,7 @@ onBeforeRouteLeave(() =>
   width: min(100%, 680px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 0 14px calc(60px + env(safe-area-inset-bottom));
+  padding: 0 14px calc(84px + env(safe-area-inset-bottom));
 }
 
 .plan-fixed-panel {

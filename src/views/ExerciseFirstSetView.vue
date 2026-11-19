@@ -167,7 +167,7 @@ onMounted(() => void loadTrainingSets())
   width: min(100%, 680px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 20px 14px calc(48px + env(safe-area-inset-bottom));
+  padding: 20px 14px calc(84px + env(safe-area-inset-bottom));
 }
 
 .first-set-page-header {
