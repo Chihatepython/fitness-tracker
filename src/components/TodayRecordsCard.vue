@@ -20,7 +20,19 @@ const emit = defineEmits<{
 }>()
 
 const expandedExerciseIds = ref(new Set<TrainingSet['exerciseId']>())
-const exerciseGroups = computed(() => props.workout.groups)
+const exerciseGroups = computed(() =>
+  props.workout.groups.map((group) => {
+    const name = EXERCISE_NAMES[group.exerciseId]
+    const suffixStart = name.search(/[-－–—（(]/u)
+
+    return {
+      ...group,
+      name,
+      nameMain: suffixStart > 0 ? name.slice(0, suffixStart).trimEnd() : name,
+      nameSuffix: suffixStart > 0 ? name.slice(suffixStart) : '',
+    }
+  }),
+)
 
 function isGroupExpanded(exerciseId: TrainingSet['exerciseId']): boolean {
   return expandedExerciseIds.value.has(exerciseId)
@@ -108,7 +120,9 @@ watch(exerciseGroups, (groups) => {
                 <b>{{ group.trainingSets.length }}</b> 组
                 <span v-if="workout.hasPlan" class="extra-label">· 计划外</span>
               </span>
-              <strong>{{ EXERCISE_NAMES[group.exerciseId] }}</strong>
+              <strong class="exercise-name"
+                >{{ group.nameMain }}<br v-if="group.nameSuffix" />{{ group.nameSuffix }}</strong
+              >
             </span>
 
             <span
@@ -131,7 +145,7 @@ watch(exerciseGroups, (groups) => {
                 :key="`pending-${slot}`"
                 class="set-stack set-stack--pending"
                 type="button"
-                :aria-label="`记录${EXERCISE_NAMES[group.exerciseId]}计划第${group.trainingSets.length + slot}组`"
+                :aria-label="`记录${group.name}计划第${group.trainingSets.length + slot}组`"
                 @click="emit('addPlannedSet', group.exerciseId)"
               >
                 ＋
@@ -142,7 +156,7 @@ watch(exerciseGroups, (groups) => {
               v-if="group.trainingSets.length"
               class="exercise-toggle"
               type="button"
-              :aria-label="`查看${EXERCISE_NAMES[group.exerciseId]}训练组详情`"
+              :aria-label="`查看${group.name}训练组详情`"
               :aria-expanded="isGroupExpanded(group.exerciseId)"
               :aria-controls="`exercise-details-${group.exerciseId}`"
               @click="toggleGroup(group.exerciseId)"
@@ -322,19 +336,15 @@ watch(exerciseGroups, (groups) => {
   align-self: stretch;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: center;
   gap: 3px;
 }
 
-.exercise-copy strong {
+.exercise-name {
   font-size: var(--text-body);
   line-height: 1.25;
 }
 
 .exercise-set-count {
-  position: absolute;
-  top: 5px;
-  left: 12px;
   line-height: 1.15;
 }
 
@@ -374,7 +384,6 @@ watch(exerciseGroups, (groups) => {
 }
 
 .set-stack--pending {
-  min-width: 40px;
   min-height: 44px;
   border: 1px dashed #8ca7c3;
   background: #e3ecf7;
