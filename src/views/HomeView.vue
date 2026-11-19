@@ -106,7 +106,9 @@ async function applyAvailableUpdate(): Promise<void> {
     }
   }
 
-  window.location.reload()
+  // Reload the app entry, not the current client-side route.
+  const entryUrl = new URL(import.meta.env.BASE_URL, window.location.origin)
+  window.location.replace(entryUrl.href)
 }
 
 async function checkForUpdate(): Promise<void> {

@@ -38,12 +38,17 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET' || requestUrl.origin !== self.location.origin) return
 
+  // Version checks must see the server's current HTML, not the offline cache.
+  if (requestUrl.pathname === BASE_URL && requestUrl.searchParams.has('update-check')) return
+
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const responseCopy = response.clone()
-          void caches.open(CACHE_NAME).then((cache) => cache.put(BASE_URL, responseCopy))
+          if (response.ok && response.headers.get('content-type')?.includes('text/html')) {
+            const responseCopy = response.clone()
+            void caches.open(CACHE_NAME).then((cache) => cache.put(BASE_URL, responseCopy))
+          }
           return response
         })
         .catch(() => caches.match(BASE_URL)),
