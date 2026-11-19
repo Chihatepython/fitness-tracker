@@ -74,10 +74,10 @@ watch(exerciseGroups, (groups) => {
 </script>
 
 <template>
-  <section class="dashboard-card spaced-dashboard-card" aria-labelledby="today-title">
-    <div class="section-heading">
+  <section class="dashboard-section" aria-labelledby="today-title">
+    <header class="dashboard-section-heading">
       <h2 id="today-title">训练明细</h2>
-    </div>
+    </header>
 
     <div v-if="!isLoading" class="today-heading-actions">
       <span class="set-count">已训练 {{ trainingSets.length }} 组</span>
@@ -183,7 +183,6 @@ watch(exerciseGroups, (groups) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
 }
 
 .delete-mode-button {
@@ -216,7 +215,7 @@ watch(exerciseGroups, (groups) => {
 .records-status,
 .records-empty,
 .record-list {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .records-status {

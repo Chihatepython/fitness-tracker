@@ -174,7 +174,7 @@ async function confirmDelete(): Promise<void> {
 </script>
 
 <template>
-  <main class="home-shell">
+  <main class="home-shell" :class="{ 'home-shell--today': activeTab === 'today' }">
     <template v-if="activeTab === 'data'">
       <TrainingCalendarCard
         :days="trainingCalendarDays"
@@ -287,11 +287,14 @@ async function confirmDelete(): Promise<void> {
   width: min(100%, 680px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 28px 14px calc(156px + env(safe-area-inset-bottom));
+  padding: max(28px, calc(env(safe-area-inset-top, 0px) + 12px))
+    max(14px, env(safe-area-inset-right, 0px)) calc(var(--app-tab-bar-clearance) + 20px)
+    max(14px, env(safe-area-inset-left, 0px));
 }
 
-.home-shell > :first-child {
-  margin-top: 0;
+.home-shell--today {
+  --add-set-button-bottom: calc(var(--app-tab-bar-clearance) + 14px);
+  padding-bottom: calc(var(--add-set-button-bottom) + 70px);
 }
 
 .export-section {
@@ -367,8 +370,8 @@ async function confirmDelete(): Promise<void> {
 
 .add-set-button {
   position: fixed;
-  right: max(22px, calc((100vw - 680px) / 2 + 22px));
-  bottom: calc(80px + env(safe-area-inset-bottom));
+  right: max(calc(env(safe-area-inset-right, 0px) + 8px), calc((100vw - 680px) / 2 + 22px), 22px);
+  bottom: var(--add-set-button-bottom);
   display: grid;
   width: 58px;
   height: 58px;
@@ -396,7 +399,7 @@ async function confirmDelete(): Promise<void> {
 
 @media (min-width: 600px) {
   .home-shell {
-    padding-top: 44px;
+    padding-top: max(44px, calc(env(safe-area-inset-top, 0px) + 12px));
   }
 }
 </style>

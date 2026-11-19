@@ -13,6 +13,13 @@
   --text-title: 1.25rem;
   --text-display: 1.5rem;
   --text-icon-lg: 2rem;
+  --app-tab-bar-height: 56px;
+  --app-tab-bar-bottom-fallback: 12px;
+  --app-tab-bar-bottom: max(
+    var(--app-tab-bar-bottom-fallback),
+    calc(env(safe-area-inset-bottom, 0px) + 8px)
+  );
+  --app-tab-bar-clearance: calc(var(--app-tab-bar-height) + var(--app-tab-bar-bottom));
   color: #17211a;
   background: #eef1eb;
   font-family:
@@ -20,6 +27,15 @@
     "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+/* Reserve room for the home indicator if an installed iOS web app reports a zero inset. */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) and (orientation: portrait) {
+    :root {
+      --app-tab-bar-bottom-fallback: 40px;
+    }
+  }
 }
 
 html,
@@ -64,6 +80,25 @@ p {
 
 .spaced-dashboard-card {
   margin-top: 24px;
+}
+
+.dashboard-section + .dashboard-section {
+  margin-top: 24px;
+}
+
+.dashboard-section-heading {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 4px 10px;
+}
+
+.dashboard-section-heading h2 {
+  margin: 0;
+  font-size: var(--text-title);
+  letter-spacing: -0.025em;
 }
 
 .section-heading {

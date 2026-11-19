@@ -421,11 +421,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="dashboard-card spaced-dashboard-card" aria-labelledby="muscle-title">
-    <div class="section-heading">
-      <div class="muscle-title-row">
-        <h2 id="muscle-title">肌束训练量</h2>
-      </div>
+  <section class="dashboard-section" aria-labelledby="muscle-title">
+    <header class="dashboard-section-heading">
+      <h2 id="muscle-title">肌束训练量</h2>
+    </header>
+    <div class="muscle-controls">
       <div class="muscle-control-row">
         <span v-if="!isLoading" class="set-count">已训练 {{ trainingSetCount }} 组</span>
         <select
@@ -521,26 +521,19 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.section-heading {
-  position: relative;
-  display: block;
+.muscle-controls {
+  padding-inline: 4px;
 }
 
-.muscle-title-row,
 .muscle-control-row {
   display: flex;
   align-items: center;
-}
-
-.muscle-title-row {
-  justify-content: flex-start;
 }
 
 .muscle-control-row {
   min-height: 28px;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 8px;
 }
 
 .set-count {

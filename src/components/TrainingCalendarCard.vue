@@ -36,8 +36,10 @@ watch(
 </script>
 
 <template>
-  <section class="dashboard-card training-calendar-section" aria-labelledby="calendar-title">
-    <h2 id="calendar-title">训练日历</h2>
+  <section class="dashboard-section" aria-labelledby="calendar-title">
+    <header class="dashboard-section-heading">
+      <h2 id="calendar-title">训练日历</h2>
+    </header>
 
     <div class="training-calendar-card">
       <p v-if="isLoading" class="calendar-status">正在读取训练记录…</p>
@@ -78,12 +80,6 @@ watch(
 </template>
 
 <style scoped>
-.training-calendar-section h2 {
-  margin: 0 0 14px;
-  font-size: var(--text-title);
-  letter-spacing: -0.025em;
-}
-
 .training-calendar-card {
   padding: 12px;
   border: 1px solid #e4e9e1;

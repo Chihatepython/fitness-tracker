@@ -1165,7 +1165,7 @@ onBeforeRouteLeave(() =>
   width: min(100%, 680px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 0 14px calc(84px + env(safe-area-inset-bottom));
+  padding: 0 14px calc(var(--app-tab-bar-clearance) + 20px);
 }
 
 .plan-fixed-panel {

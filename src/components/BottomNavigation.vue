@@ -49,25 +49,43 @@ const tabs = [
 .bottom-navigation {
   position: fixed;
   z-index: 20;
-  right: 0;
-  bottom: max(10px, env(safe-area-inset-bottom));
-  left: 0;
+  right: max(14px, env(safe-area-inset-right, 0px));
+  bottom: var(--app-tab-bar-bottom);
+  left: max(14px, env(safe-area-inset-left, 0px));
   display: grid;
-  width: min(440px, calc(100% - 28px));
+  max-width: 440px;
+  height: var(--app-tab-bar-height);
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 3px;
   margin: 0 auto;
   padding: 4px;
-  border: 1px solid rgb(255 255 255 / 90%);
+  border: 1px solid rgb(255 255 255 / 94%);
   border-radius: var(--radius-pill);
-  background: rgb(255 255 255 / 90%);
-  box-shadow: 0 4px 18px rgb(31 62 40 / 14%);
-  backdrop-filter: blur(16px);
+  background: #fafcf9;
+  box-shadow:
+    0 4px 16px rgb(31 62 40 / 12%),
+    0 1px 2px rgb(31 62 40 / 7%);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .bottom-navigation {
+    background: rgb(250 252 249 / 80%);
+    -webkit-backdrop-filter: blur(20px) saturate(145%);
+    backdrop-filter: blur(20px) saturate(145%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .bottom-navigation {
+    background: #fafcf9;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .bottom-navigation a {
   display: grid;
-  min-height: 48px;
+  min-height: 46px;
   place-content: center;
   justify-items: center;
   gap: 2px;

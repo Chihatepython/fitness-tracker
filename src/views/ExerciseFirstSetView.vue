@@ -167,7 +167,8 @@ onMounted(() => void loadTrainingSets())
   width: min(100%, 680px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 20px 14px calc(84px + env(safe-area-inset-bottom));
+  padding: max(20px, calc(env(safe-area-inset-top, 0px) + 8px)) 14px
+    calc(var(--app-tab-bar-clearance) + 20px);
 }
 
 .first-set-page-header {

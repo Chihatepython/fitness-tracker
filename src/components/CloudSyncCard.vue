@@ -61,101 +61,99 @@ async function submitOtp(): Promise<void> {
     otp.value = ''
   }
 }
-
 </script>
 
 <template>
-  <section
-    class="dashboard-card spaced-dashboard-card cloud-sync-card"
-    aria-labelledby="cloud-sync-title"
-  >
-    <div class="section-heading">
+  <section class="dashboard-section" aria-labelledby="cloud-sync-title">
+    <header class="dashboard-section-heading">
       <h2 id="cloud-sync-title">云同步</h2>
       <span v-if="session" class="cloud-status-pill">已登录</span>
-    </div>
+    </header>
 
-    <p class="cloud-sync-description">
-      训练记录优先保存在本机；断网时可正常使用，联网后自动与云端同步。
-    </p>
+    <div class="dashboard-card cloud-sync-card">
+      <p class="cloud-sync-description">
+        训练记录优先保存在本机；断网时可正常使用，联网后自动与云端同步。
+      </p>
 
-    <p v-if="!isConfigured" class="cloud-sync-error" role="alert">
-      尚未配置 Supabase，现有本地功能不受影响。
-    </p>
+      <p v-if="!isConfigured" class="cloud-sync-error" role="alert">
+        尚未配置 Supabase，现有本地功能不受影响。
+      </p>
 
-    <p v-else-if="isInitializing" class="cloud-sync-message" role="status">正在读取登录状态…</p>
+      <p v-else-if="isInitializing" class="cloud-sync-message" role="status">正在读取登录状态…</p>
 
-    <template v-else-if="session">
-      <p class="cloud-account">{{ accountEmail }}</p>
-      <div class="cloud-sync-summary">
-        <span>{{ lastSyncLabel }}</span>
-        <span v-if="pendingCount">待同步 {{ pendingCount }} 项</span>
-        <span v-else>本机与云端一致</span>
+      <template v-else-if="session">
+        <p class="cloud-account">{{ accountEmail }}</p>
+        <div class="cloud-sync-summary">
+          <span>{{ lastSyncLabel }}</span>
+          <span v-if="pendingCount">待同步 {{ pendingCount }} 项</span>
+          <span v-else>本机与云端一致</span>
+        </div>
+        <button class="cloud-primary-button" type="button" :disabled="isSyncing" @click="syncNow">
+          {{ isSyncing ? '同步中…' : '立即同步' }}
+        </button>
+        <button
+          class="cloud-secondary-button"
+          type="button"
+          :disabled="isSigningOut"
+          @click="signOut"
+        >
+          {{ isSigningOut ? '退出中…' : '退出登录' }}
+        </button>
+      </template>
+
+      <div v-else-if="isConfigured" class="cloud-login-form">
+        <form @submit.prevent="submitEmail">
+          <label for="cloud-email">邮箱</label>
+          <div class="cloud-login-row">
+            <input
+              id="cloud-email"
+              v-model="email"
+              autocomplete="email"
+              inputmode="email"
+              name="email"
+              placeholder="name@example.com"
+              type="email"
+              :disabled="isSendingOtp || isVerifyingOtp"
+              required
+            />
+            <button type="submit" :disabled="isSendingOtp || isVerifyingOtp">
+              {{ isSendingOtp ? '发送中…' : isAwaitingOtp ? '重新发送' : '发送验证码' }}
+            </button>
+          </div>
+        </form>
+
+        <form v-if="isAwaitingOtp" class="cloud-otp-form" @submit.prevent="submitOtp">
+          <label for="cloud-otp">邮件验证码</label>
+          <div class="cloud-login-row">
+            <input
+              id="cloud-otp"
+              v-model="otp"
+              autocomplete="one-time-code"
+              inputmode="numeric"
+              maxlength="10"
+              name="otp"
+              pattern="[0-9]{6,10}"
+              placeholder="邮件验证码"
+              type="text"
+              :disabled="isVerifyingOtp"
+              required
+            />
+            <button type="submit" :disabled="isVerifyingOtp">
+              {{ isVerifyingOtp ? '验证中…' : '确认登录' }}
+            </button>
+          </div>
+        </form>
       </div>
-      <button class="cloud-primary-button" type="button" :disabled="isSyncing" @click="syncNow">
-        {{ isSyncing ? '同步中…' : '立即同步' }}
-      </button>
-      <button
-        class="cloud-secondary-button"
-        type="button"
-        :disabled="isSigningOut"
-        @click="signOut"
-      >
-        {{ isSigningOut ? '退出中…' : '退出登录' }}
-      </button>
-    </template>
 
-    <div v-else-if="isConfigured" class="cloud-login-form">
-      <form @submit.prevent="submitEmail">
-        <label for="cloud-email">邮箱</label>
-        <div class="cloud-login-row">
-          <input
-            id="cloud-email"
-            v-model="email"
-            autocomplete="email"
-            inputmode="email"
-            name="email"
-            placeholder="name@example.com"
-            type="email"
-            :disabled="isSendingOtp || isVerifyingOtp"
-            required
-          />
-          <button type="submit" :disabled="isSendingOtp || isVerifyingOtp">
-            {{ isSendingOtp ? '发送中…' : isAwaitingOtp ? '重新发送' : '发送验证码' }}
-          </button>
-        </div>
-      </form>
+      <p v-if="!session && pendingCount" class="cloud-sync-message" role="status">
+        本机有 {{ pendingCount }} 项修改，登录后将自动上传。
+      </p>
 
-      <form v-if="isAwaitingOtp" class="cloud-otp-form" @submit.prevent="submitOtp">
-        <label for="cloud-otp">邮件验证码</label>
-        <div class="cloud-login-row">
-          <input
-            id="cloud-otp"
-            v-model="otp"
-            autocomplete="one-time-code"
-            inputmode="numeric"
-            maxlength="10"
-            name="otp"
-            pattern="[0-9]{6,10}"
-            placeholder="邮件验证码"
-            type="text"
-            :disabled="isVerifyingOtp"
-            required
-          />
-          <button type="submit" :disabled="isVerifyingOtp">
-            {{ isVerifyingOtp ? '验证中…' : '确认登录' }}
-          </button>
-        </div>
-      </form>
+      <p v-if="status" class="cloud-sync-message" role="status">{{ status }}</p>
+      <p v-if="error" class="cloud-sync-error" role="alert">{{ error }}</p>
+      <p v-if="syncStatus" class="cloud-sync-message" role="status">{{ syncStatus }}</p>
+      <p v-if="syncError" class="cloud-sync-error" role="alert">{{ syncError }}</p>
     </div>
-
-    <p v-if="!session && pendingCount" class="cloud-sync-message" role="status">
-      本机有 {{ pendingCount }} 项修改，登录后将自动上传。
-    </p>
-
-    <p v-if="status" class="cloud-sync-message" role="status">{{ status }}</p>
-    <p v-if="error" class="cloud-sync-error" role="alert">{{ error }}</p>
-    <p v-if="syncStatus" class="cloud-sync-message" role="status">{{ syncStatus }}</p>
-    <p v-if="syncError" class="cloud-sync-error" role="alert">{{ syncError }}</p>
   </section>
 </template>
 
@@ -174,7 +172,7 @@ async function submitOtp(): Promise<void> {
 }
 
 .cloud-sync-description {
-  margin: 12px 0 0;
+  margin: 0;
   color: #718078;
   font-size: var(--text-body);
   line-height: 1.55;
