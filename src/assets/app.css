@@ -109,6 +109,42 @@ p {
   letter-spacing: -0.025em;
 }
 
+.training-count {
+  color: #5d6d62;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.training-count b {
+  color: #294733;
+  font-weight: 800;
+}
+
+.status-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #5d6d62;
+  font-size: var(--text-caption);
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.status-label[data-tone='saved'] {
+  color: #46634d;
+}
+
+.status-label[data-tone='dirty'] {
+  color: #785625;
+}
+
+.status-label[data-tone='error'] {
+  color: #a32e2e;
+}
+
 .segmented-control {
   --segment-track-height: 44px;
   --segment-inset: 3px;

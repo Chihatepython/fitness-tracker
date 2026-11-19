@@ -71,7 +71,7 @@ async function submitOtp(): Promise<void> {
 
     <div class="dashboard-card cloud-sync-card">
       <div v-if="session" class="cloud-status-row">
-        <span class="cloud-status-pill">已登录</span>
+        <span class="status-label" data-tone="saved"><span aria-hidden="true">✓</span> 已登录</span>
       </div>
       <p class="cloud-sync-description">
         训练记录优先保存在本机；断网时可正常使用，联网后自动与云端同步。
@@ -168,15 +168,6 @@ async function submitOtp(): Promise<void> {
   display: flex;
   justify-content: flex-end;
   margin-bottom: 12px;
-}
-
-.cloud-status-pill {
-  padding: 5px 10px;
-  border-radius: var(--radius-pill);
-  background: #edf4e9;
-  color: #46634d;
-  font-size: var(--text-caption);
-  font-weight: 800;
 }
 
 .cloud-sync-description {
@@ -279,7 +270,7 @@ async function submitOtp(): Promise<void> {
 .cloud-sync-message,
 .cloud-sync-error {
   margin: 10px 2px 0;
-  font-size: var(--text-body);
+  font-size: var(--text-caption);
   text-align: center;
 }
 

@@ -428,7 +428,7 @@ onBeforeUnmount(() => {
     <div class="dashboard-card">
       <div>
         <div class="muscle-control-row">
-          <span v-if="!isLoading" class="set-count">已训练 {{ trainingSetCount }} 组</span>
+          <span v-if="!isLoading" class="training-count">已训练 <b>{{ trainingSetCount }}</b> 组</span>
           <select
             class="period-select"
             :value="periodIndex"
@@ -532,15 +532,6 @@ onBeforeUnmount(() => {
   min-height: 28px;
   justify-content: space-between;
   gap: 12px;
-}
-
-.set-count {
-  padding: 6px 10px;
-  border-radius: var(--radius-pill);
-  background: #e5eddf;
-  color: #46634d;
-  font-size: var(--text-caption);
-  font-weight: 800;
 }
 
 .period-date-navigation {

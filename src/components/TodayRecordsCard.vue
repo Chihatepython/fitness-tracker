@@ -81,7 +81,7 @@ watch(exerciseGroups, (groups) => {
 
     <div class="dashboard-card">
       <div v-if="!isLoading" class="today-heading-actions">
-        <span class="set-count">已训练 {{ trainingSets.length }} 组</span>
+        <span class="training-count">已训练 <b>{{ trainingSets.length }}</b> 组</span>
         <button
           v-if="trainingSets.length"
           class="delete-mode-button"
@@ -108,7 +108,9 @@ watch(exerciseGroups, (groups) => {
             @click="toggleGroup(group.exerciseId)"
           >
             <span class="exercise-copy">
-              <span class="exercise-set-count">{{ group.trainingSets.length }}组</span>
+              <span class="training-count exercise-set-count">
+                <b>{{ group.trainingSets.length }}</b> 组
+              </span>
               <strong>{{ EXERCISE_NAMES[group.exerciseId] }}</strong>
             </span>
 
@@ -172,15 +174,6 @@ watch(exerciseGroups, (groups) => {
 </template>
 
 <style scoped>
-.set-count {
-  padding: 6px 10px;
-  border-radius: var(--radius-pill);
-  background: #e5eddf;
-  color: #46634d;
-  font-size: var(--text-caption);
-  font-weight: 800;
-}
-
 .today-heading-actions {
   display: flex;
   align-items: center;
@@ -281,18 +274,9 @@ watch(exerciseGroups, (groups) => {
 
 .exercise-set-count {
   position: absolute;
-  top: 3px;
-  left: 3px;
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: var(--radius-pill);
-  background: #edf3e9;
-  color: #526b57;
-  font-size: var(--text-caption);
-  font-weight: 700;
+  top: 5px;
+  left: 12px;
   line-height: 1.15;
-  white-space: nowrap;
 }
 
 .set-sequence {

@@ -56,9 +56,9 @@ const previousStep =
       </button>
     </nav>
     <div class="step-actions" role="group" :aria-label="step === 'plan' ? '目标与动作操作' : '训练日安排操作'">
-      <span class="step-status" :data-tone="statusTone" aria-live="polite">
+      <span class="status-label step-status" :data-tone="statusTone" aria-live="polite">
+        <span v-if="statusTone === 'saved'" aria-hidden="true">✓</span>
         <span class="step-status-label">{{ status }}</span>
-        <span v-if="statusTone === 'saved'" class="step-status-check" aria-hidden="true">✓</span>
       </span>
       <slot />
     </div>
@@ -89,27 +89,6 @@ const previousStep =
 
 .step-status {
   position: relative;
-  padding: 3px 6px;
-  border-radius: var(--radius-pill);
-  background: #e3ecdf;
-  color: #52705a;
-  font-size: var(--text-micro);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.step-status[data-tone='dirty'] {
-  background: #f2ead9;
-  color: #8b7044;
-}
-
-.step-status[data-tone='error'] {
-  background: #f5e7e4;
-  color: #a75a55;
-}
-
-.step-status-check {
-  display: none;
 }
 
 .step-hint {
@@ -122,7 +101,7 @@ const previousStep =
   white-space: nowrap;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 350px) {
   .step-status[data-tone='saved'] .step-status-label {
     position: absolute;
     width: 1px;
@@ -131,12 +110,6 @@ const previousStep =
     clip-path: inset(50%);
   }
 
-  .step-status-check {
-    display: inline;
-  }
-}
-
-@media (max-width: 350px) {
   .step-option { padding-inline: 3px; }
   .step-actions { gap: 3px; }
 }
