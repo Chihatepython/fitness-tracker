@@ -12,7 +12,7 @@ defineProps<{
 
 <template>
   <div class="weekly-plan-steps">
-    <nav class="step-selector" aria-label="七天训练计划步骤">
+    <nav class="segmented-control step-selector" aria-label="七天训练计划步骤">
       <span v-if="step === 'plan'" class="step-option" aria-current="step" aria-label="步骤一：目标与动作">① 目标</span>
       <RouterLink
         v-else
@@ -65,45 +65,7 @@ defineProps<{
 }
 
 .step-selector {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   flex: 0 1 188px;
-  padding: 3px;
-  border-radius: var(--radius-control);
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e1e8df;
-}
-
-.step-option {
-  display: grid;
-  min-height: 36px;
-  place-items: center;
-  padding: 4px 6px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: #52695a;
-  font: inherit;
-  font-size: var(--text-caption);
-  font-weight: 700;
-  text-align: center;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.step-option[aria-current='step'] {
-  background: #e3ecdf;
-  color: #36513e;
-}
-
-.step-option:disabled {
-  color: #718078;
-  opacity: 0.6;
-}
-
-.step-option:focus-visible {
-  outline: 2px solid #46634d;
-  outline-offset: -2px;
 }
 
 .step-actions {

@@ -233,7 +233,7 @@ onMounted(() => void loadTrainingSets())
       <h1>训练表现</h1>
     </header>
 
-    <nav class="body-part-selector" aria-label="选择训练部位">
+    <nav class="segmented-control body-part-selector" aria-label="选择训练部位">
       <button
         v-for="bodyPart in DISPLAY_BODY_PARTS"
         :key="bodyPart"
@@ -245,7 +245,7 @@ onMounted(() => void loadTrainingSets())
       </button>
     </nav>
 
-    <nav class="muscle-selector" aria-label="选择肌束">
+    <nav class="segmented-control segmented-control--scroll muscle-selector" aria-label="选择肌束">
       <button
         v-for="option in [{ label: ALL_MUSCLES }, ...muscleOptions]"
         :key="option.label"
@@ -380,76 +380,15 @@ onMounted(() => void loadTrainingSets())
 }
 
 .body-part-selector {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 5px;
   margin: 14px 0;
-  padding: 4px;
-  border-radius: var(--radius-card);
-  background: #dfe6dc;
-}
-
-.body-part-selector button {
-  min-height: 40px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: #69756c;
-  font-size: var(--text-body);
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.body-part-selector button[aria-pressed='true'] {
-  background: #fff;
-  color: #315941;
-  box-shadow: 0 1px 4px rgb(33 55 40 / 10%);
-}
-
-.body-part-selector button:focus-visible {
-  outline: 3px solid rgb(70 99 77 / 22%);
-  outline-offset: 1px;
 }
 
 .muscle-selector {
-  display: flex;
-  gap: 7px;
   margin: -3px 0 14px;
-  padding: 1px 0 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.muscle-selector::-webkit-scrollbar {
-  display: none;
 }
 
 .muscle-selector button {
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 13px;
-  border: 1px solid #d5ddd2;
-  border-radius: var(--radius-pill);
-  background: #f7f9f5;
-  color: #738078;
-  font-size: var(--text-caption);
-  font-weight: 750;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.muscle-selector button[aria-pressed='true'] {
-  border-color: #9db4a2;
-  background: #e4eee1;
-  color: #315941;
-}
-
-.muscle-selector button:focus-visible {
-  outline: 3px solid rgb(70 99 77 / 22%);
-  outline-offset: 1px;
+  padding-inline: 12px;
 }
 
 .comparison-card {

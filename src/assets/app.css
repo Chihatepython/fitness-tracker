@@ -109,6 +109,78 @@ p {
   letter-spacing: -0.025em;
 }
 
+.segmented-control {
+  --segment-track-height: 44px;
+  --segment-inset: 3px;
+  --segment-track-radius: calc(var(--segment-track-height) / 2);
+  display: grid;
+  min-width: 0;
+  min-height: var(--segment-track-height);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  padding: var(--segment-inset);
+  border-radius: var(--segment-track-radius);
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e1e8df;
+}
+
+.segmented-control--compact {
+  display: inline-grid;
+  grid-auto-columns: minmax(max-content, 1fr);
+}
+
+.segmented-control--scroll {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.segmented-control--scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.segmented-control > * {
+  display: grid;
+  min-width: 0;
+  min-height: calc(var(--segment-track-height) - 2 * var(--segment-inset));
+  flex: 0 0 auto;
+  place-content: center;
+  justify-items: center;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: calc(var(--segment-track-radius) - var(--segment-inset));
+  background: transparent;
+  color: #65736b;
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.segmented-control > :is(button, a) {
+  cursor: pointer;
+}
+
+.segmented-control > :is([aria-pressed='true'], [aria-current='step'], [aria-current='page']) {
+  background: #e3ecdf;
+  color: #36513e;
+}
+
+.segmented-control > :disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.segmented-control > :focus-visible {
+  outline: 2px solid #46634d;
+  outline-offset: -2px;
+}
+
 .section-heading {
   display: flex;
   align-items: center;

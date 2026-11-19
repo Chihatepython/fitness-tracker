@@ -87,7 +87,7 @@ onMounted(() => void loadTrainingSets())
       </div>
     </header>
 
-    <nav class="exercise-selector" aria-label="选择动作">
+    <nav class="segmented-control segmented-control--scroll exercise-selector" aria-label="选择动作">
       <RouterLink
         v-for="exercise in supportedExercises"
         :key="exercise.id"
@@ -209,39 +209,11 @@ onMounted(() => void loadTrainingSets())
 }
 
 .exercise-selector {
-  display: flex;
-  gap: 7px;
   margin: 14px 0;
-  padding-bottom: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.exercise-selector::-webkit-scrollbar {
-  display: none;
 }
 
 .exercise-selector a {
-  min-height: 36px;
-  flex: 0 0 auto;
-  padding: 0 13px;
-  border: 1px solid #d5ddd2;
-  border-radius: var(--radius-pill);
-  background: #f7f9f5;
-  color: #738078;
-  font-size: var(--text-caption);
-  font-weight: 800;
-  line-height: 34px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.exercise-selector a[aria-current='page'] {
-  border-color: #9db4a2;
-  background: #e4eee1;
-  color: #315941;
+  padding-inline: 12px;
 }
 
 .first-set-analysis-card,

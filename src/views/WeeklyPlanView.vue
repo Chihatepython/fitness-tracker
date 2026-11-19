@@ -921,12 +921,11 @@ onBeforeRouteLeave(() =>
         class="plan-muscle-board"
         aria-label="肌束目标看板"
       >
-        <nav class="plan-part-selector" aria-label="选择目标部位">
+        <nav class="segmented-control plan-part-selector" aria-label="选择目标部位">
           <button
             v-for="{ part, reached, planned } in partProgress"
             :key="part"
             type="button"
-            :data-part="part"
             :aria-pressed="selectedPart === part"
             @click="selectPlanPart(part)"
           >
@@ -1027,7 +1026,7 @@ onBeforeRouteLeave(() =>
     <section class="plan-action-section" aria-labelledby="plan-actions-title">
       <header class="plan-action-heading">
         <h2 id="plan-actions-title">动作计划</h2>
-        <div class="exercise-scope-selector" aria-label="动作显示范围">
+        <div class="segmented-control segmented-control--compact exercise-scope-selector" role="group" aria-label="动作显示范围">
           <button
             type="button"
             :aria-pressed="exerciseScope === 'related'"
@@ -1241,70 +1240,16 @@ onBeforeRouteLeave(() =>
 }
 
 .plan-part-selector {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
   margin-bottom: 9px;
-  padding: 3px;
-  border-radius: var(--radius-control);
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #e1e8df;
 }
 
 .plan-part-selector button {
-  --part-accent: #7d8d3e;
-  --part-soft: #f0f4d3;
-  display: grid;
-  min-width: 0;
-  min-height: 38px;
-  align-items: center;
   gap: 1px;
-  padding: 4px 2px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: #fff;
-  color: #718078;
-  font-size: var(--text-caption);
-  line-height: 1.05;
-  cursor: pointer;
+  padding-inline: 2px;
 }
 
 .plan-part-selector button span:last-child {
-  overflow: hidden;
-  font-size: var(--text-micro);
   font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.plan-part-selector button[data-part='胸'] {
-  --part-accent: #a86e63;
-  --part-soft: #f4e6e1;
-}
-
-.plan-part-selector button[data-part='背'] {
-  --part-accent: #507f73;
-  --part-soft: #e0eeea;
-}
-
-.plan-part-selector button[data-part='手臂'] {
-  --part-accent: #7d6b90;
-  --part-soft: #ece7f1;
-}
-
-.plan-part-selector button[data-part='腿'] {
-  --part-accent: #8b754d;
-  --part-soft: #f0eadb;
-}
-
-.plan-part-selector button[data-part='全部'] {
-  --part-accent: #46634d;
-  --part-soft: #e3ecdf;
-}
-
-.plan-part-selector button[aria-pressed='true'] {
-  background: var(--part-soft);
-  color: var(--part-accent);
-  font-weight: 800;
 }
 
 .plan-muscle-board-frame {
@@ -1531,28 +1476,8 @@ onBeforeRouteLeave(() =>
   letter-spacing: -0.025em;
 }
 
-.exercise-scope-selector {
-  display: inline-flex;
-  padding: 3px;
-  border-radius: var(--radius-pill);
-  background: #fff;
-}
-
 .exercise-scope-selector button {
-  min-height: 32px;
-  padding: 0 11px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: #718078;
-  font-size: var(--text-caption);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.exercise-scope-selector button[aria-pressed='true'] {
-  background: #e3ecdf;
-  color: #46634d;
+  padding-inline: 11px;
 }
 
 .plan-action-sections {
@@ -1834,8 +1759,6 @@ onBeforeRouteLeave(() =>
 .clear-plan-button:focus-visible,
 .save-plan-button:focus-visible,
 .plan-muscle-table-row:focus-visible,
-.plan-part-selector button:focus-visible,
-.exercise-scope-selector button:focus-visible,
 .plan-set-stepper button:focus-visible,
 .target-dialog button:focus-visible {
   outline: 3px solid rgb(70 99 77 / 22%);

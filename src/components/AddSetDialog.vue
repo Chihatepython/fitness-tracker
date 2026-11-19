@@ -361,12 +361,11 @@ defineExpose({ open })
           <label v-if="activePanelMode === 'classic'" for="exercise-select">动作</label>
           <div v-else class="alternate-exercise-heading">
             <label for="exercise-select">动作</label>
-            <div class="body-part-filter" role="group" aria-label="按部位筛选动作">
+            <div class="segmented-control body-part-filter" role="group" aria-label="按部位筛选动作">
               <button
                 v-for="bodyPart in bodyPartOptions"
                 :key="bodyPart"
                 type="button"
-                :class="{ selected: selectedBodyPart === bodyPart }"
                 :aria-pressed="selectedBodyPart === bodyPart"
                 :disabled="!availableBodyParts.has(bodyPart)"
                 @click="selectBodyPart(bodyPart)"
@@ -666,39 +665,11 @@ label + label,
 }
 
 .body-part-filter {
-  display: flex;
-  min-width: 0;
-  gap: 4px;
+  width: min(100%, 202px);
 }
 
 .body-part-filter button {
-  display: grid;
-  width: 32px;
-  height: 30px;
-  place-items: center;
-  padding: 0;
-  border: 1px solid #d5ddd1;
-  border-radius: var(--radius-sm);
-  background: #fff;
-  color: #657169;
-  font: inherit;
-  font-size: var(--text-caption);
-  font-weight: 750;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.body-part-filter button.selected {
-  border-color: #789383;
-  background: #e5eddf;
-  color: #285b39;
-}
-
-.body-part-filter button:disabled {
-  background: #edf0eb;
-  color: #afb6b0;
-  cursor: default;
+  padding-inline: 2px;
 }
 
 .exercise-control-row {
