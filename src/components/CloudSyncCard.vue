@@ -67,10 +67,12 @@ async function submitOtp(): Promise<void> {
   <section class="dashboard-section" aria-labelledby="cloud-sync-title">
     <header class="dashboard-section-heading">
       <h2 id="cloud-sync-title">云同步</h2>
-      <span v-if="session" class="cloud-status-pill">已登录</span>
     </header>
 
     <div class="dashboard-card cloud-sync-card">
+      <div v-if="session" class="cloud-status-row">
+        <span class="cloud-status-pill">已登录</span>
+      </div>
       <p class="cloud-sync-description">
         训练记录优先保存在本机；断网时可正常使用，联网后自动与云端同步。
       </p>
@@ -160,6 +162,12 @@ async function submitOtp(): Promise<void> {
 <style scoped>
 .cloud-sync-card {
   color: #263a2d;
+}
+
+.cloud-status-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
 }
 
 .cloud-status-pill {

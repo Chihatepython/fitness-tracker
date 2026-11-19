@@ -15,9 +15,10 @@
   --text-icon-lg: 2rem;
   --app-tab-bar-height: 56px;
   --app-tab-bar-bottom-fallback: 12px;
+  --app-tab-bar-inset-adjustment: 0px;
   --app-tab-bar-bottom: max(
     var(--app-tab-bar-bottom-fallback),
-    calc(env(safe-area-inset-bottom, 0px) + 8px)
+    calc(env(safe-area-inset-bottom, 0px) + var(--app-tab-bar-inset-adjustment))
   );
   --app-tab-bar-clearance: calc(var(--app-tab-bar-height) + var(--app-tab-bar-bottom));
   color: #17211a;
@@ -29,11 +30,18 @@
   text-rendering: optimizeLegibility;
 }
 
-/* Reserve room for the home indicator if an installed iOS web app reports a zero inset. */
+/* The portrait safe area extends above the indicator; use part of it for the tab bar. */
+@media (orientation: portrait) {
+  :root {
+    --app-tab-bar-inset-adjustment: -14px;
+  }
+}
+
+/* Keep a gap above the indicator if iOS standalone reports a zero inset. */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (orientation: portrait) {
     :root {
-      --app-tab-bar-bottom-fallback: 40px;
+      --app-tab-bar-bottom-fallback: 20px;
     }
   }
 }

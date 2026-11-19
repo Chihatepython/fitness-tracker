@@ -425,90 +425,92 @@ onBeforeUnmount(() => {
     <header class="dashboard-section-heading">
       <h2 id="muscle-title">肌束训练量</h2>
     </header>
-    <div class="muscle-controls">
-      <div class="muscle-control-row">
-        <span v-if="!isLoading" class="set-count">已训练 {{ trainingSetCount }} 组</span>
-        <select
-          class="period-select"
-          :value="periodIndex"
-          :disabled="isLoading || isAnimating"
-          aria-label="选择肌束训练量统计周期"
-          @change="handlePeriodChange"
-        >
-          <option v-for="(period, index) in TRAINING_PERIODS" :key="period.id" :value="index">
-            {{ period.label }}
-          </option>
-        </select>
+    <div class="dashboard-card">
+      <div>
+        <div class="muscle-control-row">
+          <span v-if="!isLoading" class="set-count">已训练 {{ trainingSetCount }} 组</span>
+          <select
+            class="period-select"
+            :value="periodIndex"
+            :disabled="isLoading || isAnimating"
+            aria-label="选择肌束训练量统计周期"
+            @change="handlePeriodChange"
+          >
+            <option v-for="(period, index) in TRAINING_PERIODS" :key="period.id" :value="index">
+              {{ period.label }}
+            </option>
+          </select>
+        </div>
+        <div class="period-date-navigation">
+          <button
+            v-if="selectedPeriod.canNavigateWeeks"
+            class="period-arrow-button period-arrow-button--previous"
+            type="button"
+            :disabled="isLoading || isAnimating"
+            aria-label="查看上一个肌束统计周"
+            @click="handleArrowNavigation(-1)"
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="m15 5-7 7 7 7" />
+            </svg>
+          </button>
+          <span class="date-range">{{ dateRange }}</span>
+          <button
+            v-if="selectedPeriod.canNavigateWeeks"
+            class="period-arrow-button period-arrow-button--next"
+            type="button"
+            :disabled="isLoading || isAnimating || weekOffset === 0"
+            aria-label="查看下一个肌束统计周"
+            @click="handleArrowNavigation(1)"
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="m9 5 7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <div class="period-date-navigation">
-        <button
-          v-if="selectedPeriod.canNavigateWeeks"
-          class="period-arrow-button period-arrow-button--previous"
-          type="button"
-          :disabled="isLoading || isAnimating"
-          aria-label="查看上一个肌束统计周"
-          @click="handleArrowNavigation(-1)"
-        >
-          <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-            <path d="m15 5-7 7 7 7" />
-          </svg>
-        </button>
-        <span class="date-range">{{ dateRange }}</span>
-        <button
-          v-if="selectedPeriod.canNavigateWeeks"
-          class="period-arrow-button period-arrow-button--next"
-          type="button"
-          :disabled="isLoading || isAnimating || weekOffset === 0"
-          aria-label="查看下一个肌束统计周"
-          @click="handleArrowNavigation(1)"
-        >
-          <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-            <path d="m9 5 7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-    </div>
 
-    <div
-      ref="carouselViewport"
-      class="muscle-carousel"
-      :class="{ 'is-dragging': isDragging, 'is-animating': transitionEnabled }"
-      :style="carouselStyle"
-      @pointerdown="handlePointerDown"
-      @pointermove="handlePointerMove"
-      @pointerup="handlePointerUp"
-      @pointercancel="handlePointerCancel"
-    >
       <div
-        v-for="slide in carouselSlides"
-        :key="`${slide.position}:${slide.snapshot.periodIndex}:${slide.snapshot.weekOffset}`"
-        class="muscle-carousel-slide"
-        :class="{ 'is-current': slide.position === 0 }"
-        :data-slide-position="slide.position"
-        :style="getSlideStyle(slide.position)"
-        :aria-hidden="slide.position === 0 ? undefined : true"
+        ref="carouselViewport"
+        class="muscle-carousel"
+        :class="{ 'is-dragging': isDragging, 'is-animating': transitionEnabled }"
+        :style="carouselStyle"
+        @pointerdown="handlePointerDown"
+        @pointermove="handlePointerMove"
+        @pointerup="handlePointerUp"
+        @pointercancel="handlePointerCancel"
       >
-        <MuscleVolumeTable
-          :totals="slide.snapshot.totals"
-          :today-totals="todayTotals"
-          :last-trained-hours="lastTrainedHours"
-          :show-today-column="slide.snapshot.weekOffset === 0 && showTodayColumn"
-          :show-region-column="showRegionColumn"
-          :show-elapsed-column="slide.snapshot.weekOffset === 0 && showElapsedColumn"
-          :allow-current-columns="slide.snapshot.weekOffset === 0"
-          :is-loading="slide.position === 0 && isLoading"
-          :is-loading-today="isLoadingToday"
-          :error="slide.position === 0 ? error : ''"
-          @select-muscle="handleMuscleSelection(slide.position, $event, 'period')"
-          @select-today-muscle="handleMuscleSelection(slide.position, $event, 'today')"
-          @toggle-today-column="handleTableToggle(slide.position)"
-          @toggle-region-column="handleRegionToggle(slide.position)"
-          @toggle-elapsed-column="handleElapsedToggle(slide.position)"
-        />
+        <div
+          v-for="slide in carouselSlides"
+          :key="`${slide.position}:${slide.snapshot.periodIndex}:${slide.snapshot.weekOffset}`"
+          class="muscle-carousel-slide"
+          :class="{ 'is-current': slide.position === 0 }"
+          :data-slide-position="slide.position"
+          :style="getSlideStyle(slide.position)"
+          :aria-hidden="slide.position === 0 ? undefined : true"
+        >
+          <MuscleVolumeTable
+            :totals="slide.snapshot.totals"
+            :today-totals="todayTotals"
+            :last-trained-hours="lastTrainedHours"
+            :show-today-column="slide.snapshot.weekOffset === 0 && showTodayColumn"
+            :show-region-column="showRegionColumn"
+            :show-elapsed-column="slide.snapshot.weekOffset === 0 && showElapsedColumn"
+            :allow-current-columns="slide.snapshot.weekOffset === 0"
+            :is-loading="slide.position === 0 && isLoading"
+            :is-loading-today="isLoadingToday"
+            :error="slide.position === 0 ? error : ''"
+            @select-muscle="handleMuscleSelection(slide.position, $event, 'period')"
+            @select-today-muscle="handleMuscleSelection(slide.position, $event, 'today')"
+            @toggle-today-column="handleTableToggle(slide.position)"
+            @toggle-region-column="handleRegionToggle(slide.position)"
+            @toggle-elapsed-column="handleElapsedToggle(slide.position)"
+          />
+        </div>
       </div>
-    </div>
 
-    <p v-if="error" class="section-error" role="alert">{{ error }}</p>
+      <p v-if="error" class="section-error" role="alert">{{ error }}</p>
+    </div>
   </section>
 
   <MuscleSourceDialog
@@ -521,10 +523,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.muscle-controls {
-  padding-inline: 4px;
-}
-
 .muscle-control-row {
   display: flex;
   align-items: center;

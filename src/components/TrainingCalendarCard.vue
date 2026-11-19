@@ -41,38 +41,43 @@ watch(
       <h2 id="calendar-title">训练日历</h2>
     </header>
 
-    <div class="training-calendar-card">
-      <p v-if="isLoading" class="calendar-status">正在读取训练记录…</p>
-      <p v-else-if="error" class="calendar-status calendar-error" role="alert">
-        {{ error }}
-      </p>
-      <div v-else>
-        <ol class="calendar-weekdays" aria-hidden="true">
-          <li v-for="weekday in CALENDAR_WEEKDAYS" :key="weekday">{{ weekday }}</li>
-        </ol>
-        <div
-          ref="calendarScroll"
-          class="calendar-scroll"
-          role="region"
-          aria-label="可上下滑动的训练日历"
-          tabindex="0"
-        >
-          <ol class="calendar-grid">
-            <li
-              v-for="calendarDay in days"
-              :key="calendarDay.date"
-              class="calendar-day"
-              :class="{ today: calendarDay.isToday, future: calendarDay.isFuture }"
-              :data-body-part="calendarDay.bodyPart"
-            >
-              <time :datetime="calendarDay.date" :aria-label="getCalendarDayAriaLabel(calendarDay)">
-                <strong>{{ formatCalendarDay(calendarDay) }}</strong>
-              </time>
-              <span class="calendar-body-part">
-                {{ calendarDay.isFuture ? '—' : (calendarDay.bodyPart ?? '') }}
-              </span>
-            </li>
+    <div class="dashboard-card">
+      <div class="training-calendar-card">
+        <p v-if="isLoading" class="calendar-status">正在读取训练记录…</p>
+        <p v-else-if="error" class="calendar-status calendar-error" role="alert">
+          {{ error }}
+        </p>
+        <div v-else>
+          <ol class="calendar-weekdays" aria-hidden="true">
+            <li v-for="weekday in CALENDAR_WEEKDAYS" :key="weekday">{{ weekday }}</li>
           </ol>
+          <div
+            ref="calendarScroll"
+            class="calendar-scroll"
+            role="region"
+            aria-label="可上下滑动的训练日历"
+            tabindex="0"
+          >
+            <ol class="calendar-grid">
+              <li
+                v-for="calendarDay in days"
+                :key="calendarDay.date"
+                class="calendar-day"
+                :class="{ today: calendarDay.isToday, future: calendarDay.isFuture }"
+                :data-body-part="calendarDay.bodyPart"
+              >
+                <time
+                  :datetime="calendarDay.date"
+                  :aria-label="getCalendarDayAriaLabel(calendarDay)"
+                >
+                  <strong>{{ formatCalendarDay(calendarDay) }}</strong>
+                </time>
+                <span class="calendar-body-part">
+                  {{ calendarDay.isFuture ? '—' : (calendarDay.bodyPart ?? '') }}
+                </span>
+              </li>
+            </ol>
+          </div>
         </div>
       </div>
     </div>

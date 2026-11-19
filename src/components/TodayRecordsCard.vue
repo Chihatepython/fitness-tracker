@@ -79,92 +79,94 @@ watch(exerciseGroups, (groups) => {
       <h2 id="today-title">训练明细</h2>
     </header>
 
-    <div v-if="!isLoading" class="today-heading-actions">
-      <span class="set-count">已训练 {{ trainingSets.length }} 组</span>
-      <button
-        v-if="trainingSets.length"
-        class="delete-mode-button"
-        type="button"
-        :aria-label="deleteMode ? '关闭删除模式' : '开启删除模式'"
-        :aria-pressed="deleteMode"
-        @click="emit('toggleDeleteMode')"
-      >
-        <span aria-hidden="true">×</span>
-      </button>
-    </div>
-
-    <p v-if="isLoading" class="records-status">正在读取记录…</p>
-    <p v-else-if="error" class="records-status records-error" role="alert">
-      {{ error }}
-    </p>
-    <ul v-else-if="trainingSets.length" class="record-list">
-      <li v-for="group in exerciseGroups" :key="group.exerciseId" class="exercise-group">
+    <div class="dashboard-card">
+      <div v-if="!isLoading" class="today-heading-actions">
+        <span class="set-count">已训练 {{ trainingSets.length }} 组</span>
         <button
-          class="exercise-summary"
+          v-if="trainingSets.length"
+          class="delete-mode-button"
           type="button"
-          :aria-expanded="isGroupExpanded(group.exerciseId)"
-          :aria-controls="`exercise-details-${group.exerciseId}`"
-          @click="toggleGroup(group.exerciseId)"
+          :aria-label="deleteMode ? '关闭删除模式' : '开启删除模式'"
+          :aria-pressed="deleteMode"
+          @click="emit('toggleDeleteMode')"
         >
-          <span class="exercise-copy">
-            <span class="exercise-set-count">{{ group.trainingSets.length }}组</span>
-            <strong>{{ EXERCISE_NAMES[group.exerciseId] }}</strong>
-          </span>
-
-          <span class="set-sequence">
-            <span
-              v-for="trainingSet in group.trainingSets"
-              :key="trainingSet.id"
-              class="set-stack"
-              :aria-label="`${formatWeight(trainingSet.weightKg)}公斤，${trainingSet.reps}次`"
-            >
-              <b>{{ formatWeight(trainingSet.weightKg) }}</b>
-              <small>{{ trainingSet.reps }}</small>
-            </span>
-          </span>
-
-          <svg
-            class="summary-chevron"
-            :class="{ 'is-expanded': isGroupExpanded(group.exerciseId) }"
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-          >
-            <path d="m7 10 5 5 5-5" />
-          </svg>
+          <span aria-hidden="true">×</span>
         </button>
+      </div>
 
-        <div
-          v-if="isGroupExpanded(group.exerciseId)"
-          :id="`exercise-details-${group.exerciseId}`"
-          class="set-details"
-        >
-          <div
-            v-for="(trainingSet, trainingSetIndex) in group.trainingSets"
-            :key="trainingSet.id"
-            class="set-detail-row"
-            :class="{ 'has-delete-action': deleteMode }"
+      <p v-if="isLoading" class="records-status">正在读取记录…</p>
+      <p v-else-if="error" class="records-status records-error" role="alert">
+        {{ error }}
+      </p>
+      <ul v-else-if="trainingSets.length" class="record-list">
+        <li v-for="group in exerciseGroups" :key="group.exerciseId" class="exercise-group">
+          <button
+            class="exercise-summary"
+            type="button"
+            :aria-expanded="isGroupExpanded(group.exerciseId)"
+            :aria-controls="`exercise-details-${group.exerciseId}`"
+            @click="toggleGroup(group.exerciseId)"
           >
-            <span>第 {{ trainingSetIndex + 1 }} 组</span>
-            <strong>{{ formatWeight(trainingSet.weightKg) }} kg × {{ trainingSet.reps }}</strong>
-            <span class="rir-value">RIR {{ trainingSet.rir }}</span>
-            <button
-              v-if="deleteMode"
-              class="delete-record-button"
-              type="button"
-              :aria-label="`删除${EXERCISE_NAMES[trainingSet.exerciseId]}第${trainingSetIndex + 1}组`"
-              @click="emit('requestDelete', trainingSet)"
+            <span class="exercise-copy">
+              <span class="exercise-set-count">{{ group.trainingSets.length }}组</span>
+              <strong>{{ EXERCISE_NAMES[group.exerciseId] }}</strong>
+            </span>
+
+            <span class="set-sequence">
+              <span
+                v-for="trainingSet in group.trainingSets"
+                :key="trainingSet.id"
+                class="set-stack"
+                :aria-label="`${formatWeight(trainingSet.weightKg)}公斤，${trainingSet.reps}次`"
+              >
+                <b>{{ formatWeight(trainingSet.weightKg) }}</b>
+                <small>{{ trainingSet.reps }}</small>
+              </span>
+            </span>
+
+            <svg
+              class="summary-chevron"
+              :class="{ 'is-expanded': isGroupExpanded(group.exerciseId) }"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
             >
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
-              </svg>
-            </button>
+              <path d="m7 10 5 5 5-5" />
+            </svg>
+          </button>
+
+          <div
+            v-if="isGroupExpanded(group.exerciseId)"
+            :id="`exercise-details-${group.exerciseId}`"
+            class="set-details"
+          >
+            <div
+              v-for="(trainingSet, trainingSetIndex) in group.trainingSets"
+              :key="trainingSet.id"
+              class="set-detail-row"
+              :class="{ 'has-delete-action': deleteMode }"
+            >
+              <span>第 {{ trainingSetIndex + 1 }} 组</span>
+              <strong>{{ formatWeight(trainingSet.weightKg) }} kg × {{ trainingSet.reps }}</strong>
+              <span class="rir-value">RIR {{ trainingSet.rir }}</span>
+              <button
+                v-if="deleteMode"
+                class="delete-record-button"
+                type="button"
+                :aria-label="`删除${EXERCISE_NAMES[trainingSet.exerciseId]}第${trainingSetIndex + 1}组`"
+                @click="emit('requestDelete', trainingSet)"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
-      </li>
-    </ul>
-    <div v-else class="records-empty">
-      <h3>今天还没有训练记录</h3>
-      <p>点击右下角的 + 添加第一组。</p>
+        </li>
+      </ul>
+      <div v-else class="records-empty">
+        <h3>今天还没有训练记录</h3>
+        <p>点击右下角的 + 添加第一组。</p>
+      </div>
     </div>
   </section>
 </template>
@@ -215,7 +217,7 @@ watch(exerciseGroups, (groups) => {
 .records-status,
 .records-empty,
 .record-list {
-  margin-top: 12px;
+  margin-top: 16px;
 }
 
 .records-status {
