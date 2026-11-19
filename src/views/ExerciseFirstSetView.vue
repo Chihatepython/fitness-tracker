@@ -11,6 +11,7 @@ import {
   type FirstSetExerciseId,
 } from '@/domain/firstSetPerformance'
 import { formatWeight } from '@/domain/trainingStats'
+import { vSegmentHighlight } from '@/directives/segmentHighlight'
 
 const route = useRoute()
 const trainingSets = ref<TrainingSet[]>([])
@@ -87,7 +88,7 @@ onMounted(() => void loadTrainingSets())
       </div>
     </header>
 
-    <nav class="segmented-control segmented-control--scroll exercise-selector" aria-label="选择动作">
+    <nav v-segment-highlight class="segmented-control segmented-control--scroll exercise-selector" aria-label="选择动作">
       <RouterLink
         v-for="exercise in supportedExercises"
         :key="exercise.id"

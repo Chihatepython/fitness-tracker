@@ -113,6 +113,8 @@ p {
   --segment-track-height: 44px;
   --segment-inset: 3px;
   --segment-track-radius: calc(var(--segment-track-height) / 2);
+  position: relative;
+  isolation: isolate;
   display: grid;
   min-width: 0;
   min-height: var(--segment-track-height);
@@ -141,6 +143,7 @@ p {
 }
 
 .segmented-control > * {
+  position: relative;
   display: grid;
   min-width: 0;
   min-height: calc(var(--segment-track-height) - 2 * var(--segment-inset));
@@ -167,8 +170,39 @@ p {
 }
 
 .segmented-control > :is([aria-pressed='true'], [aria-current='step'], [aria-current='page']) {
-  background: #e3ecdf;
-  color: #36513e;
+  background: var(--segment-selected-fill, #e3ecdf);
+  color: var(--segment-selected-ink, #36513e);
+}
+
+.segmented-control[data-segment-highlight]::before {
+  position: absolute;
+  z-index: -1;
+  inset: var(--segment-inset) auto var(--segment-inset) 0;
+  width: var(--segment-highlight-width, 0px);
+  transform: translateX(var(--segment-highlight-x, 0px));
+  border-radius: calc(var(--segment-track-radius) - var(--segment-inset));
+  background-color: var(--segment-highlight-color, #e3ecdf);
+  pointer-events: none;
+  content: '';
+}
+
+.segmented-control[data-segment-highlight] > :is([aria-pressed='true'], [aria-current='step'], [aria-current='page']) {
+  background: transparent;
+}
+
+.segmented-control[data-segment-ready]::before {
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1), width 220ms ease, background-color 220ms ease;
+}
+
+.segmented-control[data-segment-ready] > * {
+  transition: color 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented-control[data-segment-ready]::before,
+  .segmented-control[data-segment-ready] > * {
+    transition: none;
+  }
 }
 
 .segmented-control > :disabled {

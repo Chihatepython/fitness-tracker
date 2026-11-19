@@ -7,6 +7,7 @@ import WeeklyPlanSteps from '@/components/WeeklyPlanSteps.vue'
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { EXERCISES, type ExerciseId } from '@/database'
 import { MUSCLE_GROUPS, type MuscleName, type MuscleRegion } from '@/domain/trainingStats'
+import { vSegmentHighlight } from '@/directives/segmentHighlight'
 import type {
   WeeklyPlanDraftContent,
   WeeklyPlanExercise,
@@ -57,6 +58,7 @@ const MUSCLE_BOARD_MIN_VISIBLE_ROWS = 2
 const MUSCLE_BOARD_PEEK_HEIGHT = 36 + MUSCLE_BOARD_MIN_VISIBLE_ROWS * MUSCLE_BOARD_ROW_STEP + 2
 
 const selectedPart = ref<BoardPart>('肩')
+const incomingBoardPart = ref<BoardPart>()
 const selectedExercisePart = ref<PlanPart>('肩')
 const exerciseScope = ref<ExerciseScope>('related')
 const startDate = ref(getUpcomingMonday())
@@ -454,6 +456,7 @@ function navigateMuscleBoard(position: Exclude<MuscleBoardSlidePosition, 0>): vo
 
   muscleBoardTransitionEnabled.value = true
   isMuscleBoardAnimating.value = true
+  incomingBoardPart.value = targetPart
   muscleBoardDragOffset.value = position === -1 ? viewportWidth : -viewportWidth
 
   const targetHeight = muscleBoardSlideHeights.value[position]
@@ -464,6 +467,7 @@ function navigateMuscleBoard(position: Exclude<MuscleBoardSlidePosition, 0>): vo
     muscleBoardTransitionEnabled.value = false
     muscleBoardDragOffset.value = 0
     applyBoardPart(targetPart)
+    incomingBoardPart.value = undefined
 
     void nextTick().then(() => {
       isMuscleBoardAnimating.value = false
@@ -921,12 +925,13 @@ onBeforeRouteLeave(() =>
         class="plan-muscle-board"
         aria-label="肌束目标看板"
       >
-        <nav class="segmented-control plan-part-selector" aria-label="选择目标部位">
+        <nav v-segment-highlight class="segmented-control plan-part-selector" aria-label="选择目标部位">
           <button
             v-for="{ part, reached, planned } in partProgress"
             :key="part"
             type="button"
-            :aria-pressed="selectedPart === part"
+            :data-part="part"
+            :aria-pressed="(incomingBoardPart ?? selectedPart) === part"
             @click="selectPlanPart(part)"
           >
             <span>{{ part }}</span>
@@ -1026,7 +1031,7 @@ onBeforeRouteLeave(() =>
     <section class="plan-action-section" aria-labelledby="plan-actions-title">
       <header class="plan-action-heading">
         <h2 id="plan-actions-title">动作计划</h2>
-        <div class="segmented-control segmented-control--compact exercise-scope-selector" role="group" aria-label="动作显示范围">
+        <div v-segment-highlight class="segmented-control segmented-control--compact exercise-scope-selector" role="group" aria-label="动作显示范围">
           <button
             type="button"
             :aria-pressed="exerciseScope === 'related'"
@@ -1248,6 +1253,11 @@ onBeforeRouteLeave(() =>
   padding-inline: 2px;
 }
 
+.plan-part-selector button:not([data-part='全部']) {
+  --segment-selected-fill: var(--plan-soft);
+  --segment-selected-ink: color-mix(in srgb, var(--plan-accent) 56%, #17211a);
+}
+
 .plan-part-selector button span:last-child {
   font-variant-numeric: tabular-nums;
 }
@@ -1345,7 +1355,8 @@ onBeforeRouteLeave(() =>
 
 .plan-muscle-table-card,
 .plan-muscle-row-grip,
-.plan-muscle-table-row[data-part] {
+.plan-muscle-table-row[data-part],
+.plan-part-selector button {
   --plan-accent: #7d8d3e;
   --plan-soft: #f1f6d8;
 }
@@ -1370,22 +1381,22 @@ onBeforeRouteLeave(() =>
   transition: opacity var(--plan-slide-motion);
 }
 
-:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row)[data-part='胸'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row, .plan-part-selector button)[data-part='胸'] {
   --plan-accent: #a86e63;
   --plan-soft: #f6ebe8;
 }
 
-:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row)[data-part='背'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row, .plan-part-selector button)[data-part='背'] {
   --plan-accent: #507f73;
   --plan-soft: #e8f1ed;
 }
 
-:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row)[data-part='手臂'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row, .plan-part-selector button)[data-part='手臂'] {
   --plan-accent: #7d6b90;
   --plan-soft: #f1eef5;
 }
 
-:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row)[data-part='腿'] {
+:is(.plan-muscle-table-card, .plan-muscle-row-grip, .plan-muscle-table-row, .plan-part-selector button)[data-part='腿'] {
   --plan-accent: #8b754d;
   --plan-soft: #f0eadb;
 }

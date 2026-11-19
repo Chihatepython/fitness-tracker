@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 
 import ExerciseWeightsDialog from '@/components/ExerciseWeightsDialog.vue'
 import { usePageScrollLock } from '@/composables/usePageScrollLock'
+import { vSegmentHighlight } from '@/directives/segmentHighlight'
 import {
   EXERCISES,
   addTrainingSet,
@@ -361,7 +362,7 @@ defineExpose({ open })
           <label v-if="activePanelMode === 'classic'" for="exercise-select">动作</label>
           <div v-else class="alternate-exercise-heading">
             <label for="exercise-select">动作</label>
-            <div class="segmented-control body-part-filter" role="group" aria-label="按部位筛选动作">
+            <div v-segment-highlight class="segmented-control body-part-filter" role="group" aria-label="按部位筛选动作">
               <button
                 v-for="bodyPart in bodyPartOptions"
                 :key="bodyPart"

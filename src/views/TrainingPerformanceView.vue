@@ -11,6 +11,7 @@ import {
 } from '@/database'
 import { isFirstSetExerciseId } from '@/domain/firstSetPerformance'
 import { formatWeight } from '@/domain/trainingStats'
+import { vSegmentHighlight } from '@/directives/segmentHighlight'
 
 const MIN_BODY_PART_SETS_PER_DAY = 5
 const TRAINING_DAY_COUNT_OPTIONS = [10, 20, 30] as const
@@ -233,7 +234,7 @@ onMounted(() => void loadTrainingSets())
       <h1>训练表现</h1>
     </header>
 
-    <nav class="segmented-control body-part-selector" aria-label="选择训练部位">
+    <nav v-segment-highlight class="segmented-control body-part-selector" aria-label="选择训练部位">
       <button
         v-for="bodyPart in DISPLAY_BODY_PARTS"
         :key="bodyPart"
@@ -245,7 +246,7 @@ onMounted(() => void loadTrainingSets())
       </button>
     </nav>
 
-    <nav class="segmented-control segmented-control--scroll muscle-selector" aria-label="选择肌束">
+    <nav v-segment-highlight class="segmented-control segmented-control--scroll muscle-selector" aria-label="选择肌束">
       <button
         v-for="option in [{ label: ALL_MUSCLES }, ...muscleOptions]"
         :key="option.label"

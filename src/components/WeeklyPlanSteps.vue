@@ -1,18 +1,30 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 
-defineProps<{
+import { vSegmentHighlight } from '@/directives/segmentHighlight'
+
+const props = defineProps<{
   step: 'plan' | 'schedule'
   planId?: string
   scheduleUnavailableReason?: string
   status: string
   statusTone?: 'saved' | 'dirty' | 'error'
 }>()
+
+const router = useRouter()
+const previousPath = router.options.history.state.back
+const previousRoute = typeof previousPath === 'string' ? router.resolve(previousPath).name : undefined
+const previousStep =
+  props.step === 'schedule' && previousRoute === 'weekly-plan'
+    ? 0
+    : props.step === 'plan' && previousRoute === 'weekly-schedule'
+      ? 1
+      : undefined
 </script>
 
 <template>
   <div class="weekly-plan-steps">
-    <nav class="segmented-control step-selector" aria-label="七天训练计划步骤">
+    <nav v-segment-highlight="previousStep" class="segmented-control step-selector" aria-label="七天训练计划步骤">
       <span v-if="step === 'plan'" class="step-option" aria-current="step" aria-label="步骤一：目标与动作">① 目标</span>
       <RouterLink
         v-else
