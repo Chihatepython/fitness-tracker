@@ -28,6 +28,7 @@ import {
 } from '@/domain/trainingStats'
 
 export function useTrainingDashboard() {
+  const todayDate = ref(getLocalDate())
   const todaySets = ref<TrainingSet[]>([])
   const isLoadingTodaySets = ref(true)
   const todaySetsError = ref('')
@@ -90,7 +91,7 @@ export function useTrainingDashboard() {
     todaySetsError.value = ''
 
     try {
-      todaySets.value = await getTrainingSetsByDate(getLocalDate())
+      todaySets.value = await getTrainingSetsByDate(todayDate.value)
     } catch (error: unknown) {
       todaySetsError.value = error instanceof Error ? error.message : '无法读取今日记录'
     } finally {
@@ -488,6 +489,11 @@ export function useTrainingDashboard() {
     void loadMuscleLastTrainedAt()
     currentTimeTimer = window.setInterval(() => {
       currentTime.value = Date.now()
+      const date = getLocalDate()
+      if (date !== todayDate.value) {
+        todayDate.value = date
+        void loadTodaySets()
+      }
     }, 60 * 1000)
     window.addEventListener(TRAINING_DATA_SYNCED_EVENT, refreshAfterCloudSync)
   })
@@ -498,6 +504,7 @@ export function useTrainingDashboard() {
   })
 
   return {
+    todayDate,
     todaySets,
     isLoadingTodaySets,
     todaySetsError,

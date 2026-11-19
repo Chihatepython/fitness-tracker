@@ -183,6 +183,7 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
           <tr
             v-for="(muscle, index) in group.muscles"
             :key="muscle"
+            class="muscle-region-colors"
             :data-region="group.region"
           >
             <th
@@ -557,36 +558,8 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
   background: #f4f0e1;
 }
 
-.muscle-table:not(.show-region-column) tbody tr[data-region='肩'] {
-  --muscle-row-divider: #dce6ad;
-
-  background: #f1f6d8;
-}
-
-.muscle-table:not(.show-region-column) tbody tr[data-region='屈肘'],
-.muscle-table:not(.show-region-column) tbody tr[data-region='伸肘'],
-.muscle-table:not(.show-region-column) tbody tr[data-region='前臂'] {
-  --muscle-row-divider: #d9cfe2;
-
-  background: #f1edf5;
-}
-
-.muscle-table:not(.show-region-column) tbody tr[data-region='背'] {
-  --muscle-row-divider: #c9dad4;
-
-  background: #e8f0ed;
-}
-
-.muscle-table:not(.show-region-column) tbody tr[data-region='胸'] {
-  --muscle-row-divider: #decfc8;
-
-  background: #f4ece8;
-}
-
-.muscle-table:not(.show-region-column) tbody tr[data-region='腿'] {
-  --muscle-row-divider: #ded5b6;
-
-  background: #f4f0e1;
+.muscle-table:not(.show-region-column) tbody tr {
+  background: var(--muscle-region-fill);
 }
 
 .muscle-table:not(.show-region-column) tbody tr + tr td::before {

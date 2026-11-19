@@ -109,6 +109,31 @@ p {
   letter-spacing: -0.025em;
 }
 
+.muscle-region-colors[data-region='肩'] {
+  --muscle-region-fill: #f1f6d8;
+  --muscle-row-divider: #dce6ad;
+}
+
+.muscle-region-colors:is([data-region='屈肘'], [data-region='伸肘'], [data-region='前臂']) {
+  --muscle-region-fill: #f1edf5;
+  --muscle-row-divider: #d9cfe2;
+}
+
+.muscle-region-colors[data-region='背'] {
+  --muscle-region-fill: #e8f0ed;
+  --muscle-row-divider: #c9dad4;
+}
+
+.muscle-region-colors[data-region='胸'] {
+  --muscle-region-fill: #f4ece8;
+  --muscle-row-divider: #decfc8;
+}
+
+.muscle-region-colors[data-region='腿'] {
+  --muscle-region-fill: #f4f0e1;
+  --muscle-row-divider: #ded5b6;
+}
+
 .training-count {
   color: #5d6d62;
   font-size: var(--text-caption);

@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import ExerciseWeightsDialog from '@/components/ExerciseWeightsDialog.vue'
 import { usePageScrollLock } from '@/composables/usePageScrollLock'
 import { vSegmentHighlight } from '@/directives/segmentHighlight'
+import { getLocalDate } from '@/domain/trainingStats'
 import {
   EXERCISES,
   addTrainingSet,
@@ -175,21 +176,13 @@ function selectRecentReps(value: number): void {
   activateNumericField('reps')
 }
 
-function getLocalDate(): string {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
-}
-
-async function open(): Promise<void> {
+async function open(preselectedExerciseId?: ExerciseId): Promise<void> {
   const today = getLocalDate()
+  const preselected = EXERCISES.find((exercise) => exercise.id === preselectedExerciseId)
 
   date.value = today
-  exerciseId.value = DEFAULT_EXERCISE_ID
-  selectedBodyPart.value = EXERCISES[0].bodyPart
+  exerciseId.value = preselected?.id ?? DEFAULT_EXERCISE_ID
+  selectedBodyPart.value = preselected?.bodyPart ?? EXERCISES[0].bodyPart
   weightKg.value = ''
   reps.value = ''
   rir.value = ''
@@ -204,7 +197,9 @@ async function open(): Promise<void> {
       getAllTrainingSets(),
     ])
     trainingHistory.value = allTrainingSets
-    const lastTrainingSet = todayTrainingSets[todayTrainingSets.length - 1]
+    const lastTrainingSet = preselected
+      ? todayTrainingSets.filter((trainingSet) => trainingSet.exerciseId === preselected.id).at(-1)
+      : todayTrainingSets[todayTrainingSets.length - 1]
 
     if (lastTrainingSet) {
       exerciseId.value = lastTrainingSet.exerciseId

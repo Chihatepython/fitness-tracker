@@ -6,10 +6,13 @@ import AddSetDialog from '@/components/AddSetDialog.vue'
 import CloudSyncCard from '@/components/CloudSyncCard.vue'
 import DeleteSetDialog from '@/components/DeleteSetDialog.vue'
 import MuscleVolumeCard from '@/components/MuscleVolumeCard.vue'
+import TodayMuscleCard from '@/components/TodayMuscleCard.vue'
 import TodayRecordsCard from '@/components/TodayRecordsCard.vue'
 import TrainingCalendarCard from '@/components/TrainingCalendarCard.vue'
 import { useTrainingDashboard } from '@/composables/useTrainingDashboard'
+import { useTodayPlan } from '@/composables/useTodayPlan'
 import { type TrainingSet } from '@/database'
+import { buildTodayWorkout } from '@/domain/todayWorkout'
 
 const DELETE_MODE_KEY = 'fitness-tracker:delete-mode'
 
@@ -30,6 +33,7 @@ const updateButtonLabel = computed(() => {
 })
 
 const {
+  todayDate,
   todaySets,
   isLoadingTodaySets,
   todaySetsError,
@@ -65,6 +69,11 @@ const {
   exportTrainingRecords,
   importTrainingRecords,
 } = useTrainingDashboard()
+const { plannedExercises, warning: todayPlanWarning } = useTodayPlan(
+  computed(() => activeTab.value === 'today'),
+  todayDate,
+)
+const todayWorkout = computed(() => buildTodayWorkout(todaySets.value, plannedExercises.value))
 
 function openImportFilePicker(): void {
   if (isImporting.value || isExporting.value) return
@@ -206,12 +215,21 @@ async function confirmDelete(): Promise<void> {
 
     <template v-if="activeTab === 'today'">
       <TodayRecordsCard
-        :training-sets="todaySets"
+        :workout="todayWorkout"
+        :training-set-count="todaySets.length"
         :is-loading="isLoadingTodaySets"
         :error="todaySetsError"
         :delete-mode="deleteMode"
+        :plan-warning="todayPlanWarning"
         @toggle-delete-mode="toggleDeleteMode"
         @request-delete="requestDelete"
+        @add-planned-set="addSetDialog?.open($event)"
+      />
+
+      <TodayMuscleCard
+        :rows="todayWorkout.muscleRows"
+        :is-loading="isLoadingTodaySets"
+        :error="todaySetsError"
       />
 
       <button

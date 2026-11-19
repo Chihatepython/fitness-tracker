@@ -347,35 +347,34 @@ export function getCalendarDayAriaLabel(calendarDay: TrainingCalendarDay): strin
 }
 
 export function calculateMuscleTraining(trainingSets: TrainingSet[]): MuscleTrainingResult {
+  const counts = new Map<TrainingSet['exerciseId'], number>()
+  for (const { exerciseId } of trainingSets) counts.set(exerciseId, (counts.get(exerciseId) ?? 0) + 1)
+  return calculateMuscleTrainingFromCounts(counts)
+}
+
+export function calculateMuscleTrainingFromCounts(
+  counts: ReadonlyMap<TrainingSet['exerciseId'], number>,
+): MuscleTrainingResult {
   const totals = createEmptyMuscleTrainingTotals()
   const sources = createEmptyMuscleTrainingSources()
 
-  for (const trainingSet of trainingSets) {
-    const exercise = EXERCISES.find((item) => item.id === trainingSet.exerciseId)
+  for (const [exerciseId, setCount] of counts) {
+    const exercise = EXERCISES.find((item) => item.id === exerciseId)
 
-    if (!exercise) continue
+    if (!exercise || setCount <= 0) continue
 
     for (const [muscleName, weight] of Object.entries(exercise.muscleWeights)) {
       if (!TRACKED_MUSCLE_NAMES.has(muscleName)) continue
 
       const trackedMuscleName = muscleName as MuscleName
-      const existingSource = sources[trackedMuscleName].find(
-        (source) => source.exerciseId === exercise.id,
-      )
-
-      totals[trackedMuscleName] += weight
-
-      if (existingSource) {
-        existingSource.setCount += 1
-        existingSource.weightedSetCount += weight
-      } else {
-        sources[trackedMuscleName].push({
-          exerciseId: exercise.id,
-          setCount: 1,
-          weightPerSet: weight,
-          weightedSetCount: weight,
-        })
-      }
+      const weightedSetCount = weight * setCount
+      totals[trackedMuscleName] += weightedSetCount
+      sources[trackedMuscleName].push({
+        exerciseId: exercise.id,
+        setCount,
+        weightPerSet: weight,
+        weightedSetCount,
+      })
     }
   }
 
