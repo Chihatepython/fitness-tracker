@@ -125,9 +125,19 @@ watch(exerciseGroups, (groups) => {
               >
             </span>
 
+            <button
+              v-if="group.trainingSets.length"
+              class="exercise-toggle"
+              type="button"
+              :aria-label="`${isGroupExpanded(group.exerciseId) ? '收起' : '展开'}${group.name}训练组详情`"
+              :aria-expanded="isGroupExpanded(group.exerciseId)"
+              :aria-controls="`exercise-details-${group.exerciseId}`"
+              @click="toggleGroup(group.exerciseId)"
+            ></button>
+
             <span
               class="set-sequence"
-              @click.self="group.trainingSets.length && toggleGroup(group.exerciseId)"
+              @click="group.trainingSets.length && toggleGroup(group.exerciseId)"
             >
               <span
                 v-for="(trainingSet, index) in group.trainingSets"
@@ -135,7 +145,6 @@ watch(exerciseGroups, (groups) => {
                 class="set-stack"
                 :class="{ 'set-stack--extra': workout.hasPlan && index >= group.planned }"
                 :aria-label="`${formatWeight(trainingSet.weightKg)}公斤，${trainingSet.reps}次`"
-                @click="toggleGroup(group.exerciseId)"
               >
                 <b>{{ formatWeight(trainingSet.weightKg) }}</b>
                 <small>{{ trainingSet.reps }}</small>
@@ -146,34 +155,16 @@ watch(exerciseGroups, (groups) => {
                 class="set-stack set-stack--pending"
                 type="button"
                 :aria-label="`记录${group.name}计划第${group.trainingSets.length + slot}组`"
-                @click="emit('addPlannedSet', group.exerciseId)"
+                @click.stop="emit('addPlannedSet', group.exerciseId)"
               >
                 ＋
               </button>
             </span>
-
-            <button
-              v-if="group.trainingSets.length"
-              class="exercise-toggle"
-              type="button"
-              :aria-label="`查看${group.name}训练组详情`"
-              :aria-expanded="isGroupExpanded(group.exerciseId)"
-              :aria-controls="`exercise-details-${group.exerciseId}`"
-              @click="toggleGroup(group.exerciseId)"
-            >
-              <svg
-                class="summary-chevron"
-                :class="{ 'is-expanded': isGroupExpanded(group.exerciseId) }"
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-              >
-                <path d="m7 10 5 5 5-5" />
-              </svg>
-            </button>
           </div>
 
           <div
-            v-if="isGroupExpanded(group.exerciseId)"
+            v-if="group.trainingSets.length"
+            v-show="isGroupExpanded(group.exerciseId)"
             :id="`exercise-details-${group.exerciseId}`"
             class="set-details"
           >
@@ -285,17 +276,19 @@ watch(exerciseGroups, (groups) => {
 }
 
 .record-list {
-  overflow: hidden;
+  display: grid;
+  gap: 8px;
   margin-bottom: 0;
   padding: 0;
-  border: 1px solid #e4e9e1;
-  border-radius: var(--radius-card);
-  background: #f7f9f5;
   list-style: none;
 }
 
-.exercise-group + .exercise-group {
-  border-top: 1px solid #edf0ea;
+.exercise-group {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e4e9e1;
+  border-radius: var(--radius-card);
+  background: #f7f9f5;
 }
 
 .exercise-summary {
@@ -303,7 +296,7 @@ watch(exerciseGroups, (groups) => {
   display: grid;
   width: 100%;
   min-height: 72px;
-  grid-template-columns: minmax(126px, 0.9fr) minmax(0, 1.35fr) 14px;
+  grid-template-columns: minmax(126px, 0.9fr) minmax(0, 1.35fr);
   align-items: center;
   gap: 6px;
   padding: 9px 12px;
@@ -315,19 +308,23 @@ watch(exerciseGroups, (groups) => {
 }
 
 .exercise-toggle {
-  display: grid;
-  grid-column: 3;
-  place-items: center;
+  position: absolute;
+  inset: 0;
+  width: 100%;
   padding: 0;
   border: 0;
+  border-radius: inherit;
   background: transparent;
   cursor: pointer;
 }
 
-.exercise-toggle::before {
-  position: absolute;
-  inset: 0;
-  content: '';
+.exercise-toggle:focus-visible {
+  outline: 3px solid rgb(70 99 77 / 25%);
+  outline-offset: -4px;
+}
+
+.exercise-toggle ~ .set-sequence {
+  cursor: pointer;
 }
 
 .exercise-copy {
@@ -407,26 +404,6 @@ watch(exerciseGroups, (groups) => {
   font-size: var(--text-caption);
   font-weight: 700;
   text-align: center;
-}
-
-.summary-chevron {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: #718078;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
-  transition: transform 160ms ease;
-}
-
-.summary-chevron.is-expanded {
-  transform: rotate(180deg);
-}
-
-.exercise-toggle:focus-visible::before {
-  outline: 3px solid rgb(70 99 77 / 20%);
-  outline-offset: -3px;
 }
 
 .set-details {
