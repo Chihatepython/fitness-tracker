@@ -130,6 +130,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-modal) var(--radius-modal) 0 0;
   outline: none;
   background: #f8faf5;
+  color: #17211a;
   box-shadow: 0 -18px 60px rgb(13 31 20 / 24%);
 }
 
@@ -210,6 +211,7 @@ onBeforeUnmount(() => {
 
 .muscle-source-eyebrow {
   margin-bottom: 5px;
+  color: #718078;
   font-size: var(--text-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -222,6 +224,7 @@ onBeforeUnmount(() => {
 }
 
 .muscle-source-header span {
+  color: #718078;
   font-size: var(--text-body);
   font-weight: 700;
 }
@@ -237,6 +240,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-circle);
   outline: none;
   background: #fff;
+  color: #536158;
   font-size: var(--text-display);
   line-height: 1;
   cursor: pointer;
@@ -245,6 +249,7 @@ onBeforeUnmount(() => {
 
 .muscle-source-header button:active {
   background: #fff;
+  color: #536158;
 }
 
 .muscle-source-summary {
@@ -255,6 +260,7 @@ onBeforeUnmount(() => {
   padding: 14px 16px;
   border-radius: var(--radius-card);
   background: #e5eddf;
+  color: #46634d;
   font-weight: 800;
 }
 
@@ -294,6 +300,7 @@ onBeforeUnmount(() => {
 }
 
 .muscle-source-calculation {
+  color: #718078;
   font-size: var(--text-body);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -302,6 +309,7 @@ onBeforeUnmount(() => {
 }
 
 .muscle-source-total {
+  color: #234a31;
   font-size: var(--text-body);
   font-variant-numeric: tabular-nums;
   text-align: right;

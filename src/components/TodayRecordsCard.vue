@@ -214,8 +214,18 @@ watch(exerciseGroups, (groups) => {
   gap: 4px 12px;
 }
 
+.plan-progress,
+.plan-progress b {
+  color: #37597b;
+}
+
+.extra-label {
+  color: #785831;
+}
+
 .today-plan-warning {
   margin: 8px 0 0;
+  color: #785831;
   font-size: var(--text-caption);
 }
 
@@ -228,6 +238,7 @@ watch(exerciseGroups, (groups) => {
   border: 1px solid #d5ddd1;
   border-radius: var(--radius-circle);
   background: #fff;
+  color: #738078;
   font-size: var(--text-title);
   line-height: 1;
   cursor: pointer;
@@ -236,6 +247,7 @@ watch(exerciseGroups, (groups) => {
 .delete-mode-button[aria-pressed='true'] {
   border-color: #e3a8a8;
   background: #fde8e8;
+  color: #a52d2d;
 }
 
 .delete-mode-button:focus-visible,
@@ -255,7 +267,12 @@ watch(exerciseGroups, (groups) => {
   border: 1px solid #e4e9e1;
   border-radius: var(--radius-card);
   background: #f7f9f5;
+  color: #718078;
   text-align: center;
+}
+
+.records-error {
+  color: #a52d2d;
 }
 
 .record-list {
@@ -285,6 +302,7 @@ watch(exerciseGroups, (groups) => {
   padding: 9px 12px;
   border: 0;
   background: transparent;
+  color: #17211a;
   text-align: left;
   font: inherit;
 }
@@ -336,6 +354,7 @@ watch(exerciseGroups, (groups) => {
   justify-content: safe flex-end;
   gap: 5px;
   overflow-x: auto;
+  color: #46634d;
   font-variant-numeric: tabular-nums;
   scrollbar-width: none;
 }
@@ -358,12 +377,14 @@ watch(exerciseGroups, (groups) => {
 
 .set-stack--extra {
   background: #f5ebdb;
+  color: #785831;
 }
 
 .set-stack--pending {
   min-height: 44px;
   border: 1px dashed #8ca7c3;
   background: #e3ecf7;
+  color: #37597b;
   font-size: var(--text-control);
   font-weight: 800;
   cursor: pointer;
@@ -379,6 +400,7 @@ watch(exerciseGroups, (groups) => {
   width: 100%;
   padding-top: 2px;
   border-top: 1px solid #d9e2d4;
+  color: #26352c;
   font-size: var(--text-caption);
   font-weight: 700;
   text-align: center;
@@ -396,6 +418,7 @@ watch(exerciseGroups, (groups) => {
   align-items: center;
   gap: 6px;
   border-top: 1px solid #edf0ea;
+  color: #718078;
   font-size: var(--text-body);
 }
 
@@ -404,12 +427,14 @@ watch(exerciseGroups, (groups) => {
 }
 
 .set-detail-row strong {
+  color: #26352c;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .rir-value {
   min-width: 46px;
+  color: #718078;
 }
 
 .delete-record-button {
@@ -421,6 +446,7 @@ watch(exerciseGroups, (groups) => {
   border: 1px solid #ecc5c5;
   border-radius: var(--radius-sm);
   background: #fff1f1;
+  color: #ad3535;
   cursor: pointer;
 }
 
@@ -449,6 +475,7 @@ watch(exerciseGroups, (groups) => {
 
 .records-empty p {
   margin-bottom: 0;
+  color: #718078;
   font-size: var(--text-body);
 }
 

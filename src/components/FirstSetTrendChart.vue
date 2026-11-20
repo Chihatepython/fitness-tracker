@@ -208,7 +208,7 @@ function formatShortDate(date: string): string {
 .chart-axis-title,
 .chart-value-text,
 .chart-weight-text {
-  fill: currentColor;
+  fill: #7b887f;
   font-size: var(--text-micro);
 }
 
@@ -217,11 +217,13 @@ function formatShortDate(date: string): string {
 }
 
 .chart-value-text {
+  fill: #314d39;
   font-size: var(--text-caption);
   font-weight: 800;
 }
 
 .chart-weight-text {
+  fill: #45634d;
   font-size: var(--text-micro);
   font-weight: 800;
 }

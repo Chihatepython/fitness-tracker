@@ -73,6 +73,7 @@ watch(
   border: 0;
   border-radius: var(--radius-modal);
   background: #f8faf5;
+  color: #17211a;
   box-shadow: 0 24px 80px rgb(13 31 20 / 30%);
 }
 
@@ -93,6 +94,7 @@ watch(
 
 .delete-dialog-eyebrow {
   margin-bottom: 5px;
+  color: #718078;
   font-size: var(--text-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -116,12 +118,14 @@ watch(
 
 .delete-record-summary span {
   flex-shrink: 0;
+  color: #617067;
   font-size: var(--text-body);
   font-variant-numeric: tabular-nums;
 }
 
 .delete-error {
   margin: 14px 0 0;
+  color: #a52d2d;
   font-size: var(--text-body);
 }
 
@@ -137,6 +141,7 @@ watch(
   border: 1px solid #d5ddd1;
   border-radius: var(--radius-control);
   background: #fff;
+  color: #536158;
   font-weight: 800;
   cursor: pointer;
 }
@@ -147,8 +152,9 @@ watch(
 }
 
 .delete-actions .confirm-delete-button {
-  border-color: var(--danger-action-bg);
-  background: var(--danger-action-bg);
+  border-color: #a83232;
+  background: #a83232;
+  color: #fff;
 }
 
 @media (max-width: 390px) {

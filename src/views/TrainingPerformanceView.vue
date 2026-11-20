@@ -362,6 +362,7 @@ onMounted(() => void loadTrainingSets())
   width: 44px;
   height: 44px;
   place-items: center;
+  color: #46634d;
 }
 
 .back-link svg {
@@ -412,6 +413,7 @@ onMounted(() => void loadTrainingSets())
 .comparison-heading p,
 .swipe-hint {
   margin: 0;
+  color: #7a867d;
   font-size: var(--text-caption);
   font-weight: 700;
 }
@@ -433,6 +435,7 @@ onMounted(() => void loadTrainingSets())
   border: 1px solid #d1dbce;
   border-radius: var(--radius-pill);
   background: #f5f8f3;
+  color: #45634d;
   font-size: var(--text-caption);
   font-weight: 800;
   white-space: nowrap;
@@ -481,7 +484,8 @@ onMounted(() => void loadTrainingSets())
 
 .comparison-table thead th {
   padding: 11px 12px;
-  background: #fff;
+  background: #edf2e9;
+  color: #53645a;
   font-size: var(--text-caption);
   line-height: 1.35;
   text-align: left;
@@ -527,6 +531,7 @@ onMounted(() => void loadTrainingSets())
 .comparison-table tbody .date-column {
   padding: 12px 8px;
   background: #f4f7f1;
+  color: #2f4f3a;
   text-align: center;
 }
 
@@ -542,11 +547,13 @@ onMounted(() => void loadTrainingSets())
 }
 
 .comparison-table tbody .date-column span {
+  color: #829087;
   font-size: var(--text-caption);
 }
 
 .comparison-table tbody .date-column .recorded-hour {
   margin-top: 4px;
+  color: #53645a;
   font-weight: 800;
 }
 
@@ -567,6 +574,7 @@ onMounted(() => void loadTrainingSets())
   min-height: 29px;
   align-items: center;
   gap: 4px;
+  color: #294c36;
   font-size: var(--text-caption);
   white-space: nowrap;
 }
@@ -576,6 +584,7 @@ onMounted(() => void loadTrainingSets())
 }
 
 .set-performance-list li > span {
+  color: #8a958d;
   font-size: var(--text-micro);
 }
 
@@ -587,6 +596,7 @@ onMounted(() => void loadTrainingSets())
   display: grid;
   min-height: 58px;
   place-items: center;
+  color: #abb3ad;
 }
 
 .comparison-state {
@@ -594,6 +604,7 @@ onMounted(() => void loadTrainingSets())
   padding: 42px 16px;
   border: 1px dashed #d5ddd1;
   border-radius: var(--radius-card);
+  color: #7a867d;
   font-size: var(--text-body);
   text-align: center;
 }
@@ -601,6 +612,7 @@ onMounted(() => void loadTrainingSets())
 .comparison-error {
   margin: 0;
   padding: 20px 12px;
+  color: #a52d2d;
   font-size: var(--text-body);
   text-align: center;
 }

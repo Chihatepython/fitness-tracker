@@ -562,6 +562,7 @@ onBeforeUnmount(() => {
   border: 0;
   outline: none;
   background: transparent;
+  color: #46634d;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;

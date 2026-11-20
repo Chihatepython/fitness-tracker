@@ -327,6 +327,7 @@ async function confirmDelete(): Promise<void> {
   border: 1px solid #d5ddd1;
   border-radius: var(--radius-control);
   background: #fff;
+  color: #46634d;
   font-weight: 800;
   cursor: pointer;
 }
@@ -358,6 +359,7 @@ async function confirmDelete(): Promise<void> {
   border: 1px solid #d5ddd1;
   border-radius: var(--radius-control);
   background: #fff;
+  color: #46634d;
   font-weight: 800;
   text-decoration: none;
 }
@@ -378,6 +380,14 @@ async function confirmDelete(): Promise<void> {
   text-align: center;
 }
 
+.export-status {
+  color: #46634d;
+}
+
+.export-error {
+  color: #a52d2d;
+}
+
 .add-set-button {
   position: fixed;
   right: max(calc(env(safe-area-inset-right, 0px) + 8px), calc((100vw - 680px) / 2 + 22px), 22px);
@@ -390,6 +400,7 @@ async function confirmDelete(): Promise<void> {
   border: 0;
   border-radius: var(--radius-circle);
   background: #d9f36a;
+  color: #18311f;
   box-shadow: 0 12px 28px rgb(31 62 40 / 24%);
   font-size: var(--text-icon-lg);
   font-weight: 500;

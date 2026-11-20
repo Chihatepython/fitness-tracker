@@ -180,6 +180,7 @@ onMounted(() => void loadTrainingSets())
 }
 
 .first-set-page-header span {
+  color: #7a867d;
   font-size: var(--text-caption);
   font-weight: 700;
 }
@@ -195,6 +196,7 @@ onMounted(() => void loadTrainingSets())
   width: 44px;
   height: 44px;
   place-items: center;
+  color: #46634d;
 }
 
 .first-set-back svg {
@@ -235,6 +237,7 @@ onMounted(() => void loadTrainingSets())
 
 .first-set-analysis-heading p {
   margin: 0 0 3px;
+  color: #7a867d;
   font-size: var(--text-caption);
   font-weight: 700;
 }
@@ -250,6 +253,7 @@ onMounted(() => void loadTrainingSets())
   padding: 5px 9px;
   border-radius: var(--radius-pill);
   background: #e8f1e4;
+  color: #42634b;
   font-size: var(--text-caption);
   font-weight: 800;
   white-space: nowrap;
@@ -260,12 +264,14 @@ onMounted(() => void loadTrainingSets())
 }
 
 .first-set-record-heading > span {
+  color: #879188;
   font-size: var(--text-caption);
   font-weight: 700;
 }
 
 .trend-note {
   margin: 4px 0 0;
+  color: #7a867d;
   font-size: var(--text-caption);
   text-align: center;
 }
@@ -291,7 +297,8 @@ onMounted(() => void loadTrainingSets())
 }
 
 .first-set-table th {
-  background: #fff;
+  background: #f0f4ed;
+  color: #69776e;
   font-weight: 800;
 }
 
@@ -306,11 +313,21 @@ onMounted(() => void loadTrainingSets())
 }
 
 .first-set-table td {
+  color: #526057;
   font-weight: 650;
 }
 
 .first-set-table .main-set-value {
+  color: #294c36;
   font-weight: 850;
+}
+
+.valid-status {
+  color: #3d7149 !important;
+}
+
+.invalid-status {
+  color: #9a6449 !important;
 }
 
 .first-set-state {
@@ -318,6 +335,7 @@ onMounted(() => void loadTrainingSets())
   padding: 42px 16px;
   border: 1px dashed #d5ddd1;
   border-radius: var(--radius-card);
+  color: #7a867d;
   font-size: var(--text-body);
   text-align: center;
 }
@@ -325,6 +343,7 @@ onMounted(() => void loadTrainingSets())
 .first-set-error {
   margin: 0;
   padding: 20px 12px;
+  color: #a52d2d;
   font-size: var(--text-body);
   text-align: center;
 }

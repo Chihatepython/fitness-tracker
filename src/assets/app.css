@@ -1,7 +1,4 @@
 :root {
-  color: #000;
-  --action-bg: #a8c3ad;
-  --danger-action-bg: #e3ada8;
   --app-background-rgb: 242 242 247;
   --app-background: rgb(var(--app-background-rgb));
   --radius-sm: 8px;
@@ -26,6 +23,7 @@
     calc(env(safe-area-inset-bottom, 0px) + var(--app-tab-bar-inset-adjustment))
   );
   --app-tab-bar-clearance: calc(var(--app-tab-bar-height) + var(--app-tab-bar-bottom));
+  color: #17211a;
   background: var(--app-background);
   font-family:
     Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont,
@@ -77,13 +75,6 @@ button {
   font: inherit;
 }
 
-:where(a, button, input, select, textarea, option, dialog) {
-  color: inherit;
-}
-::placeholder {
-  color: #000;
-  opacity: 1;
-}
 h1,
 h2,
 h3,
@@ -140,11 +131,12 @@ p {
 }
 
 .muscle-board-table thead {
-  background: #fff;
+  background: #eef3eb;
 }
 
 .muscle-board-table thead th {
   height: 46px;
+  color: #65736b;
   font-size: var(--text-caption);
   font-weight: 800;
   text-align: left;
@@ -155,10 +147,12 @@ p {
 }
 
 .muscle-board-table .muscle-board-name {
+  color: #405047;
   font-weight: 400;
 }
 
 .muscle-board-table .muscle-board-value {
+  color: #234a31;
   font-weight: 800;
   text-align: right;
 }
@@ -189,6 +183,7 @@ p {
 }
 
 .training-count {
+  color: #5d6d62;
   font-size: var(--text-caption);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -196,6 +191,7 @@ p {
 }
 
 .training-count b {
+  color: #294733;
   font-weight: 800;
 }
 
@@ -203,10 +199,23 @@ p {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  color: #5d6d62;
   font-size: var(--text-caption);
   font-weight: 700;
   line-height: 1.25;
   white-space: nowrap;
+}
+
+.status-label[data-tone='saved'] {
+  color: #46634d;
+}
+
+.status-label[data-tone='dirty'] {
+  color: #785625;
+}
+
+.status-label[data-tone='error'] {
+  color: #a32e2e;
 }
 
 .segmented-control {
@@ -254,6 +263,7 @@ p {
   border: 0;
   border-radius: calc(var(--segment-track-radius) - var(--segment-inset));
   background: transparent;
+  color: #65736b;
   font: inherit;
   font-size: var(--text-caption);
   font-weight: 700;
@@ -270,6 +280,7 @@ p {
 
 .segmented-control > :is([aria-pressed='true'], [aria-current='step'], [aria-current='page']) {
   background: var(--segment-selected-fill, #e3ecdf);
+  color: var(--segment-selected-ink, #36513e);
 }
 
 .segmented-control[data-segment-highlight]::before {
@@ -327,6 +338,7 @@ p {
 
 .eyebrow {
   margin: 0 0 6px;
+  color: #718078;
   font-size: var(--text-caption);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -336,6 +348,7 @@ p {
 .date-range {
   display: block;
   margin-top: 6px;
+  color: #718078;
   font-size: var(--text-caption);
   font-weight: 700;
 }
@@ -347,6 +360,7 @@ p {
   border: 1px solid #d5ddd1;
   border-radius: var(--radius-control);
   background: #fff;
+  color: #46634d;
   font-size: var(--text-body);
   font-weight: 700;
   cursor: pointer;
@@ -364,5 +378,6 @@ p {
 
 .section-error {
   margin: 10px 0 0;
+  color: #a52d2d;
   font-size: var(--text-body);
 }
