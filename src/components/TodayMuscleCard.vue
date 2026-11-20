@@ -13,19 +13,18 @@ defineProps<{
   <section class="dashboard-section" aria-labelledby="today-muscle-title">
     <header class="dashboard-section-heading">
       <h2 id="today-muscle-title">今日肌束</h2>
-      <span class="training-count">加权组数</span>
     </header>
     <div class="dashboard-card">
       <p v-if="isLoading" class="muscle-empty" role="status">正在读取记录…</p>
       <p v-else-if="error" class="muscle-empty muscle-error" role="alert">{{ error }}</p>
       <p v-else-if="!rows.length" class="muscle-empty">今天还没有肌束训练量</p>
-      <div v-else class="table-frame">
-        <table>
+      <div v-else class="muscle-board-frame">
+        <table class="muscle-board-table today-muscle-table" aria-labelledby="today-muscle-title">
           <thead>
             <tr>
               <th scope="col">肌束</th>
-              <th scope="col">已完成</th>
-              <th scope="col">计划</th>
+              <th scope="col">完成加权</th>
+              <th scope="col">计划加权</th>
             </tr>
           </thead>
           <tbody>
@@ -35,8 +34,8 @@ defineProps<{
               class="muscle-region-colors"
               :data-region="row.region"
             >
-              <th scope="row">{{ row.muscle }}</th>
-              <td class="completed">
+              <th scope="row" class="muscle-board-name">{{ row.muscle }}</th>
+              <td class="muscle-board-value">
                 <span v-if="row.planned || !row.extra">{{
                   formatWeightedSetCount(row.completed)
                 }}</span>
@@ -49,7 +48,9 @@ defineProps<{
                   <template v-if="!row.planned">计划外</template>
                 </small>
               </td>
-              <td class="planned">{{ row.planned ? formatWeightedSetCount(row.planned) : '—' }}</td>
+              <td class="muscle-board-value planned">
+                {{ row.planned ? formatWeightedSetCount(row.planned) : '—' }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -59,56 +60,28 @@ defineProps<{
 </template>
 
 <style scoped>
-.table-frame {
-  overflow: hidden;
-  border: 1px solid #e4e9e1;
-  border-radius: var(--radius-card);
-  background: #f7f9f5;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-body);
-  font-variant-numeric: tabular-nums;
-}
-
-thead {
-  background: #eef3eb;
-  color: #65736b;
-  font-size: var(--text-caption);
-}
-
-th,
-td {
-  padding: 8px 10px;
-  text-align: right;
-}
-
-th:first-child {
+.today-muscle-table th:first-child {
   text-align: left;
 }
 
-tbody tr {
-  border-top: 1px solid var(--muscle-row-divider, #e4e9e1);
-  background: var(--muscle-region-fill);
-}
-
-tbody th {
-  color: #405047;
-  font-weight: 600;
-}
-
-.completed,
-.planned {
-  font-weight: 800;
+.today-muscle-table thead th:not(:first-child) {
+  text-align: right;
   white-space: nowrap;
 }
 
-.completed {
-  color: #234a31;
+tbody tr {
+  background: var(--muscle-region-fill);
 }
-.planned {
+
+tbody tr + tr {
+  border-top: 1px solid var(--muscle-row-divider, #e4e9e1);
+}
+
+.today-muscle-table .muscle-board-value {
+  white-space: nowrap;
+}
+
+.today-muscle-table .planned {
   color: #37597b;
 }
 

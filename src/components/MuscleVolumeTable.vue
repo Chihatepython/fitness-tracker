@@ -84,9 +84,9 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
 
 <template>
   <div class="muscle-table-content">
-    <div v-if="visibleMuscleGroups.length" class="muscle-table-wrapper">
+    <div v-if="visibleMuscleGroups.length" class="muscle-board-frame">
       <table
-        class="muscle-table"
+        class="muscle-board-table muscle-table"
         :class="{
           'show-today-column': showTodayColumn,
           'show-region-column': showRegionColumn,
@@ -130,7 +130,7 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
                     <path d="m9 5 7 7-7 7" />
                   </svg>
                 </button>
-                <span>细分肌肉</span>
+                <span>肌束</span>
                 <button
                   v-if="allowCurrentColumns"
                   class="muscle-elapsed-toggle"
@@ -195,7 +195,7 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
             >
               {{ group.region }}
             </th>
-            <td class="muscle-name">{{ muscle }}</td>
+            <td class="muscle-board-name">{{ muscle }}</td>
             <td
               v-if="showElapsedColumn"
               class="muscle-elapsed"
@@ -209,7 +209,7 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
                 {{ lastTrainedHours[muscle] }}h
               </span>
             </td>
-            <td class="muscle-total">
+            <td class="muscle-board-value muscle-total">
               <button
                 class="muscle-total-button"
                 type="button"
@@ -220,7 +220,7 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
                 {{ isLoading ? '—' : formatWeightedSetCount(totals[muscle]) }}
               </button>
             </td>
-            <td v-if="showTodayColumn" class="muscle-total muscle-today-total">
+            <td v-if="showTodayColumn" class="muscle-board-value muscle-total muscle-today-total">
               <span v-if="isLoadingToday">—</span>
               <button
                 v-else-if="todayTotals[muscle] > 0"
@@ -246,13 +246,6 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
   padding-top: 8px;
 }
 
-.muscle-table-wrapper {
-  overflow: hidden;
-  border: 1px solid #e4e9e1;
-  border-radius: var(--radius-card);
-  background: #f7f9f5;
-}
-
 .muscle-table-status {
   margin: 8px 0 0;
   padding: 28px 16px;
@@ -265,8 +258,6 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
 }
 
 .muscle-table {
-  width: 100%;
-  border-collapse: collapse;
   table-layout: fixed;
 }
 
@@ -324,22 +315,6 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
 
 .muscle-table.show-today-column.show-elapsed-column:not(.show-region-column) .muscle-name-column {
   width: 46%;
-}
-
-.muscle-table th,
-.muscle-table td {
-  padding: 11px 10px;
-}
-
-.muscle-table thead {
-  background: #eef3eb;
-}
-
-.muscle-table thead th {
-  color: #65736b;
-  font-size: var(--text-caption);
-  font-weight: 800;
-  text-align: left;
 }
 
 .muscle-table thead .muscle-number-heading {
@@ -487,7 +462,6 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
 }
 
 .muscle-table thead th:last-child {
-  padding-right: 20px;
   padding-left: 6px;
 }
 
@@ -566,11 +540,6 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
   background: var(--muscle-row-divider);
 }
 
-.muscle-name {
-  color: #405047;
-  font-size: var(--text-body);
-}
-
 .muscle-table td.muscle-elapsed {
   padding-right: 4px;
   padding-left: 4px;
@@ -613,11 +582,6 @@ function getRecoveryStatusClass(muscle: MuscleName, elapsedHours?: number): stri
 .muscle-table td.muscle-total {
   padding-right: 6px;
   padding-left: 6px;
-  color: #234a31;
-  font-size: var(--text-body);
-  font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  text-align: right;
 }
 
 .muscle-table td.muscle-total:last-child {

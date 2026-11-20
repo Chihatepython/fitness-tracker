@@ -109,6 +109,52 @@ p {
   letter-spacing: -0.025em;
 }
 
+.muscle-board-frame {
+  overflow: hidden;
+  border: 1px solid #e4e9e1;
+  border-radius: var(--radius-card);
+  background: #f7f9f5;
+}
+
+.muscle-board-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  line-height: calc(var(--text-body) + 6px);
+}
+
+.muscle-board-table :is(th, td) {
+  padding: 11px 10px;
+}
+
+.muscle-board-table thead {
+  background: #eef3eb;
+}
+
+.muscle-board-table thead th {
+  height: 46px;
+  color: #65736b;
+  font-size: var(--text-caption);
+  font-weight: 800;
+  text-align: left;
+}
+
+.muscle-board-table tr > :last-child {
+  padding-right: 20px;
+}
+
+.muscle-board-table .muscle-board-name {
+  color: #405047;
+  font-weight: 400;
+}
+
+.muscle-board-table .muscle-board-value {
+  color: #234a31;
+  font-weight: 800;
+  text-align: right;
+}
+
 .muscle-region-colors[data-region='肩'] {
   --muscle-region-fill: #f1f6d8;
   --muscle-row-divider: #dce6ad;
