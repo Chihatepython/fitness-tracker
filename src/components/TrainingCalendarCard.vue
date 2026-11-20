@@ -90,7 +90,6 @@ watch(
   border: 1px solid #e4e9e1;
   border-radius: var(--radius-card);
   background: #f7f9f5;
-  color: #17211a;
 }
 
 .calendar-weekdays,
@@ -105,7 +104,6 @@ watch(
 
 .calendar-weekdays {
   margin-bottom: 8px;
-  color: #718078;
   font-size: var(--text-micro);
   font-weight: 700;
   text-align: center;
@@ -136,7 +134,6 @@ watch(
   border: 1px solid #edf0ea;
   border-radius: var(--radius-control);
   background: #fff;
-  color: #405047;
 }
 
 .calendar-day:nth-child(7n + 1) {
@@ -162,33 +159,27 @@ watch(
 .calendar-day[data-body-part='肩'] {
   border-color: #d9f36a;
   background: #d9f36a;
-  color: #18311f;
 }
 
 .calendar-day[data-body-part='背'] {
   background: #d1e3dd;
-  color: #24463c;
 }
 
 .calendar-day[data-body-part='胸'] {
   background: #ead9d2;
-  color: #5e3b31;
 }
 
 .calendar-day[data-body-part='腿'] {
   background: #e9dfbd;
-  color: #564a25;
 }
 
 .calendar-day[data-body-part='手臂'] {
   background: #ded8e9;
-  color: #4b3e60;
 }
 
 .calendar-day.future {
   border-color: #f0f2ed;
   background: #fafbf8;
-  color: #a7afa9;
 }
 
 .calendar-day.today {
@@ -200,11 +191,7 @@ watch(
   min-height: 160px;
   margin: 0;
   place-items: center;
-  color: #718078;
   font-size: var(--text-body);
 }
 
-.calendar-error {
-  color: #a52d2d;
-}
 </style>

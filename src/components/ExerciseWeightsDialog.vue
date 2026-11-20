@@ -245,7 +245,6 @@ watch(
   border-radius: var(--radius-modal);
   outline: none;
   background: #f8faf5;
-  color: #17211a;
   box-shadow: 0 24px 80px rgb(13 31 20 / 30%);
 }
 
@@ -275,7 +274,6 @@ watch(
 
 .exercise-weights-content header p {
   margin: 5px 0 0;
-  color: #718078;
   font-size: var(--text-caption);
   font-weight: 700;
 }
@@ -290,7 +288,6 @@ watch(
   border: 1px solid #d5ddd1;
   border-radius: var(--radius-circle);
   background: #fff;
-  color: #536158;
   font-size: var(--text-display);
   line-height: 1;
   cursor: pointer;
@@ -303,7 +300,6 @@ watch(
 
 .exercise-detail-section h3 {
   margin: 0 0 10px;
-  color: #405148;
   font-size: var(--text-body);
 }
 
@@ -314,13 +310,11 @@ watch(
   gap: 16px;
   margin: 0;
   padding: 6px 2px;
-  color: #536158;
   font-size: var(--text-body);
 }
 
 .exercise-weight-lines strong {
   flex: none;
-  color: #214c30;
   font-variant-numeric: tabular-nums;
 }
 
@@ -343,15 +337,9 @@ watch(
   font-size: var(--text-caption);
 }
 
-.section-title-row span,
-.profile-message {
-  color: #718078;
-}
-
 .profile-section label {
   display: grid;
   gap: 7px;
-  color: #536158;
   font-size: var(--text-caption);
   font-weight: 700;
 }
@@ -363,7 +351,6 @@ watch(
   border-radius: var(--radius-control);
   outline: none;
   background: #fff;
-  color: #17211a;
   font: inherit;
 }
 
@@ -405,7 +392,6 @@ watch(
   padding: 0 0 2px;
   border: 0;
   background: transparent;
-  color: #89938d;
   font-size: var(--text-title);
 }
 
@@ -422,13 +408,11 @@ watch(
 .add-profile-field {
   border: 1px dashed #bfcbb9;
   background: #f4f7f1;
-  color: #536158;
 }
 
 .save-profile-button {
   border: 0;
-  background: #183f2b;
-  color: #fff;
+  background: var(--action-bg);
 }
 
 .add-profile-field:disabled,
@@ -441,10 +425,6 @@ watch(
 .profile-message,
 .profile-error {
   margin-top: 10px;
-}
-
-.profile-error {
-  color: #a52d2d;
 }
 
 @media (max-width: 430px) {

@@ -89,7 +89,6 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOutside))
   border: 0;
   border-radius: var(--radius-pill);
   background: #e3ebe0;
-  color: #46634d;
   font-size: var(--text-caption);
   font-weight: 800;
   cursor: pointer;
@@ -108,10 +107,10 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOutside))
   box-shadow: 0 8px 22px rgb(48 67 52 / 14%);
 }
 .plan-menu-panel header, .plan-menu-list button { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.plan-menu-panel header, .plan-menu-panel p { padding: 0 4px; color: #52695a; font-size: var(--text-caption); }
+.plan-menu-panel header, .plan-menu-panel p { padding: 0 4px; font-size: var(--text-caption); }
 .plan-menu-add { display: grid; min-width: 34px; padding: 0; place-items: center; font-size: var(--text-body); }
 .plan-menu-list { display: grid; gap: 3px; max-height: min(220px, 40vh); overflow: auto; margin-top: 5px; }
-.plan-menu-list button { min-height: 36px; padding: 6px 10px; border: 0; border-radius: var(--radius-control); background: transparent; color: #2d4334; text-align: left; font: inherit; cursor: pointer; }
+.plan-menu-list button { min-height: 36px; padding: 6px 10px; border: 0; border-radius: var(--radius-control); background: transparent; text-align: left; font: inherit; cursor: pointer; }
 .plan-menu-list button[aria-current='true'] { background: #e3ecdf; font-weight: 800; }
 .plan-menu button:focus-visible { outline: 2px solid #46634d; outline-offset: -2px; }
 .plan-menu button:disabled { opacity: 0.6; cursor: default; }

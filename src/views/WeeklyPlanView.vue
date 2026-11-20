@@ -1205,7 +1205,6 @@ onBeforeRouteLeave(() =>
   width: 44px;
   height: 44px;
   place-items: center;
-  color: #46634d;
 }
 
 .plan-back-link svg {
@@ -1230,9 +1229,9 @@ onBeforeRouteLeave(() =>
   white-space: nowrap;
 }
 
-.clear-plan-button { background: #f5e7e4; color: #a75a55; }
-.clear-plan-button.confirming { background: #a75a55; color: #fff; }
-.save-plan-button { background: #52765b; color: #fff; }
+.clear-plan-button { background: #f5e7e4; }
+.clear-plan-button.confirming { background: var(--danger-action-bg); }
+.save-plan-button { background: var(--action-bg); }
 .clear-plan-button:disabled,
 .save-plan-button:disabled { opacity: 0.6; cursor: default; }
 
@@ -1255,7 +1254,6 @@ onBeforeRouteLeave(() =>
 
 .plan-part-selector button:not([data-part='全部']) {
   --segment-selected-fill: var(--plan-soft);
-  --segment-selected-ink: color-mix(in srgb, var(--plan-accent) 56%, #17211a);
 }
 
 .plan-part-selector button span:last-child {
@@ -1295,7 +1293,6 @@ onBeforeRouteLeave(() =>
   border: 1px solid color-mix(in srgb, var(--plan-accent) 42%, transparent);
   border-radius: 50%;
   background: var(--plan-soft);
-  color: color-mix(in srgb, var(--plan-accent) 70%, #263128);
   box-shadow: 0 2px 5px rgb(48 67 52 / 15%);
 }
 
@@ -1368,7 +1365,6 @@ onBeforeRouteLeave(() =>
   border: 1px solid color-mix(in srgb, var(--plan-accent) 18%, transparent);
   border-radius: var(--radius-card);
   background: var(--plan-soft);
-  color: #263128;
   box-shadow: 0 5px 14px rgb(48 67 52 / 6%);
   user-select: none;
 }
@@ -1426,7 +1422,7 @@ onBeforeRouteLeave(() =>
 
 .plan-muscle-table-heading {
   min-height: 36px;
-  color: #68766d;
+  background: #fff;
   font-size: var(--text-caption);
   font-weight: 800;
 }
@@ -1455,7 +1451,6 @@ onBeforeRouteLeave(() =>
 }
 
 .plan-muscle-table-row span {
-  color: #294733;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -1506,7 +1501,6 @@ onBeforeRouteLeave(() =>
   justify-content: space-between;
   gap: 12px;
   margin: 0 2px 8px;
-  color: #8d9891;
 }
 
 .plan-exercise-section-heading h3 {
@@ -1517,7 +1511,6 @@ onBeforeRouteLeave(() =>
 
 .plan-exercise-section-heading span,
 .plan-exercise-empty {
-  color: #a0aaa3;
   font-size: var(--text-micro);
   font-weight: 700;
 }
@@ -1535,7 +1528,6 @@ onBeforeRouteLeave(() =>
   align-items: center;
   gap: 8px;
   margin: 0 2px 7px;
-  color: #a0aaa3;
   font-size: var(--text-caption);
   font-weight: 700;
 }
@@ -1585,7 +1577,6 @@ onBeforeRouteLeave(() =>
 }
 
 .plan-action-copy span {
-  color: #718078;
   font-size: var(--text-micro);
 }
 
@@ -1605,7 +1596,6 @@ onBeforeRouteLeave(() =>
   border: 0;
   border-radius: var(--radius-circle);
   background: #eef3eb;
-  color: #46634d;
   font-size: var(--text-title);
   cursor: pointer;
 }
@@ -1629,14 +1619,6 @@ onBeforeRouteLeave(() =>
   text-align: center;
 }
 
-.plan-state {
-  color: #718078;
-}
-
-.plan-error {
-  color: #a52d2d;
-}
-
 .target-dialog {
   width: min(calc(100% - 28px), 420px);
   max-width: none;
@@ -1645,7 +1627,6 @@ onBeforeRouteLeave(() =>
   border: 0;
   border-radius: var(--radius-modal);
   background: #fff;
-  color: #17211a;
   box-shadow: 0 22px 58px rgb(31 54 37 / 24%);
 }
 
@@ -1667,7 +1648,6 @@ onBeforeRouteLeave(() =>
 
 .target-dialog-content header p {
   margin: 0 0 3px;
-  color: #718078;
   font-size: var(--text-caption);
   font-weight: 700;
 }
@@ -1686,14 +1666,12 @@ onBeforeRouteLeave(() =>
   border: 0;
   border-radius: var(--radius-circle);
   background: #eef3eb;
-  color: #46634d;
   font-size: var(--text-display);
   cursor: pointer;
 }
 
 .target-dialog-hint {
   margin: 18px 0 10px;
-  color: #718078;
   font-size: var(--text-caption);
   text-align: center;
 }
@@ -1714,7 +1692,6 @@ onBeforeRouteLeave(() =>
   border: 0;
   border-radius: var(--radius-circle);
   background: #eef3eb;
-  color: #46634d;
   font-size: var(--text-display);
   cursor: pointer;
 }
@@ -1732,7 +1709,6 @@ onBeforeRouteLeave(() =>
 
 .target-stepper small {
   margin-left: 4px;
-  color: #718078;
   font-size: var(--text-body);
 }
 
@@ -1753,13 +1729,11 @@ onBeforeRouteLeave(() =>
 
 .remove-target-button {
   background: #f5e7e4;
-  color: #a75a55;
 }
 
 .confirm-target-button {
   grid-column: 2;
-  background: #52765b;
-  color: #fff;
+  background: var(--action-bg);
 }
 
 .target-dialog-content footer .confirm-target-button:only-child {

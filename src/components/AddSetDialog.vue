@@ -524,7 +524,6 @@ defineExpose({ open })
   border: 0;
   border-radius: var(--radius-modal);
   background: #f8faf5;
-  color: #17211a;
   box-shadow: 0 24px 80px rgb(13 31 20 / 30%);
 }
 
@@ -569,7 +568,6 @@ defineExpose({ open })
   border-radius: var(--radius-circle);
   outline: none;
   background: #fff;
-  color: #52675a;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -594,8 +592,7 @@ defineExpose({ open })
   place-items: center;
   border: 2px solid #f8faf5;
   border-radius: var(--radius-circle);
-  background: #315e40;
-  color: #fff;
+  background: var(--action-bg);
   font-size: var(--text-micro);
   font-weight: 800;
   line-height: 1;
@@ -614,7 +611,6 @@ defineExpose({ open })
   border: 1px solid #dce3d8;
   border-radius: var(--radius-circle);
   background: #fff;
-  color: #617067;
   font-size: var(--text-display);
   cursor: pointer;
 }
@@ -622,7 +618,6 @@ defineExpose({ open })
 label {
   display: grid;
   gap: 8px;
-  color: #536158;
   font-size: var(--text-body);
   font-weight: 700;
 }
@@ -686,7 +681,6 @@ label + label,
   border-radius: var(--radius-circle);
   outline: none;
   background: transparent;
-  color: #657169;
   font-size: var(--text-caption);
   font-weight: 800;
   line-height: 1;
@@ -698,7 +692,6 @@ label + label,
 .exercise-control-row button:active {
   border-color: #8b978f;
   background: transparent;
-  color: #657169;
 }
 
 .exercise-control-row button:disabled {
@@ -715,7 +708,6 @@ select {
   border-radius: var(--radius-control);
   outline: none;
   background: #fff;
-  color: #17211a;
   font: inherit;
   font-size: var(--text-control);
 }
@@ -729,10 +721,6 @@ select:focus {
 input[readonly] {
   cursor: pointer;
   caret-color: transparent;
-}
-
-.active-field span {
-  color: #285b39;
 }
 
 .active-field input {
@@ -749,7 +737,6 @@ input[readonly] {
 
 .error-message {
   margin: 16px 0 0;
-  color: #a52d2d;
   font-size: var(--text-body);
 }
 
@@ -767,7 +754,6 @@ input[readonly] {
 }
 
 .recent-value-row > span {
-  color: #718078;
   font-size: var(--text-caption);
   font-weight: 700;
 }
@@ -784,7 +770,6 @@ input[readonly] {
   border: 1px solid #dce3d8;
   border-radius: var(--radius-sm);
   background: #f0f4ed;
-  color: #405148;
   font: inherit;
   font-size: var(--text-body);
   font-weight: 750;
@@ -796,7 +781,6 @@ input[readonly] {
 .recent-value-row button.selected {
   border-color: #789383;
   background: #e5eddf;
-  color: #285b39;
 }
 
 .number-keypad {
@@ -812,7 +796,6 @@ input[readonly] {
   border: 1px solid #d5ddd1;
   border-radius: var(--radius-control);
   background: #fff;
-  color: #26372c;
   font-size: var(--text-control);
   font-weight: 750;
   cursor: pointer;
@@ -826,13 +809,11 @@ input[readonly] {
 
 .number-keypad button:disabled {
   background: #edf0eb;
-  color: #a7afa8;
   cursor: not-allowed;
 }
 
 .number-keypad .clear-key {
   background: #e5eddf;
-  color: #365640;
   font-size: var(--text-body);
 }
 
@@ -858,13 +839,11 @@ input[readonly] {
 .cancel-button {
   border: 1px solid #d5ddd1;
   background: #fff;
-  color: #536158;
 }
 
 .save-button {
   border: 0;
-  background: #183f2b;
-  color: #fff;
+  background: var(--action-bg);
 }
 
 @media (max-width: 430px) {

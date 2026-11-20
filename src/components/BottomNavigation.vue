@@ -93,7 +93,6 @@ const tabs = [
   justify-items: center;
   gap: 2px;
   border-radius: calc(var(--tab-bar-radius) - var(--tab-bar-padding) - var(--tab-bar-border-width));
-  color: #58685e;
   font-size: var(--text-caption);
   font-weight: 700;
   text-decoration: none;
@@ -102,11 +101,9 @@ const tabs = [
 
 .bottom-navigation a[aria-current='page'] {
   background: #e1eddf;
-  color: #35533e;
 }
 
 .bottom-navigation a[aria-current='page'] span {
-  color: #203f29;
   font-weight: 800;
 }
 

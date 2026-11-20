@@ -160,10 +160,6 @@ async function submitOtp(): Promise<void> {
 </template>
 
 <style scoped>
-.cloud-sync-card {
-  color: #263a2d;
-}
-
 .cloud-status-row {
   display: flex;
   justify-content: flex-end;
@@ -172,7 +168,6 @@ async function submitOtp(): Promise<void> {
 
 .cloud-sync-description {
   margin: 0;
-  color: #718078;
   font-size: var(--text-body);
   line-height: 1.55;
 }
@@ -185,7 +180,6 @@ async function submitOtp(): Promise<void> {
 .cloud-login-form label {
   display: block;
   margin-bottom: 7px;
-  color: #52635a;
   font-size: var(--text-body);
   font-weight: 800;
 }
@@ -219,7 +213,6 @@ async function submitOtp(): Promise<void> {
   min-width: 0;
   padding: 0 12px;
   background: #f8faf6;
-  color: #263a2d;
 }
 
 .cloud-login-row button,
@@ -227,7 +220,6 @@ async function submitOtp(): Promise<void> {
 .cloud-secondary-button {
   padding: 0 14px;
   background: #edf4e9;
-  color: #46634d;
   font-size: var(--text-body);
   font-weight: 800;
   cursor: pointer;
@@ -263,7 +255,6 @@ async function submitOtp(): Promise<void> {
   justify-content: space-between;
   gap: 10px;
   margin: -2px 2px 12px;
-  color: #718078;
   font-size: var(--text-caption);
 }
 
@@ -272,14 +263,6 @@ async function submitOtp(): Promise<void> {
   margin: 10px 2px 0;
   font-size: var(--text-caption);
   text-align: center;
-}
-
-.cloud-sync-message {
-  color: #46634d;
-}
-
-.cloud-sync-error {
-  color: #a52d2d;
 }
 
 @media (max-width: 420px) {

@@ -87,19 +87,14 @@ tbody tr + tr {
 
 .extra {
   margin-inline-start: 3px;
-  color: #785831;
   font-size: var(--text-caption);
 }
 
 .muscle-empty {
   margin: 0;
   padding: 14px 8px;
-  color: #65736b;
   font-size: var(--text-body);
   text-align: center;
 }
 
-.muscle-error {
-  color: #a32e2e;
-}
 </style>
