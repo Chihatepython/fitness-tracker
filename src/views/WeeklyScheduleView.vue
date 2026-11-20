@@ -663,7 +663,7 @@ onBeforeUnmount(() => {
   min-height: 100svh;
   padding: max(14px, env(safe-area-inset-top, 0px)) max(2.5%, env(safe-area-inset-right, 0px))
     calc(var(--app-tab-bar-clearance) + 20px) max(2.5%, env(safe-area-inset-left, 0px));
-  background: #f0f3ec;
+  background: var(--app-background);
   color: #18251d;
 }
 

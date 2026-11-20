@@ -1178,7 +1178,7 @@ onBeforeRouteLeave(() =>
   z-index: 10;
   margin: 0 -14px;
   padding: calc(6px + env(safe-area-inset-top)) 14px 10px;
-  background: rgb(238 241 235 / 96%);
+  background: rgb(var(--app-background-rgb) / 96%);
   box-shadow: 0 9px 18px rgb(48 67 52 / 8%);
   backdrop-filter: blur(18px);
 }
