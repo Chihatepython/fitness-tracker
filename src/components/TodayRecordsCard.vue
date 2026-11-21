@@ -276,19 +276,17 @@ watch(exerciseGroups, (groups) => {
 }
 
 .record-list {
-  display: grid;
-  gap: 8px;
+  overflow: hidden;
   margin-bottom: 0;
   padding: 0;
-  list-style: none;
-}
-
-.exercise-group {
-  min-width: 0;
-  overflow: hidden;
   border: 1px solid #e4e9e1;
   border-radius: var(--radius-card);
   background: #f7f9f5;
+  list-style: none;
+}
+
+.exercise-group + .exercise-group {
+  border-top: 1px solid #edf0ea;
 }
 
 .exercise-summary {
