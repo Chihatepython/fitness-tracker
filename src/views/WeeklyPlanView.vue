@@ -992,7 +992,7 @@ onBeforeRouteLeave(() =>
                   >
                     <strong>{{ muscle }}</strong>
                     <span>{{ formatSetCount(muscleTotals[muscle]) }}</span>
-                    <span :class="{ unset: !hasTarget(muscle) }">
+                    <span class="plan-muscle-target" :class="{ unset: !hasTarget(muscle) }">
                       {{ getTargetSets(muscle) ?? '—' }}
                     </span>
                   </button>
@@ -1449,7 +1449,7 @@ onBeforeRouteLeave(() =>
 
 .plan-muscle-table-row strong {
   overflow: hidden;
-  font-weight: 650;
+  font-weight: var(--muscle-board-name-weight);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1461,8 +1461,8 @@ onBeforeRouteLeave(() =>
   text-align: right;
 }
 
-.plan-muscle-table-row span:last-child {
-  color: var(--plan-accent);
+.plan-muscle-table-row .plan-muscle-target {
+  color: var(--muscle-board-plan-ink);
 }
 
 .plan-muscle-table-row span.unset {

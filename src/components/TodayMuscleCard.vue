@@ -82,7 +82,7 @@ tbody tr + tr {
 }
 
 .today-muscle-table .planned {
-  color: #37597b;
+  color: var(--muscle-board-plan-ink);
 }
 
 .extra {

@@ -15,6 +15,8 @@
   --text-title: 1.25rem;
   --text-display: 1.5rem;
   --text-icon-lg: 2rem;
+  --muscle-board-name-weight: 650;
+  --muscle-board-plan-ink: #37597b;
   --app-tab-bar-height: 60px;
   --app-tab-bar-bottom-fallback: 12px;
   --app-tab-bar-inset-adjustment: 0px;
@@ -148,7 +150,7 @@ p {
 
 .muscle-board-table .muscle-board-name {
   color: #405047;
-  font-weight: 400;
+  font-weight: var(--muscle-board-name-weight);
 }
 
 .muscle-board-table .muscle-board-value {
