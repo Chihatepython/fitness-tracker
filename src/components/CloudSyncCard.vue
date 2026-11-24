@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useSupabaseAuth } from '@/composables/useSupabaseAuth'
 import { useTrainingSync } from '@/composables/useTrainingSync'
@@ -7,16 +8,19 @@ import { useTrainingSync } from '@/composables/useTrainingSync'
 const email = ref('')
 const otp = ref('')
 const isAwaitingOtp = ref(false)
+const router = useRouter()
 
 const {
   error,
   isConfigured,
   isInitializing,
   isSendingOtp,
+  isSigningInWithGoogle,
   isSigningOut,
   isVerifyingOtp,
   sendEmailOtp,
   session,
+  signInWithGoogle,
   signOut,
   status,
   verifyEmailOtp,
@@ -43,6 +47,11 @@ const lastSyncLabel = computed(() => {
     hour12: false,
   }).format(lastSyncedAt.value)}`
 })
+
+function startGoogleSignIn(): void {
+  const profilePath = router.resolve({ name: 'profile' }).href
+  void signInWithGoogle(new URL(profilePath, window.location.origin).href)
+}
 
 async function submitEmail(): Promise<void> {
   const wasSent = await sendEmailOtp(email.value)
@@ -103,48 +112,65 @@ async function submitOtp(): Promise<void> {
         </button>
       </template>
 
-      <div v-else-if="isConfigured" class="cloud-login-form">
-        <form @submit.prevent="submitEmail">
-          <label for="cloud-email">邮箱</label>
-          <div class="cloud-login-row">
-            <input
-              id="cloud-email"
-              v-model="email"
-              autocomplete="email"
-              inputmode="email"
-              name="email"
-              placeholder="name@example.com"
-              type="email"
-              :disabled="isSendingOtp || isVerifyingOtp"
-              required
-            />
-            <button type="submit" :disabled="isSendingOtp || isVerifyingOtp">
-              {{ isSendingOtp ? '发送中…' : isAwaitingOtp ? '重新发送' : '发送验证码' }}
-            </button>
-          </div>
-        </form>
+      <div v-else class="cloud-login">
+        <button
+          class="cloud-primary-button"
+          type="button"
+          :disabled="isSigningInWithGoogle || isSendingOtp || isVerifyingOtp"
+          @click="startGoogleSignIn"
+        >
+          {{ isSigningInWithGoogle ? '正在打开 Google…' : '使用 Google 登录' }}
+        </button>
 
-        <form v-if="isAwaitingOtp" class="cloud-otp-form" @submit.prevent="submitOtp">
-          <label for="cloud-otp">邮件验证码</label>
-          <div class="cloud-login-row">
-            <input
-              id="cloud-otp"
-              v-model="otp"
-              autocomplete="one-time-code"
-              inputmode="numeric"
-              maxlength="10"
-              name="otp"
-              pattern="[0-9]{6,10}"
-              placeholder="邮件验证码"
-              type="text"
-              :disabled="isVerifyingOtp"
-              required
-            />
-            <button type="submit" :disabled="isVerifyingOtp">
-              {{ isVerifyingOtp ? '验证中…' : '确认登录' }}
-            </button>
+        <details class="cloud-login-fallback">
+          <summary>使用邮箱验证码（备用）</summary>
+          <div class="cloud-login-form">
+            <form @submit.prevent="submitEmail">
+              <label for="cloud-email">邮箱</label>
+              <div class="cloud-login-row">
+                <input
+                  id="cloud-email"
+                  v-model="email"
+                  autocomplete="email"
+                  inputmode="email"
+                  name="email"
+                  placeholder="name@example.com"
+                  type="email"
+                  :disabled="isSigningInWithGoogle || isSendingOtp || isVerifyingOtp"
+                  required
+                />
+                <button
+                  type="submit"
+                  :disabled="isSigningInWithGoogle || isSendingOtp || isVerifyingOtp"
+                >
+                  {{ isSendingOtp ? '发送中…' : isAwaitingOtp ? '重新发送' : '发送验证码' }}
+                </button>
+              </div>
+            </form>
+
+            <form v-if="isAwaitingOtp" class="cloud-otp-form" @submit.prevent="submitOtp">
+              <label for="cloud-otp">邮件验证码</label>
+              <div class="cloud-login-row">
+                <input
+                  id="cloud-otp"
+                  v-model="otp"
+                  autocomplete="one-time-code"
+                  inputmode="numeric"
+                  maxlength="10"
+                  name="otp"
+                  pattern="[0-9]{6,10}"
+                  placeholder="邮件验证码"
+                  type="text"
+                  :disabled="isSigningInWithGoogle || isVerifyingOtp"
+                  required
+                />
+                <button type="submit" :disabled="isSigningInWithGoogle || isVerifyingOtp">
+                  {{ isVerifyingOtp ? '验证中…' : '确认登录' }}
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
+        </details>
       </div>
 
       <p v-if="!session && pendingCount" class="cloud-sync-message" role="status">
@@ -177,9 +203,19 @@ async function submitOtp(): Promise<void> {
   line-height: 1.55;
 }
 
+.cloud-login,
 .cloud-login-form,
 .cloud-account {
   margin-top: 14px;
+}
+
+.cloud-login-fallback summary {
+  width: fit-content;
+  margin: 0 auto;
+  padding: 8px 0;
+  color: #52635a;
+  font-size: var(--text-caption);
+  cursor: pointer;
 }
 
 .cloud-login-form label {

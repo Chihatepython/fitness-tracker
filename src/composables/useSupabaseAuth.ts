@@ -1,10 +1,11 @@
 import type { Session } from '@supabase/supabase-js'
 import { ref } from 'vue'
 
-import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { isGoogleSignInEnabled, isSupabaseConfigured, supabase } from '@/lib/supabase'
 
 const session = ref<Session | null>(null)
 const isInitializing = ref(false)
+const isSigningInWithGoogle = ref(false)
 const isSendingOtp = ref(false)
 const isVerifyingOtp = ref(false)
 const isSigningOut = ref(false)
@@ -22,10 +23,19 @@ async function initialize(): Promise<void> {
     error.value = ''
 
     try {
+      const redirectUrl = new URL(window.location.href)
+      const isOAuthReturn =
+        redirectUrl.searchParams.has('code') ||
+        redirectUrl.searchParams.has('error_code') ||
+        new URLSearchParams(redirectUrl.hash.slice(1)).has('error_code')
+      const { error: callbackError } = await supabase.auth.initialize()
       const { data, error: sessionError } = await supabase.auth.getSession()
 
       if (sessionError) throw sessionError
       session.value = data.session
+      if (callbackError || (isOAuthReturn && !data.session)) {
+        error.value = '登录未完成，请在最初发起登录的浏览器或 PWA 中重试。'
+      }
 
       if (!hasAuthListener) {
         supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -41,6 +51,33 @@ async function initialize(): Promise<void> {
   })()
 
   await initializationPromise
+}
+
+async function signInWithGoogle(redirectTo: string): Promise<void> {
+  if (!supabase || isSigningInWithGoogle.value) return
+
+  isSigningInWithGoogle.value = true
+  status.value = ''
+  error.value = ''
+
+  try {
+    if (!window.isSecureContext) {
+      throw new Error('Google 登录需要 HTTPS，请使用正式网址或电脑上的 localhost。')
+    }
+    if (!(await isGoogleSignInEnabled())) {
+      throw new Error('Google 登录尚未启用，暂时可以用邮箱验证码登录。')
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, queryParams: { prompt: 'select_account' } },
+    })
+    if (signInError) throw signInError
+  } catch (caughtError) {
+    error.value = caughtError instanceof Error ? caughtError.message : '无法打开 Google 登录'
+  } finally {
+    isSigningInWithGoogle.value = false
+  }
 }
 
 async function sendEmailOtp(email: string): Promise<boolean> {
@@ -151,10 +188,12 @@ export function useSupabaseAuth() {
     isConfigured: isSupabaseConfigured,
     isInitializing,
     isSendingOtp,
+    isSigningInWithGoogle,
     isSigningOut,
     isVerifyingOtp,
     sendEmailOtp,
     session,
+    signInWithGoogle,
     signOut,
     status,
     verifyEmailOtp,
