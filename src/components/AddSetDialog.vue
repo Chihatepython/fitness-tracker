@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import ExerciseWeightsDialog from '@/components/ExerciseWeightsDialog.vue'
 import { usePageScrollLock } from '@/composables/usePageScrollLock'
@@ -39,6 +39,12 @@ type MuscleWeightEntry = {
 
 type NumericField = 'weightKg' | 'reps' | 'rir'
 type AddSetPanelMode = 'classic' | 'alternate'
+
+const numericFields = [
+  { field: 'weightKg', label: '重量', unit: 'kg' },
+  { field: 'reps', label: '次数', unit: '次' },
+  { field: 'rir', label: 'RIR', unit: '' },
+] as const
 
 const ADD_SET_PANEL_MODE_KEY = 'fitness-tracker:add-set-panel-mode'
 
@@ -98,37 +104,24 @@ const currentExerciseHistory = computed(() =>
     .map(({ trainingSet }) => trainingSet),
 )
 
-const recentWeights = computed(() => {
-  const weights: number[] = []
+const numericRows = computed(() =>
+  numericFields.map((row) => {
+    const values = [...new Set(currentExerciseHistory.value.map((set) => set[row.field]))]
+    return { ...row, history: [values[0], values[1], values[2]] }
+  }),
+)
 
-  for (const trainingSet of currentExerciseHistory.value) {
-    if (!weights.includes(trainingSet.weightKg)) weights.push(trainingSet.weightKg)
-    if (weights.length === 3) break
+function prefillNumericFields(set?: TrainingSet): void {
+  weightKg.value = set ? String(set.weightKg) : ''
+  reps.value = set ? String(set.reps) : ''
+  rir.value = set ? String(set.rir) : ''
+  shouldReplaceActiveValue.value = true
+}
+
+watch(exerciseId, () => {
+  if (activePanelMode.value === 'alternate' && dialog.value?.open) {
+    prefillNumericFields(currentExerciseHistory.value[0])
   }
-
-  return weights
-})
-
-const recentReps = computed(() => {
-  const currentWeight = Number(weightKg.value)
-  const hasCurrentWeight = Boolean(weightKg.value) && Number.isFinite(currentWeight)
-  const matchingWeightSets = hasCurrentWeight
-    ? currentExerciseHistory.value.filter((trainingSet) => trainingSet.weightKg === currentWeight)
-    : []
-  const otherWeightSets = hasCurrentWeight
-    ? currentExerciseHistory.value.filter((trainingSet) => trainingSet.weightKg !== currentWeight)
-    : currentExerciseHistory.value
-
-  const repsValues: number[] = []
-
-  for (const trainingSet of [...matchingWeightSets, ...otherWeightSets]) {
-    if (repsValues.includes(trainingSet.reps)) continue
-
-    repsValues.push(trainingSet.reps)
-    if (repsValues.length === 3) break
-  }
-
-  return repsValues
 })
 
 function getSavedPanelMode(): AddSetPanelMode {
@@ -166,16 +159,6 @@ function selectBodyPart(bodyPart: BodyPart): void {
   if (firstExercise) exerciseId.value = firstExercise.id
 }
 
-function selectRecentWeight(value: number): void {
-  weightKg.value = String(value)
-  activateNumericField('weightKg')
-}
-
-function selectRecentReps(value: number): void {
-  reps.value = String(value)
-  activateNumericField('reps')
-}
-
 async function open(preselectedExerciseId?: ExerciseId): Promise<void> {
   const today = getLocalDate()
   const preselected = EXERCISES.find((exercise) => exercise.id === preselectedExerciseId)
@@ -183,11 +166,9 @@ async function open(preselectedExerciseId?: ExerciseId): Promise<void> {
   date.value = today
   exerciseId.value = preselected?.id ?? DEFAULT_EXERCISE_ID
   selectedBodyPart.value = preselected?.bodyPart ?? EXERCISES[0].bodyPart
-  weightKg.value = ''
-  reps.value = ''
-  rir.value = ''
+  trainingHistory.value = []
+  prefillNumericFields()
   activeNumericField.value = 'reps'
-  shouldReplaceActiveValue.value = true
   errorMessage.value = ''
   isWeightsDialogOpen.value = false
 
@@ -206,10 +187,10 @@ async function open(preselectedExerciseId?: ExerciseId): Promise<void> {
       selectedBodyPart.value =
         EXERCISES.find((exercise) => exercise.id === lastTrainingSet.exerciseId)?.bodyPart ??
         EXERCISES[0].bodyPart
-      weightKg.value = String(lastTrainingSet.weightKg)
-      reps.value = String(lastTrainingSet.reps)
-      rir.value = String(lastTrainingSet.rir)
     }
+    prefillNumericFields(
+      activePanelMode.value === 'alternate' ? currentExerciseHistory.value[0] : lastTrainingSet,
+    )
   } catch (error: unknown) {
     errorMessage.value = error instanceof Error ? error.message : '读取上一组记录失败'
   }
@@ -236,11 +217,15 @@ function close(): void {
   unlockPageScroll()
 }
 
-function getActiveValue(): string {
-  if (activeNumericField.value === 'weightKg') return weightKg.value
-  if (activeNumericField.value === 'reps') return reps.value
+function getNumericValue(field: NumericField): string {
+  if (field === 'weightKg') return weightKg.value
+  if (field === 'reps') return reps.value
 
   return rir.value
+}
+
+function getActiveValue(): string {
+  return getNumericValue(activeNumericField.value)
 }
 
 function setActiveValue(value: string): void {
@@ -256,6 +241,19 @@ function setActiveValue(value: string): void {
 function activateNumericField(field: NumericField): void {
   activeNumericField.value = field
   shouldReplaceActiveValue.value = true
+}
+
+function fillHistoricalValue(field: NumericField, value: number | undefined): void {
+  if (value === undefined) return
+  activateNumericField(field)
+  setActiveValue(String(value))
+  dialog.value?.querySelector<HTMLInputElement>(`input[data-numeric-field="${field}"]`)
+    ?.focus({ preventScroll: true })
+}
+
+function isHistoryValueSelected(field: NumericField, value: number | undefined): boolean {
+  const current = getNumericValue(field)
+  return value !== undefined && current !== '' && Number(current) === value
 }
 
 function enterDigit(digit: string): void {
@@ -348,7 +346,7 @@ defineExpose({ open })
           <input v-model="date" type="date" required />
         </label>
 
-        <label v-else class="alternate-date-row">
+        <label v-else class="alternate-input">
           <span>日期</span>
           <input v-model="date" type="date" required />
         </label>
@@ -356,7 +354,6 @@ defineExpose({ open })
         <div class="exercise-field">
           <label v-if="activePanelMode === 'classic'" for="exercise-select">动作</label>
           <div v-else class="alternate-exercise-heading">
-            <label for="exercise-select">动作</label>
             <div v-segment-highlight class="segmented-control body-part-filter" role="group" aria-label="按部位筛选动作">
               <button
                 v-for="bodyPart in bodyPartOptions"
@@ -370,23 +367,40 @@ defineExpose({ open })
               </button>
             </div>
           </div>
-          <div class="exercise-control-row">
+          <div v-if="activePanelMode === 'classic'" class="exercise-control-row">
             <select id="exercise-select" v-model="exerciseId" required>
               <option v-for="exercise in exerciseOptions" :key="exercise.id" :value="exercise.id">
                 {{ exercise.bodyPart }} - {{ exercise.name }}
               </option>
             </select>
+            <button type="button" aria-label="查看当前动作详情" @click="isWeightsDialogOpen = true">
+              i
+            </button>
+          </div>
+          <div v-else class="alternate-exercise-control">
+            <label class="alternate-input">
+              <span>动作</span>
+              <select v-model="exerciseId" required>
+                <option v-for="exercise in exerciseOptions" :key="exercise.id" :value="exercise.id">
+                  {{ exercise.bodyPart }} - {{ exercise.name }}
+                </option>
+              </select>
+            </label>
             <button
+              class="alternate-exercise-info"
               type="button"
               aria-label="查看当前动作详情"
               @click="isWeightsDialogOpen = true"
             >
-              i
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                <path d="M5.5 6.5H8v6h2.5" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="8" cy="3.5" r="1" fill="currentColor" stroke="none" />
+              </svg>
             </button>
           </div>
         </div>
 
-        <div class="field-row">
+        <div v-if="activePanelMode === 'classic'" class="field-row">
           <label :class="{ 'active-field': activeNumericField === 'weightKg' }">
             <span>重量（kg）</span>
             <input
@@ -429,48 +443,44 @@ defineExpose({ open })
             />
           </label>
         </div>
-
-        <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
-
-        <div
-          v-if="
-            activePanelMode === 'alternate' && (recentWeights.length > 0 || recentReps.length > 0)
-          "
-          class="recent-value-suggestions"
-          aria-label="当前动作的最近值"
-        >
-          <div v-if="recentWeights.length" class="recent-value-row">
-            <span>重量</span>
-            <div role="group" aria-label="当前动作最近使用的重量">
-              <button
-                v-for="value in recentWeights"
-                :key="value"
-                type="button"
-                :class="{ selected: Number(weightKg) === value }"
-                :aria-pressed="Number(weightKg) === value"
-                @click="selectRecentWeight(value)"
-              >
-                {{ value }}
-              </button>
-            </div>
-          </div>
-
-          <div v-if="recentReps.length" class="recent-value-row">
-            <span>次数</span>
-            <div role="group" aria-label="当前动作最近完成的次数，优先匹配当前重量">
-              <button
-                v-for="value in recentReps"
-                :key="value"
-                type="button"
-                :class="{ selected: Number(reps) === value }"
-                :aria-pressed="Number(reps) === value"
-                @click="selectRecentReps(value)"
-              >
-                {{ value }}
-              </button>
-            </div>
+        <div v-else class="field-row alternate-fields">
+          <div v-for="row in numericRows" :key="row.field" class="alternate-field-row">
+            <label
+              class="alternate-input"
+              :class="{ 'is-active': activeNumericField === row.field }"
+            >
+              <span>{{ row.label }}</span>
+              <input
+                :value="getNumericValue(row.field)"
+                :data-numeric-field="row.field"
+                type="text"
+                inputmode="none"
+                placeholder="0"
+                readonly
+                required
+                @focus="activateNumericField(row.field)"
+                @click="activateNumericField(row.field)"
+              />
+              <span v-if="row.field === 'weightKg'" class="alternate-input-unit" aria-hidden="true">
+                kg
+              </span>
+            </label>
+            <button
+              v-for="(value, index) in row.history"
+              :key="index"
+              class="history-value"
+              type="button"
+              :disabled="value === undefined"
+              :aria-pressed="isHistoryValueSelected(row.field, value)"
+              :aria-label="value === undefined ? `${row.label}暂无历史值` : `填入${row.label} ${value} ${row.unit}`.trim()"
+              @click="fillHistoricalValue(row.field, value)"
+            >
+              {{ value ?? '—' }}
+            </button>
           </div>
         </div>
+
+        <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
 
         <div class="number-keypad" aria-label="数字键盘">
           <button
@@ -517,6 +527,15 @@ defineExpose({ open })
 
 <style scoped>
 .set-dialog {
+  --text-primary: #17211a;
+  --text-secondary: #536158;
+  --input-surface: #fff;
+  --input-border: #d5ddd1;
+  --input-active-border: #3f704e;
+  --input-active-surface: #f5faef;
+  --input-focus-ring: rgb(63 112 78 / 13%);
+  --history-surface: #e5eddf;
+  --compact-control-height: 38px;
   width: min(calc(100% - 32px), 520px);
   max-height: calc(100dvh - 32px);
   margin: auto;
@@ -524,8 +543,13 @@ defineExpose({ open })
   border: 0;
   border-radius: var(--radius-modal);
   background: #f8faf5;
-  color: #17211a;
+  color: var(--text-primary);
   box-shadow: 0 24px 80px rgb(13 31 20 / 30%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.set-dialog :deep(*) {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .set-dialog::backdrop {
@@ -601,10 +625,6 @@ defineExpose({ open })
   line-height: 1;
 }
 
-.panel-switch-button:active {
-  background: #edf3e9;
-}
-
 .close-button {
   display: grid;
   width: 36px;
@@ -622,7 +642,7 @@ defineExpose({ open })
 label {
   display: grid;
   gap: 8px;
-  color: #536158;
+  color: var(--text-secondary);
   font-size: var(--text-body);
   font-weight: 700;
 }
@@ -640,32 +660,30 @@ label + label,
   margin-bottom: 8px;
 }
 
-.alternate-date-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 16px;
-}
-
 .alternate-exercise-heading {
   display: flex;
   min-height: 32px;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-end;
   margin-bottom: 8px;
 }
 
-.alternate-exercise-heading > label {
-  flex: 0 0 auto;
-}
-
 .body-part-filter {
+  --segment-track-height: var(--compact-control-height);
   width: min(100%, 202px);
 }
 
 .body-part-filter button {
   padding-inline: 2px;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+/* Extend each segment's hit area without making the track look taller. */
+.body-part-filter button::after {
+  position: absolute;
+  inset: -6px 0;
+  content: '';
 }
 
 .exercise-control-row {
@@ -711,19 +729,19 @@ select {
   width: 100%;
   min-height: 48px;
   padding: 11px 12px;
-  border: 1px solid #d5ddd1;
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-control);
   outline: none;
-  background: #fff;
-  color: #17211a;
+  background: var(--input-surface);
+  color: var(--text-primary);
   font: inherit;
   font-size: var(--text-control);
 }
 
 input:focus,
 select:focus {
-  border-color: #3f704e;
-  box-shadow: 0 0 0 3px rgb(63 112 78 / 13%);
+  border-color: var(--input-active-border);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
 }
 
 input[readonly] {
@@ -736,9 +754,9 @@ input[readonly] {
 }
 
 .active-field input {
-  border-color: #3f704e;
-  background: #f5faef;
-  box-shadow: 0 0 0 3px rgb(63 112 78 / 13%);
+  border-color: var(--input-active-border);
+  background: var(--input-active-surface);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
 }
 
 .field-row {
@@ -747,56 +765,166 @@ input[readonly] {
   gap: 10px;
 }
 
+.alternate-fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.alternate-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.alternate-input,
+.history-value,
+.alternate-exercise-info {
+  position: relative;
+  isolation: isolate;
+  height: 48px;
+}
+
+.alternate-input {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding-inline: 9px;
+  font-size: var(--text-body);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.alternate-exercise-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.alternate-exercise-info {
+  display: grid;
+  flex: 0 0 var(--compact-control-height);
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.alternate-exercise-info svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Keep the same visible height and hit area for fields and history buttons. */
+.alternate-input::before,
+.history-value::before,
+.alternate-exercise-info::before {
+  position: absolute;
+  inset: calc((48px - var(--compact-control-height)) / 2) 0;
+  z-index: -1;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-control);
+  content: '';
+  pointer-events: none;
+}
+
+.alternate-input::before,
+.alternate-exercise-info::before {
+  background: var(--input-surface);
+}
+
+.alternate-input:is(.is-active, :focus-within)::before {
+  border-color: var(--input-active-border);
+  background: var(--input-active-surface);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+.alternate-input :is(input, select) {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+  font-size: var(--text-control);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.alternate-input input[readonly] {
+  font-size: 1.0625rem;
+  font-weight: 500;
+}
+
+.alternate-input input[type='date']::-webkit-date-and-time-value {
+  text-align: right;
+}
+
+.alternate-input select {
+  text-align-last: right;
+  text-overflow: ellipsis;
+}
+
+.alternate-input input::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+.alternate-input-unit {
+  font-size: var(--text-body);
+  font-weight: 400;
+}
+
+.history-value {
+  flex: 0 0 56px;
+  width: 56px;
+  padding-inline: 4px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-control);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.history-value[aria-pressed='true'] {
+  color: var(--text-primary);
+}
+
+.history-value::before {
+  background: var(--history-surface);
+}
+
+.history-value[aria-pressed='true']::before {
+  border-color: var(--input-active-border);
+  background: var(--input-active-surface);
+}
+
+.history-value:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.history-value:disabled::before {
+  background: transparent;
+}
+
 .error-message {
   margin: 16px 0 0;
   color: #a52d2d;
   font-size: var(--text-body);
-}
-
-.recent-value-suggestions {
-  display: grid;
-  gap: 6px;
-  margin-top: 14px;
-}
-
-.recent-value-row {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-}
-
-.recent-value-row > span {
-  color: #718078;
-  font-size: var(--text-caption);
-  font-weight: 700;
-}
-
-.recent-value-row > div {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.recent-value-row button {
-  min-height: 34px;
-  padding: 4px 8px;
-  border: 1px solid #dce3d8;
-  border-radius: var(--radius-sm);
-  background: #f0f4ed;
-  color: #405148;
-  font: inherit;
-  font-size: var(--text-body);
-  font-weight: 750;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.recent-value-row button.selected {
-  border-color: #789383;
-  background: #e5eddf;
-  color: #285b39;
 }
 
 .number-keypad {
@@ -819,11 +947,6 @@ input[readonly] {
   touch-action: manipulation;
 }
 
-.number-keypad button:active {
-  background: #e8efe3;
-  transform: translateY(1px);
-}
-
 .number-keypad button:disabled {
   background: #edf0eb;
   color: #a7afa8;
@@ -831,7 +954,7 @@ input[readonly] {
 }
 
 .number-keypad .clear-key {
-  background: #e5eddf;
+  background: var(--history-surface);
   color: #365640;
   font-size: var(--text-body);
 }
