@@ -23,8 +23,8 @@ defineProps<{
           <thead>
             <tr>
               <th scope="col">肌束</th>
-              <th scope="col">完成加权</th>
-              <th scope="col">计划加权</th>
+              <th scope="col">完成</th>
+              <th scope="col">计划</th>
             </tr>
           </thead>
           <tbody>
@@ -61,7 +61,13 @@ defineProps<{
 
 <style scoped>
 .today-muscle-table th:first-child {
+  width: 100%;
   text-align: left;
+}
+
+.today-muscle-table tr > :last-child {
+  width: 53px;
+  padding-right: 11px;
 }
 
 .today-muscle-table thead th:not(:first-child) {
