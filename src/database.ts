@@ -23,6 +23,11 @@ type ExerciseDefinition = {
   muscleWeights?: MuscleWeights
 }
 
+const CABLE_LATERAL_RAISE_MUSCLE_WEIGHTS = {
+  三角肌中束: 1,
+  三角肌前束: 0.25,
+} as const satisfies MuscleWeights
+
 export const EXERCISES = [
   {
     id: 'dumbbellShoulderPress',
@@ -40,10 +45,13 @@ export const EXERCISES = [
     id: 'cableLateralRaise',
     name: '绳索侧平举',
     bodyPart: '肩',
-    muscleWeights: {
-      三角肌中束: 1,
-      三角肌前束: 0.25,
-    },
+    muscleWeights: CABLE_LATERAL_RAISE_MUSCLE_WEIGHTS,
+  },
+  {
+    id: 'cableLateralRaisePartial',
+    name: '绳索侧平举（半程）',
+    bodyPart: '肩',
+    muscleWeights: CABLE_LATERAL_RAISE_MUSCLE_WEIGHTS,
   },
   {
     id: 'cableYRaise',
