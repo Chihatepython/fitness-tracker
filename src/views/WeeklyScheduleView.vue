@@ -19,7 +19,7 @@ import {
   reconcileWeeklyPlanSchedule,
 } from '@/services/weeklyPlanSchedule'
 
-const PLAN_DAYS = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'] as const
+const PLAN_DAYS = ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7'] as const
 const HOLD_TO_LIFT_MS = 450
 const HOVER_TO_SWAP_MS = 500
 const HOLD_MOVE_TOLERANCE_PX = 10
@@ -803,7 +803,7 @@ a {
 
 .weekday-cell {
   min-width: 0;
-  height: clamp(116px, 21svh, 128px);
+  height: clamp(120px, 21svh, 128px);
 }
 
 .weekday-slot {
@@ -815,7 +815,7 @@ a {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 2px;
+  gap: 6px;
   padding: 4px 1px;
   overflow: hidden;
   border: 1px dashed #ced8ce;
