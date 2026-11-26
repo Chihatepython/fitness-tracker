@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import ExerciseWeightsDialog from '@/components/ExerciseWeightsDialog.vue'
 import { usePageScrollLock } from '@/composables/usePageScrollLock'
@@ -10,7 +10,6 @@ import {
   addTrainingSet,
   createTrainingSetId,
   getAllTrainingSets,
-  getTrainingSetsByDate,
   type BodyPart,
   type ExerciseId,
   type TrainingSet,
@@ -56,7 +55,7 @@ const exerciseId = ref<ExerciseId>(DEFAULT_EXERCISE_ID)
 const weightKg = ref('')
 const reps = ref('')
 const rir = ref('')
-const activeNumericField = ref<NumericField>('reps')
+const activeNumericField = ref<NumericField>('weightKg')
 const shouldReplaceActiveValue = ref(true)
 const errorMessage = ref('')
 const isSaving = ref(false)
@@ -118,10 +117,17 @@ function prefillNumericFields(set?: TrainingSet): void {
   shouldReplaceActiveValue.value = true
 }
 
-watch(exerciseId, () => {
-  if (activePanelMode.value === 'alternate' && dialog.value?.open) {
-    prefillNumericFields(currentExerciseHistory.value[0])
-  }
+function prefillFromSelectedDate(): void {
+  const sameDaySet = currentExerciseHistory.value.find((set) => set.date === date.value)
+  prefillNumericFields(sameDaySet)
+  activeNumericField.value = sameDaySet ? 'reps' : 'weightKg'
+}
+
+watch([exerciseId, date], () => {
+  if (!dialog.value?.open) return
+
+  prefillFromSelectedDate()
+  if (activeNumericField.value === 'weightKg') focusNumericField('weightKg')
 })
 
 function getSavedPanelMode(): AddSetPanelMode {
@@ -160,6 +166,8 @@ function selectBodyPart(bodyPart: BodyPart): void {
 }
 
 async function open(preselectedExerciseId?: ExerciseId): Promise<void> {
+  if (dialog.value?.open) return
+
   const today = getLocalDate()
   const preselected = EXERCISES.find((exercise) => exercise.id === preselectedExerciseId)
 
@@ -168,19 +176,16 @@ async function open(preselectedExerciseId?: ExerciseId): Promise<void> {
   selectedBodyPart.value = preselected?.bodyPart ?? EXERCISES[0].bodyPart
   trainingHistory.value = []
   prefillNumericFields()
-  activeNumericField.value = 'reps'
+  activeNumericField.value = 'weightKg'
   errorMessage.value = ''
   isWeightsDialogOpen.value = false
 
   try {
-    const [todayTrainingSets, allTrainingSets] = await Promise.all([
-      getTrainingSetsByDate(today),
-      getAllTrainingSets(),
-    ])
+    const allTrainingSets = await getAllTrainingSets()
     trainingHistory.value = allTrainingSets
     const lastTrainingSet = preselected
-      ? todayTrainingSets.filter((trainingSet) => trainingSet.exerciseId === preselected.id).at(-1)
-      : todayTrainingSets[todayTrainingSets.length - 1]
+      ? undefined
+      : allTrainingSets.filter((set) => set.date === today).at(-1)
 
     if (lastTrainingSet) {
       exerciseId.value = lastTrainingSet.exerciseId
@@ -188,9 +193,7 @@ async function open(preselectedExerciseId?: ExerciseId): Promise<void> {
         EXERCISES.find((exercise) => exercise.id === lastTrainingSet.exerciseId)?.bodyPart ??
         EXERCISES[0].bodyPart
     }
-    prefillNumericFields(
-      activePanelMode.value === 'alternate' ? currentExerciseHistory.value[0] : lastTrainingSet,
-    )
+    prefillFromSelectedDate()
   } catch (error: unknown) {
     errorMessage.value = error instanceof Error ? error.message : '读取上一组记录失败'
   }
@@ -203,6 +206,7 @@ async function open(preselectedExerciseId?: ExerciseId): Promise<void> {
 
   try {
     dialogElement.showModal()
+    focusNumericField(activeNumericField.value)
   } catch (error: unknown) {
     unlockPageScroll()
     throw error
@@ -243,12 +247,20 @@ function activateNumericField(field: NumericField): void {
   shouldReplaceActiveValue.value = true
 }
 
+function focusNumericField(field: NumericField): void {
+  void nextTick(() => {
+    if (!dialog.value?.open || activeNumericField.value !== field) return
+
+    dialog.value.querySelector<HTMLInputElement>(`input[data-numeric-field="${field}"]`)
+      ?.focus({ preventScroll: true })
+  })
+}
+
 function fillHistoricalValue(field: NumericField, value: number | undefined): void {
   if (value === undefined) return
   activateNumericField(field)
   setActiveValue(String(value))
-  dialog.value?.querySelector<HTMLInputElement>(`input[data-numeric-field="${field}"]`)
-    ?.focus({ preventScroll: true })
+  focusNumericField(field)
 }
 
 function isHistoryValueSelected(field: NumericField, value: number | undefined): boolean {
@@ -405,6 +417,7 @@ defineExpose({ open })
             <span>重量（kg）</span>
             <input
               v-model="weightKg"
+              data-numeric-field="weightKg"
               type="text"
               inputmode="none"
               placeholder="0"
@@ -419,6 +432,7 @@ defineExpose({ open })
             <span>次数</span>
             <input
               v-model="reps"
+              data-numeric-field="reps"
               type="text"
               inputmode="none"
               placeholder="0"
@@ -433,6 +447,7 @@ defineExpose({ open })
             <span>RIR</span>
             <input
               v-model="rir"
+              data-numeric-field="rir"
               type="text"
               inputmode="none"
               placeholder="0"
