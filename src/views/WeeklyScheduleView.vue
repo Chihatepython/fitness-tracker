@@ -796,7 +796,7 @@ a {
 .weekday-labels {
   margin: 0 0 5px;
   color: #7b8980;
-  font-size: var(--text-micro);
+  font-size: var(--text-body);
   font-weight: 800;
   text-align: center;
 }
@@ -875,7 +875,7 @@ a {
 }
 
 .slot-set-count span {
-  font-size: var(--text-caption);
+  font-size: var(--text-body);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -894,7 +894,7 @@ a {
   border-radius: var(--radius-sm);
   background: var(--schedule-part-bg, #edf3e9);
   color: var(--schedule-part-ink, #46634d);
-  font-size: var(--text-caption);
+  font-size: var(--text-body);
   font-weight: 700;
   line-height: 14px;
   font-variant-numeric: tabular-nums;
