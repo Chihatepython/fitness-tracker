@@ -46,6 +46,7 @@ const numericFields = [
 ] as const
 
 const ADD_SET_PANEL_MODE_KEY = 'fitness-tracker:add-set-panel-mode'
+const HISTORY_SLOT_COUNT = 4
 
 const keypadDigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 
@@ -106,7 +107,8 @@ const currentExerciseHistory = computed(() =>
 const numericRows = computed(() =>
   numericFields.map((row) => {
     const values = [...new Set(currentExerciseHistory.value.map((set) => set[row.field]))]
-    return { ...row, history: [values[0], values[1], values[2]] }
+    const history = Array.from({ length: HISTORY_SLOT_COUNT }, (_, index) => values.at(index))
+    return { ...row, history }
   }),
 )
 
@@ -263,11 +265,6 @@ function fillHistoricalValue(field: NumericField, value: number | undefined): vo
   focusNumericField(field)
 }
 
-function isHistoryValueSelected(field: NumericField, value: number | undefined): boolean {
-  const current = getNumericValue(field)
-  return value !== undefined && current !== '' && Number(current) === value
-}
-
 function enterDigit(digit: string): void {
   const currentValue = getActiveValue()
 
@@ -420,7 +417,7 @@ defineExpose({ open })
               data-numeric-field="weightKg"
               type="text"
               inputmode="none"
-              placeholder="0"
+              placeholder="—"
               readonly
               required
               @focus="activateNumericField('weightKg')"
@@ -435,7 +432,7 @@ defineExpose({ open })
               data-numeric-field="reps"
               type="text"
               inputmode="none"
-              placeholder="0"
+              placeholder="—"
               readonly
               required
               @focus="activateNumericField('reps')"
@@ -450,7 +447,7 @@ defineExpose({ open })
               data-numeric-field="rir"
               type="text"
               inputmode="none"
-              placeholder="0"
+              placeholder="—"
               readonly
               required
               @focus="activateNumericField('rir')"
@@ -470,7 +467,7 @@ defineExpose({ open })
                 :data-numeric-field="row.field"
                 type="text"
                 inputmode="none"
-                placeholder="0"
+                placeholder="—"
                 readonly
                 required
                 @focus="activateNumericField(row.field)"
@@ -486,7 +483,6 @@ defineExpose({ open })
               class="history-value"
               type="button"
               :disabled="value === undefined"
-              :aria-pressed="isHistoryValueSelected(row.field, value)"
               :aria-label="value === undefined ? `${row.label}暂无历史值` : `填入${row.label} ${value} ${row.unit}`.trim()"
               @click="fillHistoricalValue(row.field, value)"
             >
@@ -764,6 +760,11 @@ input[readonly] {
   caret-color: transparent;
 }
 
+input[readonly]::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
 .active-field span {
   color: #285b39;
 }
@@ -787,7 +788,7 @@ input[readonly] {
 .alternate-field-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -890,20 +891,15 @@ input[readonly] {
   text-overflow: ellipsis;
 }
 
-.alternate-input input::placeholder {
-  color: var(--text-secondary);
-  opacity: 1;
-}
-
 .alternate-input-unit {
   font-size: var(--text-body);
   font-weight: 400;
 }
 
 .history-value {
-  flex: 0 0 56px;
-  width: 56px;
-  padding-inline: 4px;
+  flex: 0 0 min(12.5%, 48px);
+  min-width: 0;
+  padding: 0;
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
@@ -914,17 +910,9 @@ input[readonly] {
   cursor: pointer;
 }
 
-.history-value[aria-pressed='true'] {
-  color: var(--text-primary);
-}
-
 .history-value::before {
+  border: 0;
   background: var(--history-surface);
-}
-
-.history-value[aria-pressed='true']::before {
-  border-color: var(--input-active-border);
-  background: var(--input-active-surface);
 }
 
 .history-value:disabled {
